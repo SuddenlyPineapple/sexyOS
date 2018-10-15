@@ -1,0 +1,12 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/Wojtek/Google Drive/Studia/Semestr 3/Systemy_Operacyjne-wyklad_J_Bartoszek/sexyOS/main.cpp
+iostream
+-
+

@@ -1,0 +1,4 @@
+C:\Users\Wojtek\AppData\Local\JetBrains\Toolbox\apps\CLion\ch-0\182.4505.18\bin\cmake\win\bin\cmake.exe -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=C:/mingw64/bin/mingw32-make.exe -DCMAKE_C_COMPILER=C:/mingw64/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/mingw64/bin/g++.exe -G "CodeBlocks - MinGW Makefiles" "C:\Users\Wojtek\Google Drive\Studia\Semestr 3\Systemy_Operacyjne-wyklad_J_Bartoszek\sexyOS"
+-- Configuring done
+-- Generating done
+-- Build files have been written to: C:/Users/Wojtek/Google Drive/Studia/Semestr 3/Systemy_Operacyjne-wyklad_J_Bartoszek/sexyOS/cmake-build-debug
