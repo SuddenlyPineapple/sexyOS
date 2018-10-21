@@ -23,9 +23,9 @@ private:
 
     //Struktura Stronicy
     struct Page {
-        char data[16]; //Dane stronicy
+        char data[16]{}; //Dane stronicy
 
-        Page(){};
+        Page();
         Page(std::string data);
     };
 

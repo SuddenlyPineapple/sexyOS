@@ -6,8 +6,21 @@
 
 PageTable::PageTable(bool bit, int frame) : bit(bit), frame(frame) {}
 
-MemoryManager::MemoryManager() {}
+MemoryManager::MemoryManager() = default;
 
-MemoryManager::~MemoryManager() {
+MemoryManager::~MemoryManager() = default;
 
+MemoryManager::Page::Page(std::string data) {
+    while(data.size()<16){
+        data+=" ";
+    }
+    for(int i = 0;i < 16; i++){
+        this->data[i] = data[i];
+    }
+}
+
+MemoryManager::Page::Page() {
+    for(int i = 0;i < 16;i++){
+        this->data[i] = data[i];
+    }
 }
