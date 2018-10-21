@@ -3,3 +3,11 @@
 //
 
 #include "MemoryManager.h"
+
+PageTable::PageTable(bool bit, int frame) : bit(bit), frame(frame) {}
+
+MemoryManager::MemoryManager() {}
+
+MemoryManager::~MemoryManager() {
+
+}
