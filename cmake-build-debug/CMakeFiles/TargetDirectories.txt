@@ -1,3 +1,0 @@
-C:/Users/Wojtek/Google Drive/Studia/Semestr 3/Systemy_Operacyjne-wyklad_J_Bartoszek/sexyOS/cmake-build-debug/CMakeFiles/sexyOS.dir
-C:/Users/Wojtek/Google Drive/Studia/Semestr 3/Systemy_Operacyjne-wyklad_J_Bartoszek/sexyOS/cmake-build-debug/CMakeFiles/edit_cache.dir
-C:/Users/Wojtek/Google Drive/Studia/Semestr 3/Systemy_Operacyjne-wyklad_J_Bartoszek/sexyOS/cmake-build-debug/CMakeFiles/rebuild_cache.dir

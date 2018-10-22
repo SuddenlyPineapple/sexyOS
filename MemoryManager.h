@@ -21,7 +21,7 @@ class MemoryManager {
 private:
     char RAM[256]; //Pamięć Fizyczna Komputera [256 bajtów]
 
-    //Struktura Stronicy
+    //Struktura Stronicy w Pamięci
     struct Page {
         char data[16]{}; //Dane stronicy
 
