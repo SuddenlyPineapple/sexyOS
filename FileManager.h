@@ -42,7 +42,6 @@ private:
 		*/
 		Disk();
 
-
 		//-------------------------- Metody -------------------------
 		/**
 			Zapisuje dane (string) na dysku od indeksu 'begin' do indeksu 'end' w³¹cznie.
@@ -115,11 +114,12 @@ private:
 	//Struktura katalogu
 	struct Directory {
 		std::string name; //Nazwa katalogu
-		std::unordered_map<std::string, File> FAT; //Tablica hashowa plików w katalogu
+		std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
 		std::unordered_map<std::string, Directory>subDirectories; //Tablica hashowa podkatalogów
+		Directory* parentDirectory; //WskaŸnik na katalog nadrzêdny
 
 		Directory() {}
-		Directory(const std::string &name_) : name(name_) {}
+		Directory(const std::string &name_) : name(name_), parentDirectory(NULL) {}
 	};
 	struct FAT {
 		std::bitset<DISK_CAPACITY / BLOCK_SIZE> bitVector; //Wektor bitowy bloków (0 - wolny blok, 1 - zajêty blok)
@@ -133,7 +133,7 @@ private:
 	} FAT; //System plików
 
 	//------------------- Definicje zmiennych -------------------
-
+	Directory* currentDirectory; //Obecnie u¿ytkowany katalog
 
 public:
 	//----------------------- Konstruktor -----------------------
@@ -157,10 +157,21 @@ public:
 	//Usuwa plik (usuwa go z tablicy FAT)
 	void TruncateFile();
 
+	//Tworzy nowy katalog
+	void CreateDirectory(const std::string &name);
+
+	//Zmienia obecny katalog na katalog nadrzêdny
+	void CurrentDirectoryUp();
+
+	//Zmienia obecny katalog na katalog podrzêdny o podanej nazwie
+	void CurrentDirectoryDown(const std::string &name);
+
 	//------------------ Metody do wyœwietlania -----------------
 
 	//Wyœwietla strukturê katalogów
 	void DisplayDirectoryStructure();
+	//Wyœwietla rekurencyjnie katalog i jego podkatalogi
+	void DisplayDirectory(const Directory &directory, unsigned int level);
 
 	//Wyœwietla zawartoœæ dysku w formie binarnej
 	void DisplayDiskContentBinary();
@@ -171,7 +182,7 @@ public:
 	//Wyœwietla Tablicê Alokacji Plików
 	void DisplayFileAllocationTable();
 
-	//Wyœwietla tablicê bloków
+	//Wyœwietla wektor bitowy
 	void DisplayBitVector();
 
 	//Wyœwietla fragmenty pliku

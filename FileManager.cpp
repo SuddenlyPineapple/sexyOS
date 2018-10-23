@@ -66,16 +66,17 @@ FileManager::FileManager() {
 		ChangeBlockMapValue(i, 1);
 		FAT.freeSpace -= BLOCK_SIZE;
 	}
+	currentDirectory = &FAT.rootDirectory;
 }
 
 //-------------------- Podstawowe Metody --------------------
 void FileManager::CreateFile(const std::string &name, const std::string &data) {
 	const unsigned int fileSize = CalculateNeededBlocks(data)*BLOCK_SIZE;
-	if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(FAT.rootDirectory, name)) {
+	if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(*currentDirectory, name)) {
 		File file = File(name, data);
 		file.size = fileSize;
 
-		FAT.rootDirectory.FAT[file.name] = file;
+		currentDirectory->files[file.name] = file;
 
 		const std::vector<unsigned int> blocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
 		for (unsigned int i = 0; i < blocks.size() - 1; i++) {
@@ -83,9 +84,14 @@ void FileManager::CreateFile(const std::string &name, const std::string &data) {
 		}
 		file.FATindex = blocks[0];
 		WriteFile(file);
+		std::cout << "Stworzono plik o nazwie '" << file.name << "' w katalogu '" << currentDirectory->name << "'\n";
+		return;
 	}
-	else {
+	if (!CheckIfEnoughSpace(fileSize) ){
 		std::cout << "Za ma³o miejsca!";
+	}
+	if (!CheckIfNameUnused(*currentDirectory, name)) {
+		std::cout << "Nazwa pliku '" << name << "' ju¿ zajêta!";
 	}
 
 }
@@ -94,11 +100,44 @@ const std::string FileManager::OpenFile(const unsigned int &id) {
 	return DISK.read<std::string>(0 * 8, 4 * 8 - 1);
 }
 
+void FileManager::CreateDirectory(const std::string &name) {
+	if (currentDirectory->subDirectories.find(name) == currentDirectory->subDirectories.end()) {
+		currentDirectory->subDirectories[name] = Directory(name);
+		currentDirectory->subDirectories[name].parentDirectory = &(*currentDirectory);
+		std::cout << "Stworzono katalog o nazwie '" << currentDirectory->subDirectories[name].name
+			<< "' w katalogu '" << currentDirectory->name << "'\n";
+	}
+	else { std::cout << "Nazwa katalogu '" << name << "' zajêta!\n"; }
+}
+
+void FileManager::CurrentDirectoryUp() {
+	if (currentDirectory->parentDirectory != NULL) {
+		currentDirectory = currentDirectory->parentDirectory;
+		std::cout << "Obecny katalog to '" << currentDirectory->name << "'\n";
+	}
+	else { std::cout << "Jesteœ w katalogu g³ównym!\n"; }
+}
+
+void FileManager::CurrentDirectoryDown(const std::string &name) {
+	if (currentDirectory->subDirectories.find(name) != currentDirectory->subDirectories.end()) {
+		currentDirectory = &(currentDirectory->subDirectories.find(name)->second);
+		std::cout << "Obecny katalog to '" << currentDirectory->name << "'\n";
+	}
+	else { std::cout << "Brak katalogu o podanej nazwie!\n"; }
+}
+
 //------------------ Metody do wyœwietlania -----------------
 void FileManager::DisplayDirectoryStructure() {
-	std::cout << ' ' << FAT.rootDirectory.name << "\\\n";
-	for (auto i = FAT.rootDirectory.FAT.begin(); i != FAT.rootDirectory.FAT.end(); i++) {
-		std::cout << " - " << (*i).first << '\n';
+	DisplayDirectory(FAT.rootDirectory, 1);
+}
+void FileManager::DisplayDirectory(const Directory &directory, unsigned int level) {
+	std::cout << std::string(level, ' ') << directory.name << "\\\n";
+	for (auto i = directory.files.begin(); i != directory.files.end(); i++) {
+		std::cout << std::string(level + 1, ' ') << "- " << i->first << '\n';
+	}
+	level++;
+	for (auto i = directory.subDirectories.begin(); i != directory.subDirectories.end(); i++) {
+		DisplayDirectory(i->second, level);
 	}
 }
 
@@ -152,8 +191,8 @@ void FileManager::DisplayFileFragments(const std::vector<std::string> &fileFragm
 
 //-------------------- Metody Pomocnicze --------------------
 const bool FileManager::CheckIfNameUnused(const Directory &directory, const std::string &name) {
-	for (auto i = directory.FAT.begin(); i != directory.FAT.end(); i++) {
-		if ((*i).first == name) { return false; }
+	for (auto i = directory.files.begin(); i != directory.files.end(); i++) {
+		if (i->first == name) { return false; }
 	}
 	return true;
 }
