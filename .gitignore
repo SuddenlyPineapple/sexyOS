@@ -1,3 +1,9 @@
+.vs/*
+Debug/*
 .idea/*
 cmake-build-debug/*
 CMakeLists.txt
+*.sln/*
+*.vcxproj/*
+*.filters/*
+*.user/*
