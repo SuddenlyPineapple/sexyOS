@@ -15,6 +15,7 @@
 #include <array>
 #include <bitset>
 #include <vector>
+#include <unordered_map>
 
 /*
 	!!!UWAGA!!!
@@ -27,13 +28,13 @@ class FileManager {
 private:
 	//--------------- Definicje sta³ych statycznych -------------
 	static const unsigned int BLOCK_SIZE = 8; //Sta³y rozmiar bloku (bajty)
-	static const size_t DISK_SIZE = 1024;	  //Sta³y rozmiar dysku (bajty)
+	static const size_t DISK_CAPACITY = 1024;	  //Sta³a pojemnoœæ dysku (bajty)
 
 	//---------------- Definicje struktur i klas ----------------
 	class Disk {
 	public:
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
-		std::array<char, DISK_SIZE> space;
+		std::array<char, DISK_CAPACITY> space;
 
 		//----------------------- Konstruktor -----------------------
 		/**
@@ -51,6 +52,7 @@ private:
 			@return void.
 		*/
 		void write(const unsigned int &begin, const unsigned int &end, const std::string &data);
+
 		/**
 			Zapisuje dane (unsigned int) pod wskazanym indeksem.
 
@@ -59,6 +61,7 @@ private:
 			@return void.
 		*/
 		void write(const unsigned int &index, const unsigned int &data);
+
 		/**
 			Zapisuje dane typu bitset od wskazanego indeksu.
 
@@ -68,6 +71,7 @@ private:
 		*/
 		template<unsigned int size>
 		void write(const unsigned int &begin, const std::bitset<size> &data);
+
 		/**
 			Odczytuje dane typu dowolnego w wskazanym przedziale.
 
@@ -78,45 +82,27 @@ private:
 		template<typename T>
 		const T read(const unsigned int &begin, const unsigned int &end);
 	} DISK; //Prosta klasa dysku (fizycznego)
-	//Struktura pliku (fizyczna)
-	struct FileFAT {
-		//-------------------- Definicje sta³ych --------------------
-		const std::string DATA;		   //Dane typu string
-		const unsigned int NEXT_FRAGM; //Wskazanie na kolejny fragment pliku
-									   //w przestrzeni dyskowej
-
-		//----------------------- Konstruktor -----------------------
-		/**
-			Konstruktor domyœlny. Inicjalizuje pola data i nextPart wartoœci¹ NULL.
-		*/
-		FileFAT() : DATA(NULL), NEXT_FRAGM(NULL) {}
-		/**
-			Konstruktor inicjalizuj¹cy pola data i nextPart podanymi zmiennymi.
-
-			@param data_ Zmienna typu string do przechowania tekstu.
-			@param nextPart_ Zmienna typu unsigned int bêd¹ca wskazaniem na indeks
-			kolejnej czêœci pliku w przestrzeni dyskowej. J
-		*/
-		FileFAT(const std::string &data, const unsigned int nextFragm) : DATA(data), NEXT_FRAGM(nextFragm) {}
-	};
 	//Struktura pliku (logiczna)
-	struct File {
+	struct FileFAT {
 		std::string name;  //Nazwa pliku
 		unsigned int id;   //Numer identyfikacyjny pliku
 		unsigned int size; //Rozmiar pliku
+		std::vector<unsigned int>occupiedBlocks; //Bloki zajmowane przez plik
 		std::string data;
 
 		/**
 			Konstruktor domyœlny.
 		*/
-		File() {}
+		FileFAT() {}
+
 		/**
 			Konstruktor inicjalizuj¹cy pola name i id podanymi zmiennymi.
 
 			@param name_ Nazwa pliku
 			@param id_ Numer identyfikacyjny pliku
 		*/
-		File(const std::string &name_, const unsigned int &id_) : name(name_), id(id_) {}
+		FileFAT(const std::string &name_, const unsigned int &id_);
+
 		/**
 			Konstruktor inicjalizuj¹cy pola name, id i data podanymi zmiennymi.
 
@@ -124,11 +110,13 @@ private:
 			@param id_ Numer identyfikacyjny pliku
 			@param data_ Dane typu string zapisane w pliku
 		*/
-		File(const std::string &name_, const unsigned int &id_, const std::string &data_) : name(name_), id(id_), data(data_) {}
+		FileFAT(const std::string &name_, const unsigned int &id_, const std::string &data_) : name(name_), id(id_), data(data_) {}
 	};
 
 	//------------------- Definicje zmiennych -------------------
-	std::bitset<DISK_SIZE / BLOCK_SIZE> clusterMap; //Tablica bitowa bloków (0 - wolny, 1 - zajêty)
+	std::bitset<DISK_CAPACITY / BLOCK_SIZE> blockMap; //Tablica bitowa bloków (0 - wolny, 1 - zajêty)
+	std::unordered_map<unsigned int, FileFAT> directory;
+	unsigned int freeSpace = DISK_CAPACITY; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
 
 public:
 	//----------------------- Konstruktor -----------------------
@@ -139,37 +127,55 @@ public:
 	FileManager();
 
 	//-------------------- Podstawowe Metody --------------------
+
 	//Tworzy plik
 	void CreateFile(const std::string &name, const unsigned int &id);
 	void CreateFile(const std::string &name, const unsigned int &id, const std::string &data);
+
 	//Otwiera plik
 	const std::string OpenFile(const unsigned int &id);
+
 	//Usuwa plik (ca³kowicie wymazuje)
 	void DeleteFile();
+
 	//Usuwa plik (usuwa go z tablicy FAT)
 	void TruncateFile();
 
 	//------------------ Metody do wyœwietlania -----------------
+
 	//Wyœwietla zawartoœæ dysku w formie binarnej
 	void DisplayDiskContentBinary();
+
 	//Wyœwietla zawartoœæ dysku w formie znaków
 	void DisplayDiskContentChar();
+
 	//Wyœwietla tablicê bloków
 	void DisplayBlocks();
-	//Wyœwietla fileFAT
-	void DisplayFileFAT(const std::vector<FileFAT> &fileFAT);
+
+	//Wyœwietla fragmenty pliku
+	void DisplayFileFragments(const std::vector<std::string> &fileFragments);
 
 private:
 	//-------------------- Metody Pomocnicze --------------------
+
+	//S
+	const unsigned int FindUnusedIndex();
+
+	//Sprawdza czy jest miejsce na dane o zadaniej wielkoœci
+	const bool CheckIfEnoughSpace(const unsigned int &dataSize);
+
 	//Zmienia wartoœæ w tablicy bitowej bloków i zapisuje zmianê na dysku
-	void ChangeClusterMapValue(const unsigned int &block, const bool &value);
+	void ChangeBlockMapValue(const unsigned int &block, const bool &value);
 
 	//Zapisuje wektor FileFAT na dysku
-	void WriteFileFAT(const unsigned int &begin, const std::vector<FileFAT> &fileFAT);
+	void WriteFile(const FileFAT &file);
+
 	//Konwertuje kompletny plik na formê do zapisania na dysku
-	std::vector<FileFAT> FileToFileFAT(const File &file);
-	//Oblicza ile bloków zajmie podany string (uwzglêdniaj¹c czêœæ FAT)
+	const std::vector<std::string> FileFATToFileFragments(const FileFAT &fileFAT);
+
+	//Oblicza ile bloków zajmie podany string
 	const unsigned int CalculateNeededBlocks(const std::string &data);
+
 	//Znajduje nieu¿ywane bloki do zapisania pliku;
 	std::vector<unsigned int> FindUnallocatedBlocks(unsigned int blockCount);
 };

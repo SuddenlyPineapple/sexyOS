@@ -17,6 +17,7 @@ FileManager::Disk::Disk() {
 	//Zape³nanie naszego dysku zerowymi bajtami (symbolizuje pusty dysk)
 	fill(space.begin(), space.end(), NULL);
 }
+
 void FileManager::Disk::write(const unsigned int &begin, const unsigned int &end, const std::string &data) {
 	//Indeks który bêdzie s³u¿y³ do iterowania po pamiêci dysku
 	unsigned int index = begin;
@@ -29,9 +30,11 @@ void FileManager::Disk::write(const unsigned int &begin, const unsigned int &end
 		space[index] = NULL;
 	}
 }
+
 void FileManager::Disk::write(const unsigned int &index, const unsigned int &data) {
 	space[index] = data;
 }
+
 template<unsigned int size>
 void FileManager::Disk::write(const unsigned int &begin, const std::bitset<size> &data) {
 	unsigned int index = begin, tempInt = 0;
@@ -44,6 +47,7 @@ void FileManager::Disk::write(const unsigned int &begin, const std::bitset<size>
 		}
 	}
 }
+
 template<typename T>
 const T FileManager::Disk::read(const unsigned int &begin, const unsigned int &end) {
 	T data;
@@ -55,27 +59,37 @@ const T FileManager::Disk::read(const unsigned int &begin, const unsigned int &e
 	return data;
 }
 
-//*Zarz¹danie plikami
-//*Konstruktor
+//
+//----------------- FileManager Konstruktor -----------------
 FileManager::FileManager() {
-	for (unsigned int i = 0; i < (unsigned int)ceil(((double)clusterMap.size() / 8.0) / (double)BLOCK_SIZE); i++) {
-		ChangeClusterMapValue(i, 1);
+	for (unsigned int i = 0; i < (unsigned int)ceil(((double)blockMap.size() / 8.0) / (double)BLOCK_SIZE); i++) {
+		ChangeBlockMapValue(i, 1);
+		freeSpace -= BLOCK_SIZE;
 	}
+}
+
+//--------------------------- Plik --------------------------
+FileManager::FileFAT::FileFAT(const std::string &name_, const unsigned int &id_) : name(name_), id(id_) {
+
 }
 
 //-------------------- Podstawowe Metody --------------------
 void FileManager::CreateFile(const std::string &name, const unsigned int &id, const std::string &data) {
-	File file = File(name, id, data);
-	const unsigned int end = (int)ceil((double)file.data.size() / (double)BLOCK_SIZE) * BLOCK_SIZE - 1;
+	FileFAT file = FileFAT(name, id, data);
+	file.size = CalculateNeededBlocks(data)*BLOCK_SIZE;
 
-	//Tymczasowe, potem usun¹æ/zamieniæ
-	const unsigned int firstBlock = (int)ceil(((double)clusterMap.size() / 8.0) / (double)BLOCK_SIZE);
-	ChangeClusterMapValue(firstBlock, 1);
-	WriteFileFAT(firstBlock, FileToFileFAT(file));
-	//Tymczasowe, potem usun¹æ/zamieniæ
-
-	//Tu dopisz kod
+	if (CheckIfEnoughSpace(file.size)) {
+		file.occupiedBlocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
+		file.id = FindUnusedIndex();
+		directory[file.id] = file;
+		WriteFile(file);
+	}
+	else {
+		std::cout << "Za ma³o miejsca!";
+	}
+	
 }
+
 const std::string FileManager::OpenFile(const unsigned int &id) {
 	return DISK.read<std::string>(0 * 8, 4 * 8 - 1);
 }
@@ -90,6 +104,7 @@ void FileManager::DisplayDiskContentBinary() {
 	}
 	std::cout << '\n';
 }
+
 void FileManager::DisplayDiskContentChar() {
 	unsigned int index = 0;
 	for (const char &c : DISK.space) {
@@ -100,65 +115,73 @@ void FileManager::DisplayDiskContentChar() {
 	}
 	std::cout << '\n';
 }
+
 void FileManager::DisplayBlocks() {
 	unsigned int index = 0;
-	for (unsigned int i = 0; i < clusterMap.size(); i++) {
+	for (unsigned int i = 0; i < blockMap.size(); i++) {
 		if (i % 8 == 0) { std::cout << std::setfill('0') << std::setw(2) << (index / 8) + 1 << ". "; }
-		std::cout << clusterMap[i] << (index % 8 == 7 ? "\n" : " ");
+		std::cout << blockMap[i] << (index % 8 == 7 ? "\n" : " ");
 		index++;
 	}
 	std::cout << '\n';
 }
-void FileManager::DisplayFileFAT(const std::vector<FileFAT> &fileFAT) {
-	for (unsigned int i = 0; i < fileFAT.size(); i++) {
-		std::cout << fileFAT[i].DATA << std::string(15 - fileFAT[i].DATA.size(), ' ') << " | " << (fileFAT[i].NEXT_FRAGM == NULL ? "NULL" : std::to_string(fileFAT[i].NEXT_FRAGM)) << '\n';
+
+void FileManager::DisplayFileFragments(const std::vector<std::string> &fileFragments) {
+	for (unsigned int i = 0; i < fileFragments.size(); i++) {
+		std::cout << fileFragments[i] << std::string(BLOCK_SIZE - 1 - fileFragments[i].size(), ' ') << '\n';
 	}
 }
 
 //-------------------- Metody Pomocnicze --------------------
-void FileManager::ChangeClusterMapValue(const unsigned int &block, const bool &value) {
-	clusterMap[block] = value;
-	DISK.write(0, clusterMap);
+const unsigned int FileManager::FindUnusedIndex() {
+	unsigned int id = 0;
+	while (directory.find(0) != directory.end()) { id++; }
+	return id;
 }
-void FileManager::WriteFileFAT(const unsigned int &begin, const std::vector<FileFAT> &fileFAT) {
-	ChangeClusterMapValue(begin, 1);
-	DISK.write(begin*BLOCK_SIZE, begin*BLOCK_SIZE + BLOCK_SIZE - 2, fileFAT[0].DATA);
-	DISK.write(begin*BLOCK_SIZE + BLOCK_SIZE - 1, fileFAT[0].NEXT_FRAGM * BLOCK_SIZE);
 
-	for (unsigned int i = 1; i < fileFAT.size(); i++) {
-		DISK.write(fileFAT[i - 1].NEXT_FRAGM * BLOCK_SIZE, fileFAT[i - 1].NEXT_FRAGM * BLOCK_SIZE + BLOCK_SIZE - 2, fileFAT[i].DATA);
-		DISK.write(fileFAT[i - 1].NEXT_FRAGM * BLOCK_SIZE + BLOCK_SIZE - 1, fileFAT[i].NEXT_FRAGM * BLOCK_SIZE);
-		ChangeClusterMapValue(fileFAT[i - 1].NEXT_FRAGM, 1);
+const bool FileManager::CheckIfEnoughSpace(const unsigned int &dataSize) {
+	if (dataSize > freeSpace) { return false; }
+	else { return true; }
+}
+
+void FileManager::ChangeBlockMapValue(const unsigned int &block, const bool &value) {
+	if (value == 1) { freeSpace -= BLOCK_SIZE; }
+	else if (value == 0) { freeSpace += BLOCK_SIZE; }
+	blockMap[block] = value;
+	DISK.write(0, blockMap);
+}
+
+void FileManager::WriteFile(const FileFAT &file) {
+	const std::vector<std::string>fileFragments = FileFATToFileFragments(file);
+	for (unsigned int i = 0; i < file.occupiedBlocks.size(); i++) {
+		DISK.write(file.occupiedBlocks[i] * BLOCK_SIZE, file.occupiedBlocks[i] * BLOCK_SIZE + BLOCK_SIZE - 1, fileFragments[i]);
+		ChangeBlockMapValue(file.occupiedBlocks[i], 1);
 	}
 }
-std::vector<FileManager::FileFAT> FileManager::FileToFileFAT(const File &file) {
-	std::vector<FileFAT>fileFAT;
-	std::vector<unsigned int> blockList = FindUnallocatedBlocks(CalculateNeededBlocks(file.data) - 1);
-	unsigned int characterNumber = BLOCK_SIZE - 1;
-	unsigned int substrBegin;
 
-	for (unsigned int i = 0; i < blockList.size(); i++) {
-		substrBegin = i * (BLOCK_SIZE - 1);
-		if (characterNumber + substrBegin > file.data.size()) {
-			characterNumber = file.data.size() - substrBegin;
-		}
-		fileFAT.push_back(FileFAT(file.data.substr(substrBegin, characterNumber), blockList[i]));
+const std::vector<std::string> FileManager::FileFATToFileFragments(const FileFAT &file) {
+	std::vector<std::string>fileFragments;
+	unsigned int substrBegin = 0;
+
+	for (unsigned int i = 0; i < file.occupiedBlocks.size(); i++) {
+		substrBegin = i * BLOCK_SIZE - 1 * (i - i);
+		fileFragments.push_back(file.data.substr(substrBegin, BLOCK_SIZE));
 	}
-	return fileFAT;
+	return fileFragments;
 }
 
 const unsigned int FileManager::CalculateNeededBlocks(const std::string &data) {
-	return (int)ceil((double)data.size() / ((double)BLOCK_SIZE - 1));
+	return (int)ceil((double)data.size() / (double)BLOCK_SIZE);
 }
+
 std::vector<unsigned int> FileManager::FindUnallocatedBlocks(unsigned int blockCount) {
 	std::vector<unsigned int> blockList;
-	for (unsigned int i = 0; i < clusterMap.size(); i++) {
-		if (clusterMap[i] == 0) {
+	for (unsigned int i = 0; i < blockMap.size(); i++) {
+		if (blockMap[i] == 0) {
 			blockList.push_back(i);
 			blockCount--;
 			if (blockCount == 0) { break; }
 		}
 	}
-	blockList.push_back(NULL);
 	return blockList;
 }
