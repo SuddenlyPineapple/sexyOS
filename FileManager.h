@@ -31,8 +31,46 @@ private:
 	static const size_t DISK_CAPACITY = 1024;	  //Sta³a pojemnoœæ dysku (bajty)
 
 	//---------------- Definicje struktur i klas ----------------
+	struct File {
+		std::string name;  //Nazwa pliku
+		unsigned int size; //Rozmiar pliku
+		unsigned int FATindex; //Indeks pozycji pocz¹tku pliku w tablicy FAT
+
+		/**
+			Konstruktor domyœlny.
+		*/
+		File() {}
+
+		/**
+			Konstruktor inicjalizuj¹cy pola name i id podanymi zmiennymi.
+
+			@param name_ Nazwa pliku
+			@param id_ Numer identyfikacyjny pliku
+		*/
+		File(const std::string &name_) : name(name_) {};
+	};
+	struct Directory {
+		std::string name; //Nazwa katalogu
+		std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
+		std::unordered_map<std::string, Directory>subDirectories; //Tablica hashowa podkatalogów
+		Directory* parentDirectory; //WskaŸnik na katalog nadrzêdny
+
+		Directory() {}
+		Directory(const std::string &name_) : name(name_), parentDirectory(NULL) {}
+	};
+
 	class Disk {
 	public:
+		struct FAT {
+			std::bitset<DISK_CAPACITY / BLOCK_SIZE> bitVector; //Wektor bitowy bloków (0 - wolny blok, 1 - zajêty blok)
+			/*
+			Zawiera indeksy bloków dysku na dysku, na których znajduj¹ siê pofragmentowane dane pliku.
+			Indeks odpowiada rzeczywistemu blokowi dyskowemu, a jego zawartoœci¹ jest indeks nastêpnego bloku lub NULL
+			*/
+			std::array<unsigned int, DISK_CAPACITY / BLOCK_SIZE>FileAllocationTable = { NULL };
+			Directory rootDirectory{ Directory("root") }; //Katalog g³ówny
+			unsigned int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
+		} FAT; //System plików
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
 		std::array<char, DISK_CAPACITY> space;
 
@@ -83,54 +121,8 @@ private:
 		const T read(const unsigned int &begin, const unsigned int &end);
 	} DISK; //Prosta klasa dysku (fizycznego)
 	//Struktura pliku
-	struct File {
-		std::string name;  //Nazwa pliku
-		unsigned int size; //Rozmiar pliku
-		unsigned int FATindex; //Indeks pozycji pocz¹tku pliku w tablicy FAT
-		std::string data;
-
-		/**
-			Konstruktor domyœlny.
-		*/
-		File() {}
-
-		/**
-			Konstruktor inicjalizuj¹cy pola name i id podanymi zmiennymi.
-
-			@param name_ Nazwa pliku
-			@param id_ Numer identyfikacyjny pliku
-		*/
-		File(const std::string &name_) : name(name_) {};
-
-		/**
-			Konstruktor inicjalizuj¹cy pola name, id i data podanymi zmiennymi.
-
-			@param name_ Nazwa pliku
-			@param id_ Numer identyfikacyjny pliku
-			@param data_ Dane typu string zapisane w pliku
-		*/
-		File(const std::string &name_, const std::string &data_) : name(name_), data(data_) {}
-	};
 	//Struktura katalogu
-	struct Directory {
-		std::string name; //Nazwa katalogu
-		std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
-		std::unordered_map<std::string, Directory>subDirectories; //Tablica hashowa podkatalogów
-		Directory* parentDirectory; //WskaŸnik na katalog nadrzêdny
-
-		Directory() {}
-		Directory(const std::string &name_) : name(name_), parentDirectory(NULL) {}
-	};
-	struct FAT {
-		std::bitset<DISK_CAPACITY / BLOCK_SIZE> bitVector; //Wektor bitowy bloków (0 - wolny blok, 1 - zajêty blok)
-		/*
-		Zawiera indeksy bloków dysku na dysku, na których znajduj¹ siê pofragmentowane dane pliku.
-		Indeks odpowiada rzeczywistemu blokowi dyskowemu, a jego zawartoœci¹ jest indeks nastêpnego bloku lub NULL
-		*/
-		std::array<unsigned int, DISK_CAPACITY / BLOCK_SIZE>FileAllocationTable = { NULL };
-		Directory rootDirectory{ Directory("root") }; //Katalog g³ówny
-		unsigned int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
-	} FAT; //System plików
+	
 
 	//------------------- Definicje zmiennych -------------------
 	Directory* currentDirectory; //Obecnie u¿ytkowany katalog
@@ -138,8 +130,7 @@ private:
 public:
 	//----------------------- Konstruktor -----------------------
 	/**
-		Konstruktor domyœlny. Rezerwuje bloki potrzebne do zapisania
-		tablicy bitowej bloków oraz zapisuje t¹ tablicê na dysku
+		Konstruktor domyœlny. Przypisuje do obecnego katalogu katalog g³ówny.
 	*/
 	FileManager();
 
@@ -152,7 +143,7 @@ public:
 	const std::string OpenFile(const unsigned int &id);
 
 	//Usuwa plik (ca³kowicie wymazuje)
-	void DeleteFile();
+	void DeleteFile(const std::string &name);
 
 	//Usuwa plik (usuwa go z tablicy FAT)
 	void TruncateFile();
@@ -165,6 +156,11 @@ public:
 
 	//Zmienia obecny katalog na katalog podrzêdny o podanej nazwie
 	void CurrentDirectoryDown(const std::string &name);
+
+	//--------------------- Dodatkowe metody --------------------
+
+	//Zmienia obecny katalog na katalog g³ówny
+	void CurrentDirectoryRoot();
 
 	//------------------ Metody do wyœwietlania -----------------
 
@@ -191,6 +187,9 @@ public:
 private:
 	//-------------------- Metody Pomocnicze --------------------
 
+	//Zwraca obecnie u¿ywan¹ œcie¿kê
+	const std::string GetCurrentPath();
+
 	//Sprawdza czy nazwa pliku jest u¿yta w danym katalogu
 	const bool CheckIfNameUnused(const Directory &directory, const std::string &name);
 
@@ -200,17 +199,17 @@ private:
 	//Zmienia wartoœæ w tablicy bitowej bloków i zapisuje zmianê na dysku
 	void ChangeBlockMapValue(const unsigned int &block, const bool &value);
 
-	//Zapisuje wektor File na dysku
-	void WriteFile(const File &file);
+	//Zapisuje wektor fragmentów File.data na dysku
+	void WriteFile(const File &file, const std::string &data);
 
-	//Konwertuje kompletny plik na formê do zapisania na dysku
-	const std::vector<std::string> FileToFileFragments(const File &fileFAT);
+	//Konwertuje string na formê gotow¹ do zapisania na dysku
+	const std::vector<std::string> DataToDataFragments(const std::string &str);
 
 	//Oblicza ile bloków zajmie podany string
 	const unsigned int CalculateNeededBlocks(const std::string &data);
 
 	//Znajduje nieu¿ywane bloki do zapisania pliku;
-	std::vector<unsigned int> FindUnallocatedBlocks(unsigned int blockCount);
+	const std::vector<unsigned int> FindUnallocatedBlocks(unsigned int blockCount);
 };
 
 #endif //SEXYOS_FILEMANAGER_H
