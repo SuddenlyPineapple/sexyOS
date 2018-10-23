@@ -136,25 +136,25 @@ public:
 
 	//-------------------- Podstawowe Metody --------------------
 
-	//Tworzy plik
+	//Tworzy plik w obecnym katalogu
 	void CreateFile(const std::string &name, const std::string &data);
 
 	//Otwiera plik
 	const std::string OpenFile(const unsigned int &id);
 
-	//Usuwa plik (ca³kowicie wymazuje)
+	//Usuwa plik o podanej nazwie znajduj¹cy siê pod obecnym katalogu(ca³kowicie wymazuje)
 	void DeleteFile(const std::string &name);
 
 	//Usuwa plik (usuwa go z tablicy FAT)
 	void TruncateFile();
 
-	//Tworzy nowy katalog
+	//Tworzy nowy katalog w obecnym katalogu
 	void CreateDirectory(const std::string &name);
 
-	//Zmienia obecny katalog na katalog nadrzêdny
+	//Przechodzi z obecnego katalogu do katalogu nadrzêdnego
 	void CurrentDirectoryUp();
 
-	//Zmienia obecny katalog na katalog podrzêdny o podanej nazwie
+	//Przechodzi z obecnego katalogu do katalogu podrzêdnego o podanej nazwie
 	void CurrentDirectoryDown(const std::string &name);
 
 	//--------------------- Dodatkowe metody --------------------
@@ -197,7 +197,7 @@ private:
 	const bool CheckIfEnoughSpace(const unsigned int &dataSize);
 
 	//Zmienia wartoœæ w tablicy bitowej bloków i zapisuje zmianê na dysku
-	void ChangeBlockMapValue(const unsigned int &block, const bool &value);
+	void ChangeBitVectorValue(const unsigned int &block, const bool &value);
 
 	//Zapisuje wektor fragmentów File.data na dysku
 	void WriteFile(const File &file, const std::string &data);

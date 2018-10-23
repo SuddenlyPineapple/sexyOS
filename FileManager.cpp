@@ -72,22 +72,21 @@ void FileManager::CreateFile(const std::string &name, const std::string &data) {
 		File file = File(name);
 		file.size = fileSize;
 
-		currentDirectory->files[file.name] = file;
-
 		const std::vector<unsigned int> blocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
 		for (unsigned int i = 0; i < blocks.size() - 1; i++) {
 			DISK.FAT.FileAllocationTable[blocks[i]] = blocks[i + 1];
 		}
 		file.FATindex = blocks[0];
+		currentDirectory->files[file.name] = file;
 		WriteFile(file, data);
-		std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'\n";
+		std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
 		return;
 	}
 	if (!CheckIfEnoughSpace(fileSize)) {
-		std::cout << "Za ma³o miejsca!";
+		std::cout << "Za ma³o miejsca!\n";
 	}
 	if (!CheckIfNameUnused(*currentDirectory, name)) {
-		std::cout << "Nazwa pliku '" << name << "' ju¿ zajêta!";
+		std::cout << "Nazwa pliku '" << name << "' ju¿ zajêta!\n";
 	}
 
 }
@@ -97,7 +96,21 @@ const std::string FileManager::OpenFile(const unsigned int &id) {
 }
 
 void FileManager::DeleteFile(const std::string &name) {
+	auto fileIterator = currentDirectory->files.find(name);
 
+	if (fileIterator != currentDirectory->files.end()) {
+		unsigned int temp, index = fileIterator->second.FATindex;
+		while (index != NULL) {
+			temp = DISK.FAT.FileAllocationTable[index];
+			DISK.FAT.bitVector[index] = 0;
+			DISK.FAT.FileAllocationTable[index] = NULL;
+			index = temp;
+		}
+		currentDirectory->files.erase(fileIterator);
+
+		std::cout << "Usuniêto plik o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n";
+	}
+	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
 
 void FileManager::CreateDirectory(const std::string &name) {
@@ -105,7 +118,7 @@ void FileManager::CreateDirectory(const std::string &name) {
 		currentDirectory->subDirectories[name] = Directory(name);
 		currentDirectory->subDirectories[name].parentDirectory = &(*currentDirectory);
 		std::cout << "Stworzono katalog o nazwie '" << currentDirectory->subDirectories[name].name
-			<< "' w œcie¿ce '" << GetCurrentPath() << "'\n";
+			<< "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
 	}
 	else { std::cout << "Nazwa katalogu '" << name << "' zajêta!\n"; }
 }
@@ -113,7 +126,7 @@ void FileManager::CreateDirectory(const std::string &name) {
 void FileManager::CurrentDirectoryUp() {
 	if (currentDirectory->parentDirectory != NULL) {
 		currentDirectory = currentDirectory->parentDirectory;
-		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'\n";
+		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
 	}
 	else { std::cout << "Jesteœ w katalogu g³ównym!\n"; }
 }
@@ -121,7 +134,7 @@ void FileManager::CurrentDirectoryUp() {
 void FileManager::CurrentDirectoryDown(const std::string &name) {
 	if (currentDirectory->subDirectories.find(name) != currentDirectory->subDirectories.end()) {
 		currentDirectory = &(currentDirectory->subDirectories.find(name)->second);
-		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'\n";
+		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
 	}
 	else { std::cout << "Brak katalogu o podanej nazwie!\n"; }
 }
@@ -223,11 +236,10 @@ const bool FileManager::CheckIfEnoughSpace(const unsigned int &dataSize) {
 	else { return true; }
 }
 
-void FileManager::ChangeBlockMapValue(const unsigned int &block, const bool &value) {
+void FileManager::ChangeBitVectorValue(const unsigned int &block, const bool &value) {
 	if (value == 1) { DISK.FAT.freeSpace -= BLOCK_SIZE; }
 	else if (value == 0) { DISK.FAT.freeSpace += BLOCK_SIZE; }
 	DISK.FAT.bitVector[block] = value;
-	DISK.write(0, DISK.FAT.bitVector);
 }
 
 void FileManager::WriteFile(const File &file, const std::string &data) {
@@ -236,7 +248,7 @@ void FileManager::WriteFile(const File &file, const std::string &data) {
 
 	for (unsigned int i = 0; i < fileFragments.size(); i++) {
 		DISK.write(index * BLOCK_SIZE, (index + 1) * BLOCK_SIZE - 1, fileFragments[i]);
-		ChangeBlockMapValue(index, 1);
+		ChangeBitVectorValue(index, 1);
 		index = DISK.FAT.FileAllocationTable[index];
 	}
 }
