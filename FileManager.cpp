@@ -62,22 +62,26 @@ const T FileManager::Disk::read(const unsigned int &begin, const unsigned int &e
 //
 //----------------- FileManager Konstruktor -----------------
 FileManager::FileManager() {
-	for (unsigned int i = 0; i < (unsigned int)ceil(((double)blockMap.size() / 8.0) / (double)BLOCK_SIZE); i++) {
+	for (unsigned int i = 0; i < (unsigned int)ceil(((double)FAT.bitVector.size() / 8.0) / (double)BLOCK_SIZE); i++) {
 		ChangeBlockMapValue(i, 1);
-		freeSpace -= BLOCK_SIZE;
+		FAT.freeSpace -= BLOCK_SIZE;
 	}
 }
 
 //-------------------- Podstawowe Metody --------------------
 void FileManager::CreateFile(const std::string &name, const std::string &data) {
 	const unsigned int fileSize = CalculateNeededBlocks(data)*BLOCK_SIZE;
-	if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(rootDirectory, name)) {
-		FileFAT file = FileFAT(name, data);
+	if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(FAT.rootDirectory, name)) {
+		File file = File(name, data);
 		file.size = fileSize;
 
+		FAT.rootDirectory.FAT[file.name] = file;
 
-		file.occupiedBlocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
-		rootDirectory.FAT[file.name] = file;
+		const std::vector<unsigned int> blocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
+		for (unsigned int i = 0; i < blocks.size() - 1; i++) {
+			FAT.FileAllocationTable[blocks[i]] = blocks[i + 1];
+		}
+		file.FATindex = blocks[0];
 		WriteFile(file);
 	}
 	else {
@@ -92,8 +96,8 @@ const std::string FileManager::OpenFile(const unsigned int &id) {
 
 //------------------ Metody do wyœwietlania -----------------
 void FileManager::DisplayDirectoryStructure() {
-	std::cout << ' ' << rootDirectory.name << "\\\n";
-	for (auto i = rootDirectory.FAT.begin(); i != rootDirectory.FAT.end(); i++) {
+	std::cout << ' ' << FAT.rootDirectory.name << "\\\n";
+	for (auto i = FAT.rootDirectory.FAT.begin(); i != FAT.rootDirectory.FAT.end(); i++) {
 		std::cout << " - " << (*i).first << '\n';
 	}
 }
@@ -119,11 +123,22 @@ void FileManager::DisplayDiskContentChar() {
 	std::cout << '\n';
 }
 
-void FileManager::DisplayBlocks() {
+void FileManager::DisplayFileAllocationTable() {
 	unsigned int index = 0;
-	for (unsigned int i = 0; i < blockMap.size(); i++) {
+	for (unsigned int i = 0; i < FAT.FileAllocationTable.size(); i++) {
 		if (i % 8 == 0) { std::cout << std::setfill('0') << std::setw(2) << (index / 8) + 1 << ". "; }
-		std::cout << blockMap[i] << (index % 8 == 7 ? "\n" : " ");
+		std::cout << std::setfill('0') << std::setw(3) << (FAT.FileAllocationTable[i] != NULL ? std::to_string(FAT.FileAllocationTable[i]) : "NUL")
+			<< (index % 8 == 7 ? "\n" : " ");
+		index++;
+	}
+	std::cout << '\n';
+}
+
+void FileManager::DisplayBitVector() {
+	unsigned int index = 0;
+	for (unsigned int i = 0; i < FAT.bitVector.size(); i++) {
+		if (i % 8 == 0) { std::cout << std::setfill('0') << std::setw(2) << (index / 8) + 1 << ". "; }
+		std::cout << FAT.bitVector[i] << (index % 8 == 7 ? "\n" : " ");
 		index++;
 	}
 	std::cout << '\n';
@@ -144,30 +159,33 @@ const bool FileManager::CheckIfNameUnused(const Directory &directory, const std:
 }
 
 const bool FileManager::CheckIfEnoughSpace(const unsigned int &dataSize) {
-	if (dataSize > freeSpace) { return false; }
+	if (dataSize > FAT.freeSpace) { return false; }
 	else { return true; }
 }
 
 void FileManager::ChangeBlockMapValue(const unsigned int &block, const bool &value) {
-	if (value == 1) { freeSpace -= BLOCK_SIZE; }
-	else if (value == 0) { freeSpace += BLOCK_SIZE; }
-	blockMap[block] = value;
-	DISK.write(0, blockMap);
+	if (value == 1) { FAT.freeSpace -= BLOCK_SIZE; }
+	else if (value == 0) { FAT.freeSpace += BLOCK_SIZE; }
+	FAT.bitVector[block] = value;
+	DISK.write(0, FAT.bitVector);
 }
 
-void FileManager::WriteFile(const FileFAT &file) {
-	const std::vector<std::string>fileFragments = FileFATToFileFragments(file);
-	for (unsigned int i = 0; i < file.occupiedBlocks.size(); i++) {
-		DISK.write(file.occupiedBlocks[i] * BLOCK_SIZE, file.occupiedBlocks[i] * BLOCK_SIZE + BLOCK_SIZE - 1, fileFragments[i]);
-		ChangeBlockMapValue(file.occupiedBlocks[i], 1);
+void FileManager::WriteFile(const File &file) {
+	const std::vector<std::string>fileFragments = FileToFileFragments(file);
+	unsigned int index = file.FATindex;
+
+	for (unsigned int i = 0; i < fileFragments.size(); i++) {
+		DISK.write(index * BLOCK_SIZE, (index + 1) * BLOCK_SIZE - 1, fileFragments[i]);
+		ChangeBlockMapValue(index, 1);
+		index = FAT.FileAllocationTable[index];
 	}
 }
 
-const std::vector<std::string> FileManager::FileFATToFileFragments(const FileFAT &file) {
+const std::vector<std::string> FileManager::FileToFileFragments(const File &file) {
 	std::vector<std::string>fileFragments;
 	unsigned int substrBegin = 0;
 
-	for (unsigned int i = 0; i < file.occupiedBlocks.size(); i++) {
+	for (unsigned int i = 0; i < file.size / BLOCK_SIZE; i++) {
 		substrBegin = i * BLOCK_SIZE - 1 * (i - i);
 		fileFragments.push_back(file.data.substr(substrBegin, BLOCK_SIZE));
 	}
@@ -180,12 +198,13 @@ const unsigned int FileManager::CalculateNeededBlocks(const std::string &data) {
 
 std::vector<unsigned int> FileManager::FindUnallocatedBlocks(unsigned int blockCount) {
 	std::vector<unsigned int> blockList;
-	for (unsigned int i = 0; i < blockMap.size(); i++) {
-		if (blockMap[i] == 0) {
+	for (unsigned int i = 0; i < FAT.bitVector.size(); i++) {
+		if (FAT.bitVector[i] == 0) {
 			blockList.push_back(i);
 			blockCount--;
 			if (blockCount == 0) { break; }
 		}
 	}
+	blockList.push_back(NULL);
 	return blockList;
 }
