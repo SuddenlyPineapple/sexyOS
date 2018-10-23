@@ -68,26 +68,22 @@ FileManager::FileManager() {
 	}
 }
 
-//--------------------------- Plik --------------------------
-FileManager::FileFAT::FileFAT(const std::string &name_, const unsigned int &id_) : name(name_), id(id_) {
-
-}
-
 //-------------------- Podstawowe Metody --------------------
-void FileManager::CreateFile(const std::string &name, const unsigned int &id, const std::string &data) {
-	FileFAT file = FileFAT(name, id, data);
-	file.size = CalculateNeededBlocks(data)*BLOCK_SIZE;
+void FileManager::CreateFile(const std::string &name, const std::string &data) {
+	const unsigned int fileSize = CalculateNeededBlocks(data)*BLOCK_SIZE;
+	if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(rootDirectory, name)) {
+		FileFAT file = FileFAT(name, data);
+		file.size = fileSize;
 
-	if (CheckIfEnoughSpace(file.size)) {
+
 		file.occupiedBlocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
-		file.id = FindUnusedIndex();
-		directory[file.id] = file;
+		rootDirectory.FAT[file.name] = file;
 		WriteFile(file);
 	}
 	else {
 		std::cout << "Za ma³o miejsca!";
 	}
-	
+
 }
 
 const std::string FileManager::OpenFile(const unsigned int &id) {
@@ -95,6 +91,13 @@ const std::string FileManager::OpenFile(const unsigned int &id) {
 }
 
 //------------------ Metody do wyœwietlania -----------------
+void FileManager::DisplayDirectoryStructure() {
+	std::cout << ' ' << rootDirectory.name << "\\\n";
+	for (auto i = rootDirectory.FAT.begin(); i != rootDirectory.FAT.end(); i++) {
+		std::cout << " - " << (*i).first << '\n';
+	}
+}
+
 void FileManager::DisplayDiskContentBinary() {
 	unsigned int index = 0;
 	for (const char &c : DISK.space) {
@@ -133,10 +136,11 @@ void FileManager::DisplayFileFragments(const std::vector<std::string> &fileFragm
 }
 
 //-------------------- Metody Pomocnicze --------------------
-const unsigned int FileManager::FindUnusedIndex() {
-	unsigned int id = 0;
-	while (directory.find(0) != directory.end()) { id++; }
-	return id;
+const bool FileManager::CheckIfNameUnused(const Directory &directory, const std::string &name) {
+	for (auto i = directory.FAT.begin(); i != directory.FAT.end(); i++) {
+		if ((*i).first == name) { return false; }
+	}
+	return true;
 }
 
 const bool FileManager::CheckIfEnoughSpace(const unsigned int &dataSize) {

@@ -42,6 +42,7 @@ private:
 		*/
 		Disk();
 
+
 		//-------------------------- Metody -------------------------
 		/**
 			Zapisuje dane (string) na dysku od indeksu 'begin' do indeksu 'end' w³¹cznie.
@@ -82,10 +83,9 @@ private:
 		template<typename T>
 		const T read(const unsigned int &begin, const unsigned int &end);
 	} DISK; //Prosta klasa dysku (fizycznego)
-	//Struktura pliku (logiczna)
+	//Struktura pliku
 	struct FileFAT {
 		std::string name;  //Nazwa pliku
-		unsigned int id;   //Numer identyfikacyjny pliku
 		unsigned int size; //Rozmiar pliku
 		std::vector<unsigned int>occupiedBlocks; //Bloki zajmowane przez plik
 		std::string data;
@@ -101,7 +101,7 @@ private:
 			@param name_ Nazwa pliku
 			@param id_ Numer identyfikacyjny pliku
 		*/
-		FileFAT(const std::string &name_, const unsigned int &id_);
+		FileFAT(const std::string &name_) : name(name_) {};
 
 		/**
 			Konstruktor inicjalizuj¹cy pola name, id i data podanymi zmiennymi.
@@ -110,13 +110,22 @@ private:
 			@param id_ Numer identyfikacyjny pliku
 			@param data_ Dane typu string zapisane w pliku
 		*/
-		FileFAT(const std::string &name_, const unsigned int &id_, const std::string &data_) : name(name_), id(id_), data(data_) {}
+		FileFAT(const std::string &name_, const std::string &data_) : name(name_), data(data_) {}
+	};
+	//Struktura katalogu
+	struct Directory {
+		std::string name; //Nazwa katalogu
+		std::unordered_map<std::string, FileFAT> FAT; //Tablica hashowa plików w katalogu
+		std::unordered_map<std::string, Directory>subDirectories; //Tablica hashowa podkatalogów
+
+		Directory() {}
+		Directory(const std::string &name_) : name(name_) {}
 	};
 
 	//------------------- Definicje zmiennych -------------------
 	std::bitset<DISK_CAPACITY / BLOCK_SIZE> blockMap; //Tablica bitowa bloków (0 - wolny, 1 - zajêty)
-	std::unordered_map<unsigned int, FileFAT> directory;
-	unsigned int freeSpace = DISK_CAPACITY; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
+	Directory rootDirectory{ Directory("root") }; //Katalog g³ówny
+	unsigned int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
 
 public:
 	//----------------------- Konstruktor -----------------------
@@ -129,8 +138,8 @@ public:
 	//-------------------- Podstawowe Metody --------------------
 
 	//Tworzy plik
-	void CreateFile(const std::string &name, const unsigned int &id);
-	void CreateFile(const std::string &name, const unsigned int &id, const std::string &data);
+	void CreateFile(const std::string &name);
+	void CreateFile(const std::string &name, const std::string &data);
 
 	//Otwiera plik
 	const std::string OpenFile(const unsigned int &id);
@@ -142,6 +151,9 @@ public:
 	void TruncateFile();
 
 	//------------------ Metody do wyœwietlania -----------------
+
+	//Wyœwietla strukturê katalogów
+	void DisplayDirectoryStructure();
 
 	//Wyœwietla zawartoœæ dysku w formie binarnej
 	void DisplayDiskContentBinary();
@@ -158,8 +170,8 @@ public:
 private:
 	//-------------------- Metody Pomocnicze --------------------
 
-	//S
-	const unsigned int FindUnusedIndex();
+	//Sprawdza czy nazwa pliku jest u¿yta w danym katalogu
+	const bool CheckIfNameUnused(const Directory &directory, const std::string &name);
 
 	//Sprawdza czy jest miejsce na dane o zadaniej wielkoœci
 	const bool CheckIfEnoughSpace(const unsigned int &dataSize);
