@@ -8,8 +8,8 @@
 */
 
 #include "FileManager.h"
-#include<algorithm>
-#include<iomanip>
+#include <algorithm>
+#include <iomanip>
 
 //Operator do wyœwietlania czasu z dat¹
 std::ostream& operator << (std::ostream &os, const tm &time) {
@@ -77,50 +77,56 @@ void FileManager::FileCreate(const std::string &name, const std::string &data) {
 	//Rozmiar pliku obliczony na podstawie podanych danych
 	const unsigned int fileSize = CalculateNeededBlocks(data)*BLOCK_SIZE;
 
-	//Jeœli plik siê zmieœci i nazwa nie u¿yta
-	if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(*currentDirectory, name)) {
-		//Stwórz plik o podanej nazwie
-		File file = File(name);
-		//Zapisz w pliku jego rozmiar
-		file.size = fileSize;
+	if (currentDirectory->files.size() + currentDirectory->subDirectories.size() < MAX_DIRECTORY_ELEMENTS) {
+		//Jeœli plik siê zmieœci i nazwa nie u¿yta
+		if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(*currentDirectory, name)) {
+			//Jeœli œcie¿ka nie przekracza maksymalnej d³ugoœci
+			if (name.size() + GetCurrentPathLength() < MAX_PATH_LENGTH) {
+				//Stwórz plik o podanej nazwie
+				File file = File(name);
+				//Zapisz w pliku jego rozmiar
+				file.size = fileSize;
+				//Zapisz w plik jego rzeczywisty rozmiar
+				file.sizeOnDisk = data.size();
 
-		//Zapisywanie daty stworzenia pliku
-		time_t tt;
-		time(&tt);
-		file.creationTime = *localtime(&tt);
-		file.creationTime.tm_year += 1900;
-		file.creationTime.tm_mon += 1;
-		file.modificationTime = file.creationTime;
+				//Zapisywanie daty stworzenia pliku
+				file.creationTime = GetCurrentTimeAndDate();
+				file.modificationTime = file.creationTime;
 
-		//Lista indeksów bloków, które zostan¹ zaalokowane na potrzeby pliku
-		const std::vector<unsigned int> blocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
+				//Lista indeksów bloków, które zostan¹ zaalokowane na potrzeby pliku
+				const std::vector<unsigned int> blocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
 
-		//Wpisanie bloków do tablicy FAT
-		for (unsigned int i = 0; i < blocks.size() - 1; i++) {
-			DISK.FAT.FileAllocationTable[blocks[i]] = blocks[i + 1];
+				//Wpisanie bloków do tablicy FAT
+				for (unsigned int i = 0; i < blocks.size() - 1; i++) {
+					DISK.FAT.FileAllocationTable[blocks[i]] = blocks[i + 1];
+				}
+
+				//Dodanie do pliku indeksu pierwszego bloku na którym jest zapisany
+				file.FATindex = blocks[0];
+
+				//Dodanie pliku do obecnego katalogu
+				currentDirectory->files[file.name] = file;
+
+				//Zapisanie danych pliku na dysku
+				WriteFile(file, data);
+
+				std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
+				return;
+			}
+			else { std::cout << "Œcie¿ka za d³uga!\n"; }
 		}
-
-		//Dodanie do pliku indeksu pierwszego bloku na którym jest zapisany
-		file.FATindex = blocks[0];
-
-		//Dodanie pliku do obecnego katalogu
-		currentDirectory->files[file.name] = file;
-
-		//Zapisanie danych pliku na dysku
-		WriteFile(file, data);
-
-		std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
-		return;
+		//Jeœli plik siê nie mieœci
+		if (!CheckIfEnoughSpace(fileSize)) {
+			std::cout << "Za ma³o miejsca!\n";
+		}
+		//Jeœli nazwa u¿yta
+		if (!CheckIfNameUnused(*currentDirectory, name)) {
+			std::cout << "Nazwa pliku '" << name << "' ju¿ zajêta!\n";
+		}
 	}
-	//Jeœli plik siê nie mieœci
-	if (!CheckIfEnoughSpace(fileSize)) {
-		std::cout << "Za ma³o miejsca!\n";
+	else {
+		std::cout << "Osi¹gniêto limit elementów w œcie¿ce '" << GetCurrentPath() << "'!\n";
 	}
-	//Jeœli nazwa u¿yta
-	if (!CheckIfNameUnused(*currentDirectory, name)) {
-		std::cout << "Nazwa pliku '" << name << "' ju¿ zajêta!\n";
-	}
-
 }
 
 //!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
@@ -154,7 +160,7 @@ void FileManager::FileDelete(const std::string &name) {
 		unsigned int tempIndex;
 		//Obecny indeks
 		unsigned index = fileIterator->second.FATindex;
-		//Jeœli indeks na coœ wskazuje
+		//Dopóki indeks na coœ wskazuje
 		while (index != -1) {
 			//Spisz kolejny indeks
 			tempIndex = DISK.FAT.FileAllocationTable[index];
@@ -179,20 +185,27 @@ void FileManager::FileTruncate(const std::string &name, const unsigned int &size
 	//Jeœli znaleziono plik
 	if (fileIterator != currentDirectory->files.end()) {
 		if (size <= fileIterator->second.size - BLOCK_SIZE) {
+			unsigned int sizeToStart = (unsigned int)ceil((double)size / (double)BLOCK_SIZE)*BLOCK_SIZE;
 			//Zmienna do tymczasowego przechowywania kolejnego indeksu
 			unsigned int tempIndex;
 			//Zmienna do analizowania, ju¿ mo¿na usuwaæ czêœæ pliku
 			unsigned int currentSize = 0;
 			//Obecny indeks
 			unsigned index = fileIterator->second.FATindex;
-			//Jeœli indeks na coœ wskazuje
+			//Dopóki indeks na coœ wskazuje
 			while (index != -1) {
 				//Zwiêksz obecny rozmiar o rozmiar jednostki alokacji
 				currentSize += BLOCK_SIZE;
 				//Spisz kolejny indeks
 				tempIndex = DISK.FAT.FileAllocationTable[index];
 
-				if (currentSize > size) {
+				//Jeœli obecny rozmiar przewy¿sza rozmiar potrzebny do rozpoczêcia usuwania
+				//zacznij usuwaæ bloki
+				if (currentSize > sizeToStart) {
+					//Zmniejszenie rozmiaru pliku
+					fileIterator->second.size -= BLOCK_SIZE;
+					//Po uciêciu rozmiar i rozmiar rzeczywisty bêd¹ takie same
+					fileIterator->second.sizeOnDisk = fileIterator->second.size;
 					//Oznacz obecny indeks jako wolny
 					DISK.FAT.bitVector[index] = 0;
 					//Obecny indeks w tablicy FAT wskazuje na nic
@@ -202,7 +215,7 @@ void FileManager::FileTruncate(const std::string &name, const unsigned int &size
 				index = tempIndex;
 			}
 
-			std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << size << ".\n";
+			std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << fileIterator->second.size << " Bajtów.\n";
 		}
 		else { std::cout << "Podano niepoprawny rozmiar!\n"; }
 	}
@@ -210,14 +223,25 @@ void FileManager::FileTruncate(const std::string &name, const unsigned int &size
 }
 
 void FileManager::DirectoryCreate(const std::string &name) {
-	//Jeœli w katalogu nie istnieje podkatalog o podanej nazwie
-	if (currentDirectory->subDirectories.find(name) == currentDirectory->subDirectories.end()) {
-		//Do podkatalogów obecnego katalogu dodaj nowy katalog o podanej nazwie
-		currentDirectory->subDirectories[name] = Directory(name, &(*currentDirectory));
-		std::cout << "Stworzono katalog o nazwie '" << currentDirectory->subDirectories[name].name
-			<< "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
+	if (currentDirectory->files.size() + currentDirectory->subDirectories.size() < MAX_DIRECTORY_ELEMENTS) {
+		//Jeœli w katalogu nie istnieje podkatalog o podanej nazwie
+		if (currentDirectory->subDirectories.find(name) == currentDirectory->subDirectories.end()) {
+			//Jeœli œcie¿ka nie przekracza maksymalnej d³ugoœci
+			if (name.size() + GetCurrentPathLength() < MAX_PATH_LENGTH) {
+				//Do podkatalogów obecnego katalogu dodaj nowy katalog o podanej nazwie
+				currentDirectory->subDirectories[name] = Directory(name, &(*currentDirectory));
+				//Zapisanie daty stworzenia katalogu
+				currentDirectory->creationTime = GetCurrentTimeAndDate();
+				std::cout << "Stworzono katalog o nazwie '" << currentDirectory->subDirectories[name].name
+					<< "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
+			}
+			else { std::cout << "Œcie¿ka za d³uga!\n"; }
+		}
+		else { std::cout << "Nazwa katalogu '" << name << "' zajêta!\n"; }
 	}
-	else { std::cout << "Nazwa katalogu '" << name << "' zajêta!\n"; }
+	else {
+		std::cout << "Osi¹gniêto limit elementów w œcie¿ce '" << GetCurrentPath() << "'!\n";
+	}
 }
 
 void FileManager::DirectoryUp() {
@@ -242,6 +266,39 @@ void FileManager::DirectoryDown(const std::string &name) {
 
 //--------------------- Dodatkowe metody --------------------
 
+void FileManager::FileRename(const std::string &name, const std::string &changeName) {
+	//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+	auto file = currentDirectory->files.find(name);
+
+	//Jeœli znaleziono plik
+	if (file != currentDirectory->files.end()) {
+		//Jeœli plik siê zmieœci i nazwa nie u¿yta
+		if (CheckIfNameUnused(*currentDirectory, changeName)) {
+			if (changeName.size() + GetCurrentPathLength() < MAX_PATH_LENGTH) {
+
+				//Zapisywanie daty modyfikacji pliku
+				file->second.modificationTime = GetCurrentTimeAndDate();
+
+				//Zmiana nazwy pliku
+				file->second.name = changeName;
+
+				//Lokowanie nowego klucza w tablicy hashowej i przypisanie do niego pliku
+				currentDirectory->files[changeName] = file->second;
+				//Usuniêcie starego klucza
+				currentDirectory->files.erase(file);
+
+				std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << currentDirectory->files[changeName].name << "'.\n";
+				return;
+			}
+			else { std::cout << "Œcie¿ka za d³uga!\n"; }
+		}
+		else {
+			std::cout << "Nazwa pliku '" << changeName << "' ju¿ zajêta!\n";
+		}
+	}
+	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
+}
+
 void FileManager::DirectoryRoot() {
 	while (currentDirectory->parentDirectory != NULL) {
 		DirectoryUp();
@@ -250,13 +307,27 @@ void FileManager::DirectoryRoot() {
 
 //------------------ Metody do wyœwietlania -----------------
 
+void FileManager::DisplayDirectoryInfo(const std::string &name) {
+	auto directoryIterator = currentDirectory->subDirectories.find(name);
+	if (directoryIterator != currentDirectory->subDirectories.end()) {
+		const Directory directory = directoryIterator->second;
+		std::cout << "Name: " << directory.name << '\n';
+		std::cout << "Size: " << CalculateDirectorySize(directory) << " Bytes\n";
+		std::cout << "Size on disk: " << CalculateDirectorySize(directory) << " Bytes\n";
+		std::cout << "Contains: " << CalculateDirectoryFileCount(directory) << " Files, " << CalculateDirectoryFolderCount(directory) << " Folders\n";
+		std::cout << "Created: " << directory.creationTime << '\n';
+	}
+}
+
 void FileManager::DisplayFileInfo(const std::string &name) {
 	auto fileIterator = currentDirectory->files.find(name);
 	if (fileIterator != currentDirectory->files.end()) {
-		File file = fileIterator->second;
+		const File file = fileIterator->second;
 		std::cout << "Name: " << file.name << '\n';
-		std::cout << "Size: " << file.size << '\n';
+		std::cout << "Size: " << file.size << " Bytes\n";
+		std::cout << "Size on disk: " << file.sizeOnDisk << " Bytes\n";
 		std::cout << "Created: " << file.creationTime << '\n';
+		std::cout << "Modified: " << file.modificationTime << '\n';
 		std::cout << "FAT index: " << file.FATindex << '\n';
 		std::cout << "Saved data: " << FileGetData(file) << '\n';
 	}
@@ -328,6 +399,66 @@ void FileManager::DisplayFileFragments(const std::vector<std::string> &fileFragm
 
 //-------------------- Metody Pomocnicze --------------------
 
+const size_t FileManager::CalculateDirectorySize(const Directory &directory) {
+	//Rozmiar katalogu
+	size_t size = 0;
+
+	//Dodaje rozmiar plików w katalogu do rozmiaru katalogu
+	for (const auto &file : directory.files) {
+		size += file.second.size;
+	}
+	//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do rozmiaru
+	for (const auto &dir : directory.subDirectories) {
+		size += CalculateDirectorySize(dir.second);
+	}
+
+	return size;
+}
+
+const size_t FileManager::CalculateDirectorySizeOnDisk(const Directory &directory) {
+	//Rzeczywisty rozmiar katalogu
+	size_t sizeOnDisk = 9;
+
+	//Dodaje rzeczywisty rozmiar plików w katalogu do rozmiaru katalogu
+	for (const std::pair<std::string, File> &file : directory.files) {
+		sizeOnDisk += file.second.sizeOnDisk;
+	}
+	//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do rozmiaru
+	for (const std::pair <std::string, Directory> &dir : directory.subDirectories) {
+		sizeOnDisk += CalculateDirectorySize(dir.second);
+	}
+
+	return sizeOnDisk;
+}
+
+const unsigned int FileManager::CalculateDirectoryFolderCount(const Directory &directory) {
+	//Iloœæ folderów w danym katalogu
+	unsigned int folderCount = 0;
+
+	//Dodaje iloœæ folderów w tym folderze do zwracanej zmiennej
+	folderCount += directory.subDirectories.size();
+
+	//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do iloœci
+	for (const std::pair <std::string, Directory> &dir : directory.subDirectories) {
+		folderCount += CalculateDirectoryFolderCount(dir.second);
+	}
+	return folderCount;
+}
+
+const unsigned int FileManager::CalculateDirectoryFileCount(const Directory &directory) {
+	//Iloœæ plików w danym katalogu
+	unsigned int filesCount = 0;
+
+	//Dodaje iloœæ plików w tym folderze do zwracanej zmiennej
+	filesCount += directory.files.size();
+
+	//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do iloœci
+	for (const std::pair <std::string, Directory> &dir : directory.subDirectories) {
+		filesCount += CalculateDirectoryFolderCount(dir.second);
+	}
+	return filesCount;
+}
+
 const std::string FileManager::GetCurrentPath() {
 	//Œcie¿ka
 	std::string path;
@@ -341,6 +472,30 @@ const std::string FileManager::GetCurrentPath() {
 		tempDir = tempDir->parentDirectory;
 	}
 	return path;
+}
+
+const tm FileManager::GetCurrentTimeAndDate() {
+	time_t tt;
+	time(&tt);
+	tm timeAndDate = *localtime(&tt);
+	timeAndDate.tm_year += 1900;
+	timeAndDate.tm_mon += 1;
+	return timeAndDate;
+}
+
+const size_t FileManager::GetCurrentPathLength() {
+	//Œcie¿ka
+	size_t length = 0;
+	//Tymczasowa zmienna przechowuj¹ca wskaŸnik na katalog
+	Directory* tempDir = currentDirectory;
+	//Dopóki nie doszliœmy do pustego katalogu
+	while (tempDir != NULL) {
+		//Dodaj do œcie¿ki od przodu nazwê obecnego katalogu
+		length += tempDir->name.size();
+		//Przypisanie tymczasowej zmiennej katalog wy¿szy w hierarchii
+		tempDir = tempDir->parentDirectory;
+	}
+	return length;
 }
 
 const bool FileManager::CheckIfNameUnused(const Directory &directory, const std::string &name) {

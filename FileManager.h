@@ -31,16 +31,19 @@
 class FileManager {
 private:
 	//--------------- Definicje sta³ych statycznych -------------
-	static const unsigned int BLOCK_SIZE = 8; //Sta³y rozmiar bloku (bajty)
-	static const size_t DISK_CAPACITY = 1024; //Sta³a pojemnoœæ dysku (bajty)
+	static const unsigned int BLOCK_SIZE = 8;   //Sta³y rozmiar bloku (bajty)
+	static const size_t DISK_CAPACITY = 1024;   //Sta³a pojemnoœæ dysku (bajty)
+	const size_t MAX_PATH_LENGTH = 32;   //Maksymalna d³ugoœæ œcie¿ki
+	const size_t MAX_DIRECTORY_ELEMENTS = 24; //Maksymalna iloœæ elementów w katalogu
 
 	//---------------- Definicje struktur i klas ----------------
 
 	//Struktura pliku
 	struct File {
 		//Podstawowe informacje
-		std::string name;	   //Nazwa pliku
-		unsigned int size;	   //Rozmiar pliku
+		std::string name;  //Nazwa pliku
+		size_t size;	   //Rozmiar pliku
+		size_t sizeOnDisk; //Rozmiar pliku na dysku
 		unsigned int FATindex; //Indeks pozycji pocz¹tku pliku w tablicy FAT
 
 		//Dodatkowe informacje
@@ -63,7 +66,14 @@ private:
 
 	//Struktura katalogu
 	struct Directory {
-		std::string name; //Nazwa katalogu
+		std::string name;  //Nazwa katalogu
+		tm creationTime;   //Czas i data utworzenia katalogu
+		//size_t size;	   //Rozmiar katalogu
+		//size_t sizeOnDisk; //Rozmiar katalogu na dysku
+		//unsigned int folderCount; //Liczba katalogów w tym katalogu
+		//unsigned int fileCount;   //Liczba plików w tym katalogu
+
+
 		std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
 		std::unordered_map<std::string, Directory>subDirectories; //Tablica hashowa podkatalogów
 		Directory* parentDirectory; //WskaŸnik na katalog nadrzêdny
@@ -229,6 +239,13 @@ public:
 
 	//--------------------- Dodatkowe metody --------------------
 	/**
+		Zmienia nazwê pliku o podanej nazwie.
+
+		@return void.
+	*/
+	void FileRename(const std::string &name, const std::string &changeName);
+
+	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
 
 		@return void.
@@ -236,6 +253,13 @@ public:
 	void DirectoryRoot();
 
 	//------------------ Metody do wyœwietlania -----------------
+	/**
+		Wyœwietla informacje o wybranym katalogu.
+
+		@return void.
+	*/
+	void DisplayDirectoryInfo(const std::string &name);
+
 	/**
 		Wyœwietla informacje o pliku.
 
@@ -296,11 +320,53 @@ public:
 private:
 	//-------------------- Metody Pomocnicze --------------------
 	/**
+		Zwraca rozmiar podanego katalogu.
+
+		@return Rozmiar podanego katalogu.
+	*/
+	const size_t CalculateDirectorySize(const Directory &directory);
+
+	/**
+		Zwraca rzeczywisty rozmiar podanego katalogu.
+
+		@return Rzeczywisty rozmiar podanego katalogu.
+	*/
+	const size_t CalculateDirectorySizeOnDisk(const Directory &directory);
+
+	/**
+		Zwraca liczbê folderów (katalogów) w danym katalogu i podkatalogach.
+
+		@return Liczba folderów.
+	*/
+	const unsigned int CalculateDirectoryFolderCount(const Directory &directory);
+
+	/**
+		Zwraca liczbê plików w danym katalogu i podkatalogach.
+
+		@return Liczba plików.
+	*/
+	const unsigned int CalculateDirectoryFileCount(const Directory &directory);
+
+	/**
 		Zwraca obecnie u¿ywan¹ œcie¿kê.
 
-		@return void.
+		@return Obecna œcie¿ka z odpowiednim formatowaniem.
 	*/
 	const std::string GetCurrentPath();
+
+	/**
+		Zwraca d³ugoœæ obecnej œcie¿ki.
+
+		@return d³ugoœæ obecnej œcie¿ki.
+	*/
+	const size_t GetCurrentPathLength();
+
+	/**
+		Zwraca aktualny czas i datê.
+
+		@return Czas i data.
+	*/
+	const tm GetCurrentTimeAndDate();
 
 	/**
 		Sprawdza czy nazwa pliku jest u¿ywana w danym katalogu.
