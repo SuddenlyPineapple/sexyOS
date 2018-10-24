@@ -92,12 +92,16 @@ private:
 
 			/*
 			Zawiera indeksy bloków dysku na dysku, na których znajduj¹ siê pofragmentowane dane pliku.
-			Indeks odpowiada rzeczywistemu blokowi dyskowemu, a jego zawartoœci¹ jest indeks nastêpnego bloku lub NULL.
+			Indeks odpowiada rzeczywistemu blokowi dyskowemu, a jego zawartoœci¹ jest indeks nastêpnego bloku lub -1.
 			*/
-			std::array<unsigned int, DISK_CAPACITY / BLOCK_SIZE>FileAllocationTable = { NULL };
+			std::array<unsigned int, DISK_CAPACITY / BLOCK_SIZE>FileAllocationTable;
 
 			Directory rootDirectory{ Directory("root", NULL) }; //Katalog g³ówny
 
+			/**
+				Konstruktor domyœlny. Wykonuje zape³nienie tablicy FAT wartoœci¹ -1.
+			*/
+			FAT();
 		} FAT; //System plików FAT
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
@@ -105,7 +109,7 @@ private:
 
 		//----------------------- Konstruktor -----------------------
 		/**
-			Konstruktor domyœlny. Wykonuje zape³nienie przestrzeni dyskowej wartoœci¹ NULL
+			Konstruktor domyœlny. Wykonuje zape³nienie przestrzeni dyskowej wartoœci¹ NULL.
 		*/
 		Disk();
 
@@ -160,7 +164,7 @@ public:
 	*/
 	void CreateFile(const std::string &name, const std::string &data);
 
-	//Otwiera plik
+	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 	/**
 		Funkcja niedokoñczona.
 
@@ -168,6 +172,15 @@ public:
 		@return Tymczasowo zwraca dane wczytane z dysku.
 	*/
 	const std::string OpenFile(const std::string &name);
+	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
+
+	/**
+		Wczytuje dane pliku z dysku.
+
+		@param file Plik, którego dane maj¹ byæ wczytane.
+		@return Dane pliku w postaci string.
+	*/
+	const std::string GetFileData(const File &file);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
@@ -179,14 +192,15 @@ public:
 	void DeleteFile(const std::string &name);
 
 	/**
-		Odcina koñcow¹ czêœæ pliku o zadanej iloœci bloków.
-		Funkcja niedokoñczona.
+		Zmniejsza plik do podanego rozmiaru. Podany rozmiar
+		musi byæ mniejszy od rozmiaru pliku o conajmniej jedn¹
+		jednostkê alokacji
 
 		@param name Nazwa pliku.
-		@param blockCount Liczba bloków do odciêcia.
+		@param size Rozmiar do którego plik ma byæ zmniejszony.
 		@return void.
 	*/
-	void TruncateFile(const std::string &name, const unsigned int &blockCount);
+	void TruncateFile(const std::string &name, const unsigned int &size);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -229,7 +243,6 @@ public:
 	*/
 	void DisplayFileInfo(const std::string &name);
 
-	//Wyœwietla strukturê katalogów
 	/**
 		Wyœwietla strukturê katalogów.
 
@@ -282,14 +295,6 @@ public:
 
 private:
 	//-------------------- Metody Pomocnicze --------------------
-	/**
-		Wczytuje dane pliku z dysku.
-
-		@param file Plik, którego dane maj¹ byæ wczytane.
-		@return Dane pliku w postaci string.
-	*/
-	const std::string GetFileData(const File &file);
-
 	/**
 		Zwraca obecnie u¿ywan¹ œcie¿kê.
 
