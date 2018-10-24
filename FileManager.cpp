@@ -73,7 +73,7 @@ FileManager::FileManager() {
 
 //-------------------- Podstawowe Metody --------------------
 
-void FileManager::CreateFile(const std::string &name, const std::string &data) {
+void FileManager::FileCreate(const std::string &name, const std::string &data) {
 	//Rozmiar pliku obliczony na podstawie podanych danych
 	const unsigned int fileSize = CalculateNeededBlocks(data)*BLOCK_SIZE;
 
@@ -124,12 +124,12 @@ void FileManager::CreateFile(const std::string &name, const std::string &data) {
 }
 
 //!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
-const std::string FileManager::OpenFile(const std::string &name) {
+const std::string FileManager::FileOpen(const std::string &name) {
 	return DISK.read<std::string>(0 * 8, 4 * 8 - 1);
 }
 //!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 
-const std::string FileManager::GetFileData(const File &file) {
+const std::string FileManager::FileGetData(const File &file) {
 	//Dane
 	std::string data;
 	//Indeks do wczytywania danych z dysku
@@ -144,7 +144,7 @@ const std::string FileManager::GetFileData(const File &file) {
 	return data;
 }
 
-void FileManager::DeleteFile(const std::string &name) {
+void FileManager::FileDelete(const std::string &name) {
 	//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
 	auto fileIterator = currentDirectory->files.find(name);
 
@@ -173,7 +173,7 @@ void FileManager::DeleteFile(const std::string &name) {
 	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
 
-void FileManager::TruncateFile(const std::string &name, const unsigned int &size) {
+void FileManager::FileTruncate(const std::string &name, const unsigned int &size) {
 	//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
 	auto fileIterator = currentDirectory->files.find(name);
 	//Jeœli znaleziono plik
@@ -209,7 +209,7 @@ void FileManager::TruncateFile(const std::string &name, const unsigned int &size
 	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
 
-void FileManager::CreateDirectory(const std::string &name) {
+void FileManager::DirectoryCreate(const std::string &name) {
 	//Jeœli w katalogu nie istnieje podkatalog o podanej nazwie
 	if (currentDirectory->subDirectories.find(name) == currentDirectory->subDirectories.end()) {
 		//Do podkatalogów obecnego katalogu dodaj nowy katalog o podanej nazwie
@@ -220,7 +220,7 @@ void FileManager::CreateDirectory(const std::string &name) {
 	else { std::cout << "Nazwa katalogu '" << name << "' zajêta!\n"; }
 }
 
-void FileManager::CurrentDirectoryUp() {
+void FileManager::DirectoryUp() {
 	//Jeœli istnieje katalog nadrzêdny
 	if (currentDirectory->parentDirectory != NULL) {
 		//Przejœcie do katalogu nadrzêdnego
@@ -230,7 +230,7 @@ void FileManager::CurrentDirectoryUp() {
 	else { std::cout << "Jesteœ w katalogu g³ównym!\n"; }
 }
 
-void FileManager::CurrentDirectoryDown(const std::string &name) {
+void FileManager::DirectoryDown(const std::string &name) {
 	//Jeœli w obecnym katalogu znajduj¹ siê podkatalogi
 	if (currentDirectory->subDirectories.find(name) != currentDirectory->subDirectories.end()) {
 		//Przejœcie do katalogu o wskazanej nazwie
@@ -242,9 +242,9 @@ void FileManager::CurrentDirectoryDown(const std::string &name) {
 
 //--------------------- Dodatkowe metody --------------------
 
-void FileManager::CurrentDirectoryRoot() {
+void FileManager::DirectoryRoot() {
 	while (currentDirectory->parentDirectory != NULL) {
-		CurrentDirectoryUp();
+		DirectoryUp();
 	}
 }
 
@@ -258,7 +258,7 @@ void FileManager::DisplayFileInfo(const std::string &name) {
 		std::cout << "Size: " << file.size << '\n';
 		std::cout << "Created: " << file.creationTime << '\n';
 		std::cout << "FAT index: " << file.FATindex << '\n';
-		std::cout << "Saved data: " << GetFileData(file) << '\n';
+		std::cout << "Saved data: " << FileGetData(file) << '\n';
 	}
 	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }

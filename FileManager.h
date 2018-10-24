@@ -162,7 +162,7 @@ public:
 		@param data Dane typu string.
 		@return void.
 	*/
-	void CreateFile(const std::string &name, const std::string &data);
+	void FileCreate(const std::string &name, const std::string &data);
 
 	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 	/**
@@ -171,7 +171,7 @@ public:
 		@param name Nazwa pliku.
 		@return Tymczasowo zwraca dane wczytane z dysku.
 	*/
-	const std::string OpenFile(const std::string &name);
+	const std::string FileOpen(const std::string &name);
 	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 
 	/**
@@ -180,7 +180,7 @@ public:
 		@param file Plik, którego dane maj¹ byæ wczytane.
 		@return Dane pliku w postaci string.
 	*/
-	const std::string GetFileData(const File &file);
+	const std::string FileGetData(const File &file);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
@@ -189,7 +189,7 @@ public:
 		@param name Nazwa pliku.
 		@return void.
 	*/
-	void DeleteFile(const std::string &name);
+	void FileDelete(const std::string &name);
 
 	/**
 		Zmniejsza plik do podanego rozmiaru. Podany rozmiar
@@ -200,7 +200,7 @@ public:
 		@param size Rozmiar do którego plik ma byæ zmniejszony.
 		@return void.
 	*/
-	void TruncateFile(const std::string &name, const unsigned int &size);
+	void FileTruncate(const std::string &name, const unsigned int &size);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -208,7 +208,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void CreateDirectory(const std::string &name);
+	void DirectoryCreate(const std::string &name);
 
 
 	/**
@@ -217,7 +217,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void CurrentDirectoryUp();
+	void DirectoryUp();
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu podrzêdnego o podanej nazwie
@@ -225,7 +225,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void CurrentDirectoryDown(const std::string &name);
+	void DirectoryDown(const std::string &name);
 
 	//--------------------- Dodatkowe metody --------------------
 	/**
@@ -233,7 +233,7 @@ public:
 
 		@return void.
 	*/
-	void CurrentDirectoryRoot();
+	void DirectoryRoot();
 
 	//------------------ Metody do wyœwietlania -----------------
 	/**
