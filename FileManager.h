@@ -72,6 +72,7 @@ private:
 			Konstruktor domyœlny.
 		*/
 		Directory() {}
+
 		/**
 			Konstruktor inicjalizuj¹cy pole name i parentDirectory podanymi zmiennymi.
 
@@ -150,7 +151,6 @@ public:
 	FileManager();
 
 	//-------------------- Podstawowe Metody --------------------
-
 	/**
 		Tworzy plik o podanej nazwie i danych w obecnym katalogu.
 
@@ -214,7 +214,6 @@ public:
 	void CurrentDirectoryDown(const std::string &name);
 
 	//--------------------- Dodatkowe metody --------------------
-
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
 
@@ -223,7 +222,6 @@ public:
 	void CurrentDirectoryRoot();
 
 	//------------------ Metody do wyœwietlania -----------------
-
 	/**
 		Wyœwietla informacje o pliku.
 
@@ -284,7 +282,6 @@ public:
 
 private:
 	//-------------------- Metody Pomocnicze --------------------
-
 	/**
 		Wczytuje dane pliku z dysku.
 
@@ -363,7 +360,7 @@ private:
 
 	/*
 		Znajduje nieu¿ywane bloki do zapisania pliku metod¹ best-fit.
-		
+
 		@param blockCount Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
