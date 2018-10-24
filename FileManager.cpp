@@ -4,13 +4,17 @@
 	Przeznaczenie: Zawiera definicje metod i konstruktorów dla klas z FileManager.h
 
 	@author Tomasz Kiljañczyk
-	@version 22/10/18
+	@version 24/10/18
 */
 
 #include "FileManager.h"
 #include<algorithm>
 #include<iomanip>
-#include<iostream>
+
+std::ostream& operator << (std::ostream &os, const tm &time) {
+	os << time.tm_hour << ':' << time.tm_min << ' ' << time.tm_mday << '.' << time.tm_mon << '.' << time.tm_year;
+	return os;
+}
 
 //--------------------------- Dysk --------------------------
 FileManager::Disk::Disk() {
@@ -33,19 +37,6 @@ void FileManager::Disk::write(const unsigned int &begin, const unsigned int &end
 
 void FileManager::Disk::write(const unsigned int &index, const unsigned int &data) {
 	space[index] = data;
-}
-
-template<unsigned int size>
-void FileManager::Disk::write(const unsigned int &begin, const std::bitset<size> &data) {
-	unsigned int index = begin, tempInt = 0;
-	for (unsigned int i = 0; i < size; i++) {
-		tempInt += (unsigned int)pow(2, 7 - i % 8)*data[i];
-		if (i % 8 == 7) {
-			space[index] = char(tempInt);
-			index++;
-			tempInt = 0;
-		}
-	}
 }
 
 template<typename T>
@@ -72,11 +63,19 @@ void FileManager::CreateFile(const std::string &name, const std::string &data) {
 		File file = File(name);
 		file.size = fileSize;
 
+		time_t tt;
+		time(&tt);
+		file.creationTime = *localtime(&tt);
+		file.creationTime.tm_year += 1900;
+		file.creationTime.tm_mon += 1;
+		file.modificationTime = file.creationTime;
+
 		const std::vector<unsigned int> blocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
 		for (unsigned int i = 0; i < blocks.size() - 1; i++) {
 			DISK.FAT.FileAllocationTable[blocks[i]] = blocks[i + 1];
 		}
 		file.FATindex = blocks[0];
+
 		currentDirectory->files[file.name] = file;
 		WriteFile(file, data);
 		std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
@@ -91,7 +90,7 @@ void FileManager::CreateFile(const std::string &name, const std::string &data) {
 
 }
 
-const std::string FileManager::OpenFile(const unsigned int &id) {
+const std::string FileManager::OpenFile(const std::string &name) {
 	return DISK.read<std::string>(0 * 8, 4 * 8 - 1);
 }
 
@@ -115,8 +114,7 @@ void FileManager::DeleteFile(const std::string &name) {
 
 void FileManager::CreateDirectory(const std::string &name) {
 	if (currentDirectory->subDirectories.find(name) == currentDirectory->subDirectories.end()) {
-		currentDirectory->subDirectories[name] = Directory(name);
-		currentDirectory->subDirectories[name].parentDirectory = &(*currentDirectory);
+		currentDirectory->subDirectories[name] = Directory(name, &(*currentDirectory));
 		std::cout << "Stworzono katalog o nazwie '" << currentDirectory->subDirectories[name].name
 			<< "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
 	}
@@ -148,6 +146,19 @@ void FileManager::CurrentDirectoryRoot() {
 }
 
 //------------------ Metody do wyœwietlania -----------------
+void FileManager::DisplayFileInfo(const std::string &name) {
+	auto fileIterator = currentDirectory->files.find(name);
+	if (fileIterator != currentDirectory->files.end()) {
+		File file = fileIterator->second;
+		std::cout << "Name: " << file.name << '\n';
+		std::cout << "Size: " << file.size << '\n';
+		std::cout << "Created: " << file.creationTime << '\n';
+		std::cout << "FAT index: " << file.FATindex << '\n';
+		std::cout << "Saved data: " << GetFileData(file) << '\n';
+	}
+	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
+}
+
 void FileManager::DisplayDirectoryStructure() {
 	DisplayDirectory(DISK.FAT.rootDirectory, 1);
 }
@@ -175,9 +186,9 @@ void FileManager::DisplayDiskContentBinary() {
 void FileManager::DisplayDiskContentChar() {
 	unsigned int index = 0;
 	for (const char &c : DISK.space) {
-		if (c >= 0 && c <= 32) std::cout << "!";
+		if (c >= 0 && c <= 32) std::cout << ".";
 		else std::cout << c;
-		std::cout << (index % BLOCK_SIZE == BLOCK_SIZE - 1 ? " , " : "") << (index % 64 == 63 ? " \n" : " ");
+		std::cout << (index % BLOCK_SIZE == BLOCK_SIZE - 1 ? " , " : "") << (index % 32 == 31 ? " \n" : " ");
 		index++;
 	}
 	std::cout << '\n';
@@ -211,19 +222,26 @@ void FileManager::DisplayFileFragments(const std::vector<std::string> &fileFragm
 }
 
 //-------------------- Metody Pomocnicze --------------------
+const std::string FileManager::GetFileData(const File &file) {
+	std::string data;
+	unsigned int index = file.FATindex;
+	while (index != NULL) {
+		data += DISK.read<std::string>(index*BLOCK_SIZE, (index + 1)*BLOCK_SIZE - 1);
+		index = DISK.FAT.FileAllocationTable[index];
+	}
+	return data;
+}
+
 const std::string FileManager::GetCurrentPath() {
-	std::vector<std::string>directoriesNames;
 	std::string path;
 	Directory* tempDir = currentDirectory;
 	while (tempDir != NULL) {
-		directoriesNames.push_back(tempDir->name);
+		path.insert(0, "/" + tempDir->name);
 		tempDir = tempDir->parentDirectory;
-	}
-	for (auto i = directoriesNames.rbegin(); i < directoriesNames.rend(); i++) {
-		path += "/" + *i;
 	}
 	return path;
 }
+
 const bool FileManager::CheckIfNameUnused(const Directory &directory, const std::string &name) {
 	for (auto i = directory.files.begin(); i != directory.files.end(); i++) {
 		if (i->first == name) { return false; }
@@ -253,13 +271,13 @@ void FileManager::WriteFile(const File &file, const std::string &data) {
 	}
 }
 
-const std::vector<std::string> FileManager::DataToDataFragments(const std::string &str) {
+const std::vector<std::string> FileManager::DataToDataFragments(const std::string &data) {
 	std::vector<std::string>fileFragments;
 	unsigned int substrBegin = 0;
 
-	for (unsigned int i = 0; i < CalculateNeededBlocks(str); i++) {
+	for (unsigned int i = 0; i < CalculateNeededBlocks(data); i++) {
 		substrBegin = i * BLOCK_SIZE - 1 * (i - i);
-		fileFragments.push_back(str.substr(substrBegin, BLOCK_SIZE));
+		fileFragments.push_back(data.substr(substrBegin, BLOCK_SIZE));
 	}
 	return fileFragments;
 }
@@ -268,7 +286,7 @@ const unsigned int FileManager::CalculateNeededBlocks(const std::string &data) {
 	return (int)ceil((double)data.size() / (double)BLOCK_SIZE);
 }
 
-const std::vector<unsigned int> FileManager::FindUnallocatedBlocks(unsigned int blockCount) {
+const std::vector<unsigned int> FileManager::FindUnallocatedBlocksFragmented(unsigned int blockCount) {
 	std::vector<unsigned int> blockList;
 	for (unsigned int i = 0; i < DISK.FAT.bitVector.size(); i++) {
 		if (DISK.FAT.bitVector[i] == 0) {
@@ -277,6 +295,52 @@ const std::vector<unsigned int> FileManager::FindUnallocatedBlocks(unsigned int 
 			if (blockCount == 0) { break; }
 		}
 	}
+	blockList.push_back(NULL);
+	return blockList;
+}
+
+const std::vector<unsigned int> FileManager::FindUnallocatedBlocksBestFit(const unsigned int &blockCount) {
+	std::vector<unsigned int> blockList, bestBlockList(DISK.FAT.bitVector.size() + 1);
+	std::vector<std::vector<unsigned int>> blockLists;
+
+	//Szukanie wolnych bloków spe³niaj¹cych minimum miejsca
+	for (unsigned int i = 0; i < DISK.FAT.bitVector.size(); i++) {
+		if (DISK.FAT.bitVector[i] == 0) {
+			blockList.push_back(i);
+		}
+		else {
+			if (blockList.size() >= blockCount) { blockLists.push_back(blockList); }
+			blockList.clear();
+		}
+	}
+
+	if (blockList.size() >= blockCount) { blockLists.push_back(blockList); }
+	blockList.clear();
+
+
+	if (blockLists.size() > 0) {
+		for (const std::vector<unsigned int> &v : blockLists) {
+			if (v.size() < bestBlockList.size()) {
+				bestBlockList = v;
+			}
+		}
+		bestBlockList.resize(blockCount);
+		for (const unsigned int &i : bestBlockList) {
+			std::cout << "Block: " << i << '\n';
+		}
+	}
+	else {
+		bestBlockList.resize(0);
+	}
+	return bestBlockList;
+}
+
+const std::vector<unsigned int> FileManager::FindUnallocatedBlocks(const unsigned int &blockCount) {
+	std::vector<unsigned int> blockList = FindUnallocatedBlocksBestFit(blockCount);
+	if (blockList.size() == 0) {
+		blockList = FindUnallocatedBlocksFragmented(blockCount);
+	}
+
 	blockList.push_back(NULL);
 	return blockList;
 }
