@@ -33,6 +33,8 @@ private:
 	//--------------- Definicje sta³ych statycznych -------------
 	static const unsigned int BLOCK_SIZE = 8;   //Sta³y rozmiar bloku (bajty)
 	static const size_t DISK_CAPACITY = 1024;   //Sta³a pojemnoœæ dysku (bajty)
+
+	//--------------------- Definicje sta³ych -------------------
 	const size_t MAX_PATH_LENGTH = 32;   //Maksymalna d³ugoœæ œcie¿ki
 	const size_t MAX_DIRECTORY_ELEMENTS = 24; //Maksymalna iloœæ elementów w katalogu
 
@@ -155,6 +157,7 @@ private:
 	} DISK; //Prosta klasa dysku (imitacja fizycznego)
 
 	//------------------- Definicje zmiennych -------------------
+	bool messages = false;
 	Directory* currentDirectory; //Obecnie u¿ytkowany katalog
 
 public:
@@ -241,6 +244,8 @@ public:
 	/**
 		Zmienia nazwê pliku o podanej nazwie.
 
+		@param name Obecna nazwa pliku.
+		@param changeName Zmieniona nazwa pliku.
 		@return void.
 	*/
 	void FileRename(const std::string &name, const std::string &changeName);
@@ -253,6 +258,16 @@ public:
 	void DirectoryRoot();
 
 	//------------------ Metody do wyœwietlania -----------------
+	/**
+		Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.
+		false - komunikaty wy³¹czone.
+		true - komunikaty w³¹czone.
+
+		@param onOf Czy komunikaty maj¹ byæ w³¹czone.
+		@return void.
+	*/
+	void Messages(const bool &onOff);
+
 	/**
 		Wyœwietla informacje o wybranym katalogu.
 

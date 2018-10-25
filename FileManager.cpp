@@ -110,7 +110,7 @@ void FileManager::FileCreate(const std::string &name, const std::string &data) {
 				//Zapisanie danych pliku na dysku
 				WriteFile(file, data);
 
-				std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
+				if (messages) { std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n"; }
 				return;
 			}
 			else { std::cout << "Œcie¿ka za d³uga!\n"; }
@@ -174,7 +174,7 @@ void FileManager::FileDelete(const std::string &name) {
 		//Usuñ plik z obecnego katalogu
 		currentDirectory->files.erase(fileIterator);
 
-		std::cout << "Usuniêto plik o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n";
+		if (messages) { std::cout << "Usuniêto plik o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n"; }
 	}
 	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
@@ -214,8 +214,7 @@ void FileManager::FileTruncate(const std::string &name, const unsigned int &size
 				//Przypisz do obecnego indeksu kolejny indeks
 				index = tempIndex;
 			}
-
-			std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << fileIterator->second.size << " Bajtów.\n";
+			if (messages) { std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << fileIterator->second.size << " Bajtów.\n"; }
 		}
 		else { std::cout << "Podano niepoprawny rozmiar!\n"; }
 	}
@@ -232,8 +231,10 @@ void FileManager::DirectoryCreate(const std::string &name) {
 				currentDirectory->subDirectories[name] = Directory(name, &(*currentDirectory));
 				//Zapisanie daty stworzenia katalogu
 				currentDirectory->creationTime = GetCurrentTimeAndDate();
-				std::cout << "Stworzono katalog o nazwie '" << currentDirectory->subDirectories[name].name
-					<< "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
+				if (messages) {
+					std::cout << "Stworzono katalog o nazwie '" << currentDirectory->subDirectories[name].name
+						<< "' w œcie¿ce '" << GetCurrentPath() << "'.\n";
+				}
 			}
 			else { std::cout << "Œcie¿ka za d³uga!\n"; }
 		}
@@ -287,7 +288,7 @@ void FileManager::FileRename(const std::string &name, const std::string &changeN
 				//Usuniêcie starego klucza
 				currentDirectory->files.erase(file);
 
-				std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << currentDirectory->files[changeName].name << "'.\n";
+				if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << currentDirectory->files[changeName].name << "'.\n"; }
 				return;
 			}
 			else { std::cout << "Œcie¿ka za d³uga!\n"; }
@@ -307,6 +308,10 @@ void FileManager::DirectoryRoot() {
 
 //------------------ Metody do wyœwietlania -----------------
 
+void FileManager::Messages(const bool &onOff) {
+	messages = onOff;
+}
+
 void FileManager::DisplayDirectoryInfo(const std::string &name) {
 	auto directoryIterator = currentDirectory->subDirectories.find(name);
 	if (directoryIterator != currentDirectory->subDirectories.end()) {
@@ -317,6 +322,7 @@ void FileManager::DisplayDirectoryInfo(const std::string &name) {
 		std::cout << "Contains: " << CalculateDirectoryFileCount(directory) << " Files, " << CalculateDirectoryFolderCount(directory) << " Folders\n";
 		std::cout << "Created: " << directory.creationTime << '\n';
 	}
+	else { std::cout << "Katalog o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
 
 void FileManager::DisplayFileInfo(const std::string &name) {
