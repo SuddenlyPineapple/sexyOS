@@ -450,4 +450,6 @@ private:
 
 };
 
+static FileManager fileManager;
+
 #endif //SEXYOS_FILEMANAGER_H
