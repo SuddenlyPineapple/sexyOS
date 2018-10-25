@@ -596,8 +596,6 @@ const std::vector<unsigned int> FileManager::FindUnallocatedBlocksBestFit(const 
 	std::vector<unsigned int> blockList;
 	//Najlepsze dopasowanie
 	std::vector<unsigned int> bestBlockList(DISK.FAT.bitVector.size() + 1);
-	//Lista dopasowañ
-	std::vector<std::vector<unsigned int>> blockLists;
 
 	//Szukanie wolnych bloków spe³niaj¹cych minimum miejsca
 	for (unsigned int i = 0; i < DISK.FAT.bitVector.size(); i++) {
@@ -610,7 +608,13 @@ const std::vector<unsigned int> FileManager::FindUnallocatedBlocksBestFit(const 
 		else {
 			//Jeœli uzyskana lista bloków jest wiêksza od iloœci bloków jak¹ chcemy uzyskaæ
 			//to dodaj uzyskane dopasowanie do listy dopasowañ;
-			if (blockList.size() >= blockCount) { blockLists.push_back(blockList); }
+			if (blockList.size() >= blockCount) {
+				//Jeœli znalezione dopasowanie mniejsze ni¿ najlepsze dopasowanie
+				if (blockList.size() < bestBlockList.size()) {
+					//Przypisanie nowego najlepszego dopasowania
+					bestBlockList = blockList;
+				}
+			}
 
 			//Czyœci listê bloków, aby mo¿na przygotowaæ kolejne dopasowanie
 			blockList.clear();
@@ -623,22 +627,21 @@ const std::vector<unsigned int> FileManager::FindUnallocatedBlocksBestFit(const 
 	trzeba wykonañ poni¿szy kod. Jeœli ostatni blok w wektorze bitowym
 	bêdzie zajêty to blockList bêdzie pusty i nie spie³ni warunku
 	*/
-	if (blockList.size() >= blockCount) { blockLists.push_back(blockList); }
-	blockList.clear();
-
-	//Jeœli znaleziono dopasowania (rozmiar > 0)
-	if (blockLists.size() > 0) {
-		//Szuka najlepszego dopasowania z znalezionych dopasowañ
-		for (const std::vector<unsigned int> &v : blockLists) {
-			//Jeœli obecne dopasowanie jest lepsze od poprzedniego
-			if (v.size() < bestBlockList.size()) {
-				bestBlockList = v;
-			}
+	if (blockList.size() >= blockCount) {
+		//Jeœli blok wolny
+		if (blockList.size() < bestBlockList.size()) {
+			//Dodaj indeks bloku do listy bloków
+			bestBlockList = blockList;
 		}
+	}
 
-		//Ucina najlepsze dopasowanie do iloœci bloków jakie chcemy zaalokowaæ
+	//Jeœli znalezione najlepsze dopasowanie
+	if(bestBlockList.size() < DISK.FAT.bitVector.size() + 1){
+		//Odetnij nadmiarowe indeksy z dopasowania (jeœli wiêksze ni¿ potrzeba)
 		bestBlockList.resize(blockCount);
 	}
+	//Inaczej zmniejsz dopasowanie do 0, ¿eby po zwróceniu wybrano inn¹ metodê
+	else { bestBlockList.resize(0); }
 
 	return bestBlockList;
 }
