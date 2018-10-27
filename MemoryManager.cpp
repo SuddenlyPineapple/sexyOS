@@ -1,6 +1,4 @@
-//
-// Created by Wojtek on 15-Oct-18.
-//
+// Created by Wojciech Kasperski on 15-Oct-18.
 
 #include "MemoryManager.h"
 
@@ -10,17 +8,24 @@ MemoryManager::MemoryManager() = default;
 
 MemoryManager::~MemoryManager() = default;
 
-MemoryManager::Page::Page(std::string data) {
-    while(data.size()<16){
-        data+=" ";
+MemoryManager::PageFrame::PageFrame(std::string data) {
+    while (data.size() < 16) {
+        data += " ";
     }
-    for(int i = 0;i < 16; i++){
+    for (int i = 0; i < 16; i++) {
         this->data[i] = data[i];
     }
 }
 
-MemoryManager::Page::Page() {
-    for(int i = 0;i < 16;i++){
+MemoryManager::PageFrame::PageFrame() {
+    for (int i = 0; i < 16; i++) {
         this->data[i] = data[i];
     }
+}
+
+MemoryManager::ProcessFramesList::ProcessFramesList(bool isFree, int PID, int PageNumber,
+                                                    std::vector<PageTable> *pageList) : isFree(isFree), PID(PID),
+                                                                                        PageNumber(PageNumber),
+                                                                                        pageList(pageList) {
+
 }
