@@ -7,9 +7,11 @@
 
 #include <list>
 #include <string>
+#include <vector>
 //#include "Processes.h"
 
-/* Tablica stronic */
+//------------- Tablica stronic procesu-------------
+//Indeks stronic dla każdego procesu
 struct PageTable {
     bool bit;  //Wartość bool'owska sprawdzająca zajętość tablicy w pamięci
     int frame; //Numer ramki w której znajduje się stronica
@@ -18,21 +20,31 @@ struct PageTable {
 };
 
 class MemoryManager {
-private:
-    char RAM[256]; //Pamięć Fizyczna Komputera [256 bajtów]
+    public: char RAM[256]; //Pamięć Fizyczna Komputera [256 bajtów]
+    private:
 
-    //Struktura Stronicy w Pamięci
-    struct Page {
-        char data[16]{}; //Dane stronicy
+        //------------- Struktura Pojedyńczej Stronicy w Pamięci -------------
+        struct Page {
+            char data[16]{}; //Dane stronicy
 
-        Page();
-        Page(std::string data);
-    };
+            Page();
+            Page(std::string data);
+        };
 
-public:
+        //------------- Lista Ramek danego procesu -------------
+        //Jest to struktura dodawana domyślnie do każdego procesu ułatwiająca odczytywanie wszystkich ramek jakimi dysponuje w danej chwili process
+        struct FramesList {
+            const int PID;
+            const int PageNumber;
+            std::vector<PageTable> *pageList;
+        };
 
-    MemoryManager();
-    virtual ~MemoryManager();
+    public:
+
+        //------------- Konstruktor  -------------
+        MemoryManager();
+        //------------- Destruktor  --------------
+        virtual ~MemoryManager();
 };
 
 
