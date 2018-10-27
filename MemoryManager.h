@@ -59,6 +59,8 @@ public:
         MemoryManager();
         //------------- Destruktor  --------------
         ~MemoryManager();
+
+        void start();
 };
 
 
