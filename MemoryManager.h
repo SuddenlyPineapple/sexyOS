@@ -11,42 +11,43 @@
 
 //------------- Tablica stronic procesu-------------
 //Indeks stronic dla każdego procesu, vector tej struktury znajduje się w PCB
-struct PageTable {
+struct PageTableData {
     bool bit;  //Wartość bool'owska sprawdzająca zajętość tablicy w pamięci [Sprawdza, czy ramka znajduje się w pamięci RAM]
     int frame; //Numer ramki w której znajduje się stronica
 
-    PageTable(bool bit, int frame);
+    PageTableData(bool bit, int frame);
 };
 
 class MemoryManager {
     public: char RAM[256]; //Pamięć Fizyczna Komputera [256 bajtów]
     private:
         //------------- Struktura Pojedyńczej Stronicy w Pamięci -------------
-        struct PageFrame {
+        struct Page {
             char data[16]{}; //Dane stronicy
 
-            PageFrame();
-            PageFrame(std::string data);
+            Page();
+            Page(std::string data);
+
+            void print();
         };
 
         //------------- Lista Ramek -------------
-        //Jest to struktura dodawana domyślnie do każdego procesu ułatwiająca odczytywanie wszystkich ramek jakimi dysponuje w danej chwili process
-        //Przechowywana jest w Pamięci RAM jako struktura, dzięki czemu możemy spradzić do jakiego procesu należy ramka, bez potrzeby zaglądania do PCB, w którym też jest *pageList
-        struct ProcessFramesList {
-            bool isFree;
-            int PID;
-            int PageNumber;
-            std::vector<PageTable> *pageList;
+        //Struktura wykorzystywana do lepszego przeszukiwania pamięci ram i łatwiejszej wymiany stronic
+        struct FrameData {
+            bool isFree; //Czy ramka jest wolna (True == wolna, False == zajęta)
+            int PID; //Numer Procesu
+            int PageNumber; //Numer stronicy
+            std::vector<PageTableData> *pageList; //Wskaźnik do tablicy stronic procesu, która znajduje się w PCB
 
-            ProcessFramesList(bool isFree, int PID, int PageNumber, std::vector<PageTable> *pageList);
+            FrameData(bool isFree, int PID, int PageNumber, std::vector<PageTableData> *pageList);
         };
 
         //------------- Ramki załadowane w Pamięci Fizycznej [w pamięci RAM]-------------
-        std::vector<ProcessFramesList> Frames;
+        std::vector<FrameData> Frames;
 
         //------------- Plik stronicowania -------------
         // map < PID procesu, Stronice danego procesu>
-        std::map<int, std::vector<PageFrame>> PageFile;
+        std::map<int, std::vector<Page>> PageFile;
 
         //------------- Stos ostatnio używanych ramek -------------
         //Stos dzięki, którem wiemy, która ramka jest najdłużej w pamięci i którą ramkę możemy zastąpić
@@ -60,7 +61,29 @@ public:
         //------------- Destruktor  --------------
         ~MemoryManager();
 
-        void start();
+        //------------- Funkcje do wyświetlania bierzących stanów pamięci oraz pracy krokowej  --------------
+
+        //Tworzy process bezczynności systemu umieszczany w pamięci RAM przy starcie systemu
+        void memoryInit();
+
+        //Pokazuje zawartość pamięci operacyjnej [RAM]
+        void showMem();
+
+        //Pokazuje odpowiednie fragmenty pamięci [RAM]
+        void showMem(int begin, int bytes);
+
+        //Pokazuje zawartść pliku stronicowania
+        void showPageFile();
+
+        //Pokazuje zawartość tablicy wymiany processu
+        void showPageTable(std::vector<PageTableData> *pageTable);
+
+        //Pokazuje Stos ostatnio używanych ramek (Od najmłodszych do najstarszych)
+        void showLRUstack();
+
+        void showFrames();
+
+
 };
 
 
