@@ -98,7 +98,7 @@ class MemoryManager {
 
         //Usuwa z pamięci dane wybranego procesu
         void kill(int PID);
-    void stackUpdate(int frameID);
+
     private:
         //Zwraca adres pierwszej wolnej ramki w pamięci
         int seekFreeFrame();
@@ -106,7 +106,7 @@ class MemoryManager {
         //Przesuwa ramkę podaną jako argument na początek stack'u ostatnio używanych (Least Recently Used - frames)
         /* frameID - numer ramki, którą chcemy przesunąć na początek stack'u
          */
-
+        void stackUpdate(int frameID);
 
         //Ładuje daną stronicę do pamięci RAM
         /*  page - stronica do załadowania

@@ -2,15 +2,15 @@
 #include "MemoryManager.h"
 
 int main() {
-    MemoryManager memory;
+    MemoryManager memoryManager;
 
-    memory.showLRUStack();
-    memory.stackUpdate(12);
-    memory.stackUpdate(13);
-    memory.stackUpdate(1);
-    memory.stackUpdate(5);
-    memory.stackUpdate(16);
-    memory.showLRUStack();
+    memoryManager.showLRUStack();
+    memoryManager.stackUpdate(12);
+    memoryManager.stackUpdate(13);
+    memoryManager.stackUpdate(1);
+    memoryManager.stackUpdate(5);
+    memoryManager.stackUpdate(16);
+    memoryManager.showLRUStack();
 
     return 0;
 }
