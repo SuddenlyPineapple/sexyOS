@@ -24,4 +24,24 @@ void MemoryManager::Page::print() {
     std::cout << std::endl;
 }
 
-MemoryManager::FrameData::FrameData(bool isFree, int PID, int PageNumber, std::vector<PageTableData> *pageList) : isFree(isFree), PID(PID),PageNumber(PageNumber), pageList(pageList) {}
+MemoryManager::FrameData::FrameData(bool isFree, int PID, int pageID, std::vector<PageTableData> *pageList) : isFree(isFree), PID(PID),pageID(pageID), pageList(pageList) {}
+
+void MemoryManager::stackUpdate(int frameID) {
+    if(frameID > 15) return;
+
+    for(auto it = LRUStack.begin(); it!= LRUStack.end(); it++){
+        if(*it == frameID){
+            LRUStack.erase(it);
+            break;
+        }
+    }
+
+    LRUStack.push_front(frameID);
+}
+
+void MemoryManager::showLRUStack() {
+    for(auto frame:LRUStack){
+        std::cout << frame << " ";
+    }
+    std::cout << std::endl;
+}
