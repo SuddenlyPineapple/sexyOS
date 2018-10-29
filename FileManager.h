@@ -4,35 +4,37 @@
 	Przeznaczenie: Zawiera klasy Disk i FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 24/10/18
+	@version 29/10/18
 */
 
 #ifndef SEXYOS_FILEMANAGER_H
 #define SEXYOS_FILEMANAGER_H
 
-#include <math.h>
-#include <time.h>
+#include <ctime>
 #include <string>
 #include <array>
 #include <bitset>
+#include <utility>
 #include <vector>
 #include <unordered_map>
-#include <iostream>
 
 /*
-	Todo:
+	To-do:
 	- otwieranie i zamykanie pliku
-	- plik flagi + dane utworzenia
+	- plik flagi
 	- defragmentator
 	- zapisywanie plików z kodem asemblerowym
+	- pliki executable
 */
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
 private:
 	//--------------- Definicje sta³ych statycznych -------------
-	static const unsigned int BLOCK_SIZE = 8;   //Sta³y rozmiar bloku (bajty)
-	static const size_t DISK_CAPACITY = 1024;   //Sta³a pojemnoœæ dysku (bajty)
+	static const unsigned int BLOCK_SIZE = 8; //Sta³y rozmiar bloku (bajty)
+	static const size_t DISK_CAPACITY = 1024; //Sta³a pojemnoœæ dysku (bajty)
+	static const bool BLOCK_FREE = false;     //Wartoœæ oznaczaj¹ca wolny blok
+	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca wolny blok
 
 	//--------------------- Definicje sta³ych -------------------
 	const size_t MAX_PATH_LENGTH = 32;   //Maksymalna d³ugoœæ œcie¿ki
@@ -46,7 +48,7 @@ private:
 		std::string name;  //Nazwa pliku
 		size_t size;	   //Rozmiar pliku
 		size_t sizeOnDisk; //Rozmiar pliku na dysku
-		unsigned int FATindex; //Indeks pozycji pocz¹tku pliku w tablicy FAT
+		unsigned int FileSystemIndex; //Indeks pozycji pocz¹tku pliku w tablicy FileSystem
 
 		//Dodatkowe informacje
 		tm creationTime;	 //Czas i data utworzenia pliku
@@ -56,14 +58,15 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		File() {}
+		File(): size(0), sizeOnDisk(0), FileSystemIndex(0), creationTime(), modificationTime(){}
 
 		/**
 			Konstruktor inicjalizuj¹cy pola name podanymi zmiennymi.
 
 			@param name_ Nazwa pliku.
 		*/
-		File(const std::string &name_) : name(name_) {};
+		explicit File(std::string name_) : name(std::move(name_)), size(0), sizeOnDisk(0), FileSystemIndex(0), creationTime(),
+		                          modificationTime(){};
 	};
 
 	//Struktura katalogu
@@ -83,20 +86,21 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		Directory() {}
+		Directory(): creationTime(), parentDirectory(nullptr){}
 
 		/**
 			Konstruktor inicjalizuj¹cy pole name i parentDirectory podanymi zmiennymi.
 
 			@param name_ Nazwa pliku.
-			@param parentDirectory WskaŸnik na katalog utworzenia
+			@param parentDirectory_ WskaŸnik na katalog utworzenia
 		*/
-		Directory(const std::string &name_, Directory* parentDirectory_) : name(name_), parentDirectory(parentDirectory_) {}
+		Directory(std::string name_, Directory* parentDirectory_) : name(std::move(name_)), creationTime(),
+		                                                                   parentDirectory(parentDirectory_){}
 	};
 
 	class Disk {
 	public:
-		struct FAT {
+		struct FileSystem {
 			unsigned int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
 
 			//Wektor bitowy bloków (0 - wolny blok, 1 - zajêty blok)
@@ -108,13 +112,13 @@ private:
 			*/
 			std::array<unsigned int, DISK_CAPACITY / BLOCK_SIZE>FileAllocationTable;
 
-			Directory rootDirectory{ Directory("root", NULL) }; //Katalog g³ówny
+			Directory rootDirectory{ Directory("root", nullptr) }; //Katalog g³ówny
 
 			/**
-				Konstruktor domyœlny. Wykonuje zape³nienie tablicy FAT wartoœci¹ -1.
+				Konstruktor domyœlny. Wykonuje zape³nienie tablicy FileSystem wartoœci¹ -1.
 			*/
-			FAT();
-		} FAT; //System plików FAT
+			FileSystem();
+		} FileSystem; //System plików FileSystem
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
 		std::array<char, DISK_CAPACITY> space;
@@ -197,7 +201,7 @@ public:
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
-		Plik jest wymazywany z tablicy FAT oraz wektora bitowego.
+		Plik jest wymazywany z tablicy FileSystem oraz wektora bitowego.
 
 		@param name Nazwa pliku.
 		@return void.
@@ -221,13 +225,20 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void DirectoryCreate(const std::string &name);
+	void DirectoryCreate(const std::string &name) const;
+
+	/**
+		Usuwa katalog o podanej nazwie.
+
+		@param name Nazwa katalogu.
+		@return void.
+	*/
+	void DirectoryDelete(const std::string &name);
 
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu nadrzêdnego.
 
-		@param name Nazwa katalogu.
 		@return void.
 	*/
 	void DirectoryUp();
@@ -248,7 +259,7 @@ public:
 		@param changeName Zmieniona nazwa pliku.
 		@return void.
 	*/
-	void FileRename(const std::string &name, const std::string &changeName);
+	void FileRename(const std::string &name, const std::string &changeName) const;
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
@@ -263,7 +274,7 @@ public:
 		false - komunikaty wy³¹czone.
 		true - komunikaty w³¹czone.
 
-		@param onOf Czy komunikaty maj¹ byæ w³¹czone.
+		@param onOff Czy komunikaty maj¹ byæ w³¹czone.
 		@return void.
 	*/
 	void Messages(const bool &onOff);
@@ -273,7 +284,7 @@ public:
 
 		@return void.
 	*/
-	void DisplayDirectoryInfo(const std::string &name);
+	void DisplayDirectoryInfo(const std::string &name) const;
 
 	/**
 		Wyœwietla informacje o pliku.
@@ -287,7 +298,7 @@ public:
 
 		@return void.
 	*/
-	void DisplayDirectoryStructure();
+	void DisplayDirectoryStructure() const;
 	/**
 		Wyœwietla rekurencyjnie katalog i jego podkatalogi.
 
@@ -295,7 +306,7 @@ public:
 		@param level Poziom obecnego katalogu w hierarchii katalogów.
 		@return void.
 	*/
-	void DisplayDirectory(const Directory &directory, unsigned int level);
+	static void DisplayDirectory(const Directory &directory, unsigned int level);
 
 	/**
 		Wyœwietla zawartoœæ dysku w formie binarnej.
@@ -312,7 +323,7 @@ public:
 	void DisplayDiskContentChar();
 
 	/**
-		Wyœwietla tablicê alokacji plików (FAT).
+		Wyœwietla tablicê alokacji plików (FileSystem).
 
 		@return void.
 	*/
@@ -330,58 +341,82 @@ public:
 
 		@return void.
 	*/
-	void DisplayFileFragments(const std::vector<std::string> &fileFragments);
+	static void DisplayFileFragments(const std::vector<std::string> &fileFragments);
 
 private:
 	//-------------------- Metody Pomocnicze --------------------
+	/**
+		Usuwa ca³¹ strukturê katalogów.
+
+		@param directory Katalog do usuniêcia.
+		@return Rozmiar podanego katalogu.
+	*/
+	void DirectoryDeleteStructure(Directory &directory);
+
+	/**
+		Usuwa wskazany plik.
+
+		@param file Plik do usuniêcia.
+		@return void.
+	*/
+	void FileDelete(File &file);
+
 	/**
 		Zwraca rozmiar podanego katalogu.
 
 		@return Rozmiar podanego katalogu.
 	*/
-	const size_t CalculateDirectorySize(const Directory &directory);
+	static const size_t CalculateDirectorySize(const Directory &directory);
 
 	/**
 		Zwraca rzeczywisty rozmiar podanego katalogu.
 
 		@return Rzeczywisty rozmiar podanego katalogu.
 	*/
-	const size_t CalculateDirectorySizeOnDisk(const Directory &directory);
+	static const size_t CalculateDirectorySizeOnDisk(const Directory &directory);
 
 	/**
 		Zwraca liczbê folderów (katalogów) w danym katalogu i podkatalogach.
 
 		@return Liczba folderów.
 	*/
-	const unsigned int CalculateDirectoryFolderCount(const Directory &directory);
+	static const unsigned int CalculateDirectoryFolderCount(const Directory &directory);
 
 	/**
 		Zwraca liczbê plików w danym katalogu i podkatalogach.
 
 		@return Liczba plików.
 	*/
-	const unsigned int CalculateDirectoryFileCount(const Directory &directory);
+	static const unsigned int CalculateDirectoryFileCount(const Directory &directory);
+
+	/**
+		Zwraca œcie¿kê przekazanego folderu
+
+		@param directory Katalog, którego œciê¿kê chcemy otrzymaæ.
+		@return Obecna œcie¿ka z odpowiednim formatowaniem.
+	*/
+	static const std::string GetPath(const Directory &directory);
 
 	/**
 		Zwraca obecnie u¿ywan¹ œcie¿kê.
 
 		@return Obecna œcie¿ka z odpowiednim formatowaniem.
 	*/
-	const std::string GetCurrentPath();
+	const std::string GetCurrentPath() const;
 
 	/**
 		Zwraca d³ugoœæ obecnej œcie¿ki.
 
 		@return d³ugoœæ obecnej œcie¿ki.
 	*/
-	const size_t GetCurrentPathLength();
+	const size_t GetCurrentPathLength() const;
 
 	/**
 		Zwraca aktualny czas i datê.
 
 		@return Czas i data.
 	*/
-	const tm GetCurrentTimeAndDate();
+	static const tm GetCurrentTimeAndDate();
 
 	/**
 		Sprawdza czy nazwa pliku jest u¿ywana w danym katalogu.
@@ -390,20 +425,19 @@ private:
 		@param name Nazwa pliku
 		@return Prawda, jeœli nazwa nieu¿ywana, inaczej fa³sz.
 	*/
-	const bool CheckIfNameUnused(const Directory &directory, const std::string &name);
+	static const bool CheckIfNameUnused(const Directory &directory, const std::string &name);
 
 	/**
 		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
 
-		@param directory Katalog, w którym sprawdzana jest nazwa pliku.
-		@param name Nazwa pliku
+		@param dataSize Rozmiar danych, dla których bêdziemy sprawdzac miejsce.
 		@return void.
 	*/
-	const bool CheckIfEnoughSpace(const unsigned int &dataSize);
+	const bool CheckIfEnoughSpace(const unsigned int &dataSize) const;
 
 	/**
 		Zmienia wartoœæ w wektorze bitowym i zarz¹ pole freeSpace
-		w strukturze FAT.
+		w strukturze FileSystem.
 
 		@param block Indeks bloku, którego wartoœæ w wektorze bitowym bêdzie zmieniana.
 		@param value Wartoœæ do przypisania do wskazanego bloku (0 - wolny, 1 - zajêty)
@@ -415,7 +449,7 @@ private:
 		Zapisuje wektor fragmentów File.data na dysku.
 
 		@param file Plik, którego dane bêd¹ zapisane na dysku.
-		@param value Dane do zapisania na dysku.
+		@param data Dane do zapisania na dysku.
 		@return void.
 	*/
 	void WriteFile(const File &file, const std::string &data);
@@ -426,7 +460,7 @@ private:
 		@param data String do podzielenia na fradmenty.
 		@return Wektor fragmentów string.
 	*/
-	const std::vector<std::string> DataToDataFragments(const std::string &data);
+	const std::vector<std::string> DataToDataFragments(const std::string &data) const;
 
 	/**
 		Oblicza ile bloków zajmie podany string.
@@ -434,7 +468,7 @@ private:
 		@param data String, którego rozmiar na dysku, bêdzie obliczany.
 		@return Iloœæ bloków jak¹ zajmie string.
 	*/
-	const unsigned int CalculateNeededBlocks(const std::string &data);
+	const unsigned int CalculateNeededBlocks(const std::string &data) const;
 
 	/**
 		Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
