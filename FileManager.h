@@ -4,7 +4,7 @@
 	Przeznaczenie: Zawiera klasy Disk i FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 29/10/18
+	@version 30/10/18
 */
 
 #ifndef SEXYOS_FILEMANAGER_H
@@ -17,9 +17,11 @@
 #include <utility>
 #include <vector>
 #include <unordered_map>
+#include <memory>
 
 /*
 	To-do:
+	- iNode
 	- otwieranie i zamykanie pliku
 	- plik flagi
 	- defragmentator
@@ -29,18 +31,47 @@
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
+	using u_int = unsigned int;
+
 private:
 	//--------------- Definicje sta³ych statycznych -------------
-	static const unsigned int BLOCK_SIZE = 8; //Sta³y rozmiar bloku (bajty)
-	static const size_t DISK_CAPACITY = 1024; //Sta³a pojemnoœæ dysku (bajty)
-	static const bool BLOCK_FREE = false;     //Wartoœæ oznaczaj¹ca wolny blok
-	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca wolny blok
+	static const u_int BLOCK_SIZE = 32;				//Rozmiar bloku (bajty)
+	static const size_t DISK_CAPACITY = 1024;       //Pojemnoœæ dysku (bajty)
+	static const size_t BLOCK_INDEX_COUNT = 3;		//Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
+	static const size_t BLOCK_DIRECT_INDEX = 2;     //Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks
+	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
+	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
+
+	/*
+	 * Z obliczeñ wynika, ¿e maksymalny rozmiar pliku to 160 bajtów/znaków
+	 */
 
 	//--------------------- Definicje sta³ych -------------------
 	const size_t MAX_PATH_LENGTH = 32;   //Maksymalna d³ugoœæ œcie¿ki
-	const size_t MAX_DIRECTORY_ELEMENTS = 24; //Maksymalna iloœæ elementów w katalogu
+	const size_t MAX_DIRECTORY_ELEMENTS = 8; //Maksymalna iloœæ elementów w katalogu
 
 	//---------------- Definicje struktur i klas ----------------
+
+	class Index
+	{
+	public:
+		u_int value; //Wartoœæ indeksu
+
+		Index() : value(NULL) {}
+		explicit Index(const u_int &value) : value(value){}
+		virtual ~Index(){}
+	};
+	class IndexBlock : public Index {
+	public:
+		//Tablica indeksów/bloków indeksowych
+		std::array<std::shared_ptr<Index>, BLOCK_INDEX_COUNT> value;
+
+		IndexBlock(){}
+		virtual ~IndexBlock() { std::fill(value.begin(), value.end(), nullptr); }
+
+		std::shared_ptr<Index>& operator [] (const size_t &index);
+		const std::shared_ptr<Index>& operator [] (const size_t &index) const;
+	};
 
 	//Struktura pliku
 	struct File {
@@ -48,7 +79,13 @@ private:
 		std::string name;  //Nazwa pliku
 		size_t size;	   //Rozmiar pliku
 		size_t sizeOnDisk; //Rozmiar pliku na dysku
-		unsigned int FileSystemIndex; //Indeks pozycji pocz¹tku pliku w tablicy FileSystem
+		/**
+		Tablica bloków bezpoœrednich.
+		Dwa ostatnie pola s¹ zarezerwowane na tablice
+		bloków poœrednich 1 i 2 poziomowych.
+		 */
+		IndexBlock directBlocks; //Bezpoœrednie bloki (w tym blok indeksowy 1-poziomu)
+		//u_int FileSystemIndex;  //Indeks pozycji pocz¹tku pliku w tablicy FAT --- ZBÊDNE
 
 		//Dodatkowe informacje
 		tm creationTime;	 //Czas i data utworzenia pliku
@@ -58,26 +95,21 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		File(): size(0), sizeOnDisk(0), FileSystemIndex(0), creationTime(), modificationTime(){}
+		File(): size(0), sizeOnDisk(0), creationTime(), modificationTime(){}
 
 		/**
 			Konstruktor inicjalizuj¹cy pola name podanymi zmiennymi.
 
 			@param name_ Nazwa pliku.
 		*/
-		explicit File(std::string name_) : name(std::move(name_)), size(0), sizeOnDisk(0), FileSystemIndex(0), creationTime(),
-		                          modificationTime(){};
+		explicit File(const std::string &name_) : name(name_), size(0), sizeOnDisk(0),
+												  creationTime(), modificationTime(){}
 	};
 
 	//Struktura katalogu
 	struct Directory {
 		std::string name;  //Nazwa katalogu
 		tm creationTime;   //Czas i data utworzenia katalogu
-		//size_t size;	   //Rozmiar katalogu
-		//size_t sizeOnDisk; //Rozmiar katalogu na dysku
-		//unsigned int folderCount; //Liczba katalogów w tym katalogu
-		//unsigned int fileCount;   //Liczba plików w tym katalogu
-
 
 		std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
 		std::unordered_map<std::string, Directory>subDirectories; //Tablica hashowa podkatalogów
@@ -101,23 +133,17 @@ private:
 	class Disk {
 	public:
 		struct FileSystem {
-			unsigned int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
+			u_int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
 
 			//Wektor bitowy bloków (0 - wolny blok, 1 - zajêty blok)
 			std::bitset<DISK_CAPACITY / BLOCK_SIZE> bitVector;
-
-			/*
-			Zawiera indeksy bloków dysku na dysku, na których znajduj¹ siê pofragmentowane dane pliku.
-			Indeks odpowiada rzeczywistemu blokowi dyskowemu, a jego zawartoœci¹ jest indeks nastêpnego bloku lub -1.
-			*/
-			std::array<unsigned int, DISK_CAPACITY / BLOCK_SIZE>FileAllocationTable;
 
 			Directory rootDirectory{ Directory("root", nullptr) }; //Katalog g³ówny
 
 			/**
 				Konstruktor domyœlny. Wykonuje zape³nienie tablicy FileSystem wartoœci¹ -1.
 			*/
-			FileSystem();
+			FileSystem(){}
 		} FileSystem; //System plików FileSystem
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
@@ -138,16 +164,16 @@ private:
 			@param data Dane typu string.
 			@return void.
 		*/
-		void write(const unsigned int &begin, const unsigned int &end, const std::string &data);
+		void write(const u_int &begin, const u_int &end, const std::string &data);
 
 		/**
-			Zapisuje dane (unsigned int) pod wskazanym indeksem.
+			Zapisuje dane (u_int) pod wskazanym indeksem.
 
 			@param index Indeks na którym zapisana zostanie liczba.
-			@param data Liczba typu unsigned int.
+			@param data Liczba typu u_int.
 			@return void.
 		*/
-		void write(const unsigned int &index, const unsigned int &data);
+		void write(const u_int &index, const u_int &data);
 
 		/**
 			Odczytuje dane zadanego typu (jeœli jest on zaimplementowany) w wskazanym przedziale.
@@ -157,11 +183,11 @@ private:
 			@return zmienna zadanego typu.
 		*/
 		template<typename T>
-		const T read(const unsigned int &begin, const unsigned int &end);
+		const T read(const u_int &begin, const u_int &end);
 	} DISK; //Prosta klasa dysku (imitacja fizycznego)
 
 	//------------------- Definicje zmiennych -------------------
-	bool messages = false;
+	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	Directory* currentDirectory; //Obecnie u¿ytkowany katalog
 
 public:
@@ -217,7 +243,7 @@ public:
 		@param size Rozmiar do którego plik ma byæ zmniejszony.
 		@return void.
 	*/
-	void FileTruncate(const std::string &name, const unsigned int &size);
+	void FileTruncate(const std::string &name, const u_int &size);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -260,7 +286,7 @@ public:
 		@return void.
 	*/
 	void FileRename(const std::string &name, const std::string &changeName) const;
-
+	
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
 
@@ -306,7 +332,7 @@ public:
 		@param level Poziom obecnego katalogu w hierarchii katalogów.
 		@return void.
 	*/
-	static void DisplayDirectory(const Directory &directory, unsigned int level);
+	static void DisplayDirectory(const Directory &directory, u_int level);
 
 	/**
 		Wyœwietla zawartoœæ dysku w formie binarnej.
@@ -322,12 +348,12 @@ public:
 	*/
 	void DisplayDiskContentChar();
 
-	/**
-		Wyœwietla tablicê alokacji plików (FileSystem).
-
-		@return void.
-	*/
-	void DisplayFileAllocationTable();
+	//**
+	//	Wyœwietla tablicê alokacji plików (FileSystem).
+	//
+	//	@return void.
+	//*/
+	//void DisplayFileAllocationTable();
 
 	/**
 		Wyœwietla wektor bitowy.
@@ -380,14 +406,14 @@ private:
 
 		@return Liczba folderów.
 	*/
-	static const unsigned int CalculateDirectoryFolderCount(const Directory &directory);
+	static const u_int CalculateDirectoryFolderCount(const Directory &directory);
 
 	/**
 		Zwraca liczbê plików w danym katalogu i podkatalogach.
 
 		@return Liczba plików.
 	*/
-	static const unsigned int CalculateDirectoryFileCount(const Directory &directory);
+	static const u_int CalculateDirectoryFileCount(const Directory &directory);
 
 	/**
 		Zwraca œcie¿kê przekazanego folderu
@@ -433,7 +459,7 @@ private:
 		@param dataSize Rozmiar danych, dla których bêdziemy sprawdzac miejsce.
 		@return void.
 	*/
-	const bool CheckIfEnoughSpace(const unsigned int &dataSize) const;
+	const bool CheckIfEnoughSpace(const u_int &dataSize) const;
 
 	/**
 		Zmienia wartoœæ w wektorze bitowym i zarz¹ pole freeSpace
@@ -443,7 +469,7 @@ private:
 		@param value Wartoœæ do przypisania do wskazanego bloku (0 - wolny, 1 - zajêty)
 		@return void.
 	*/
-	void ChangeBitVectorValue(const unsigned int &block, const bool &value);
+	void ChangeBitVectorValue(const u_int &block, const bool &value);
 
 	/**
 		Zapisuje wektor fragmentów File.data na dysku.
@@ -468,7 +494,7 @@ private:
 		@param data String, którego rozmiar na dysku, bêdzie obliczany.
 		@return Iloœæ bloków jak¹ zajmie string.
 	*/
-	const unsigned int CalculateNeededBlocks(const std::string &data) const;
+	const u_int CalculateNeededBlocks(const std::string &data) const;
 
 	/**
 		Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
@@ -476,7 +502,7 @@ private:
 		@param blockCount Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<unsigned int> FindUnallocatedBlocksFragmented(unsigned int blockCount);
+	const std::vector<u_int> FindUnallocatedBlocksFragmented(u_int blockCount);
 
 	/*
 		Znajduje nieu¿ywane bloki do zapisania pliku metod¹ best-fit.
@@ -484,7 +510,7 @@ private:
 		@param blockCount Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<unsigned int> FindUnallocatedBlocksBestFit(const unsigned int &blockCount);
+	const std::vector<u_int> FindUnallocatedBlocksBestFit(const u_int &blockCount);
 
 	/*
 		Znajduje nieu¿ywane bloki do zapisania pliku. Najpierw uruchamia funkcjê
@@ -495,7 +521,7 @@ private:
 		@param blockCount Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<unsigned int> FindUnallocatedBlocks(const unsigned int &blockCount);
+	const std::vector<u_int> FindUnallocatedBlocks(const u_int &blockCount);
 
 };
 
