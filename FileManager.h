@@ -4,7 +4,7 @@
 	Przeznaczenie: Zawiera klasy Disk i FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 30/10/18
+	@version 01/11/18
 */
 
 #ifndef SEXYOS_FILEMANAGER_H
@@ -19,6 +19,8 @@
 #include <unordered_map>
 #include <memory>
 
+#include<iostream>
+
 /*
 	To-do:
 	- iNode
@@ -29,85 +31,105 @@
 	- pliki executable
 */
 
+//Klasa serializera (konwertowanie danych)
+class Serializer {
+public:
+	/**
+		Zamienia int na string, gdzie liczba przekonwertowywana
+		jest na znaki, aby zajmowa³a mniej miejsca na dysku.
+
+		@param input Liczba jak¹ chcemy zamieniæ na string.
+		@return Liczba ca³kowita przekonwertowana na string.
+	*/
+	static const std::string IntToString(unsigned int input);
+
+	/**
+		Zamienia string na int.
+
+		@param input Tekst jaki chcemy zamieniæ na liczbê.
+		@return Liczba powsta³a po zsumowaniu znaków.
+	*/
+	static const unsigned int StringToInt(const std::string& input);
+};
+
+
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
 	using u_int = unsigned int;
 
 private:
 	//--------------- Definicje sta³ych statycznych -------------
-	static const u_int BLOCK_SIZE = 32;				//Rozmiar bloku (bajty)
-	static const size_t DISK_CAPACITY = 1024;       //Pojemnoœæ dysku (bajty)
-	static const size_t BLOCK_INDEX_COUNT = 3;		//Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
-	static const size_t BLOCK_DIRECT_INDEX = 2;     //Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks
-	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
-	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
-
-	/*
-	 * Z obliczeñ wynika, ¿e maksymalny rozmiar pliku to 160 bajtów/znaków
-	 */
+	static const size_t BLOCK_SIZE = 32;				 //Rozmiar bloku (bajty)
+	static const size_t DISK_CAPACITY = 1024;        //Pojemnoœæ dysku (bajty)
+	static const size_t BLOCK_INDEX_NUMBER = 3;		 //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
+	static const size_t TOTAL_FILE_NUMBER_LIMIT = 32; //Maksymalna iloœæ elementów w katalogu
+	static const size_t BLOCK_DIRECT_INDEX = BLOCK_INDEX_NUMBER - 1; //Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks
+	static const bool BLOCK_FREE = false;            //Wartoœæ oznaczaj¹ca wolny blok
+	static const bool BLOCK_OCCUPIED = !BLOCK_FREE;  //Wartoœæ oznaczaj¹ca zajêty blok
+	static const size_t MAX_PATH_LENGTH = 32;		 //Maksymalna d³ugoœæ œcie¿ki
+	//Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów
+	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX + BLOCK_INDEX_NUMBER) * BLOCK_SIZE; 
 
 	//--------------------- Definicje sta³ych -------------------
-	const size_t MAX_PATH_LENGTH = 32;   //Maksymalna d³ugoœæ œcie¿ki
-	const size_t MAX_DIRECTORY_ELEMENTS = 8; //Maksymalna iloœæ elementów w katalogu
 
 	//---------------- Definicje struktur i klas ----------------
 
-	class Index
-	{
+	class Index {
 	public:
 		u_int value; //Wartoœæ indeksu
 
 		Index() : value(NULL) {}
 		explicit Index(const u_int &value) : value(value){}
-		virtual ~Index(){}
+		virtual ~Index() = default;
 	};
 	class IndexBlock : public Index {
 	public:
 		//Tablica indeksów/bloków indeksowych
-		std::array<std::shared_ptr<Index>, BLOCK_INDEX_COUNT> value;
+		std::array<std::shared_ptr<Index>, BLOCK_INDEX_NUMBER> value;
 
-		IndexBlock(){}
-		virtual ~IndexBlock() { std::fill(value.begin(), value.end(), nullptr); }
+		IndexBlock() = default;
+		virtual ~IndexBlock() = default;
 
 		std::shared_ptr<Index>& operator [] (const size_t &index);
 		const std::shared_ptr<Index>& operator [] (const size_t &index) const;
 	};
 
-	//Struktura pliku
-	struct File {
+	//Struktura I-wêz³a
+	class iNode{
+	public:
 		//Podstawowe informacje
-		std::string name;  //Nazwa pliku
-		size_t size;	   //Rozmiar pliku
-		size_t sizeOnDisk; //Rozmiar pliku na dysku
-		/**
-		Tablica bloków bezpoœrednich.
-		Dwa ostatnie pola s¹ zarezerwowane na tablice
-		bloków poœrednich 1 i 2 poziomowych.
-		 */
-		IndexBlock directBlocks; //Bezpoœrednie bloki (w tym blok indeksowy 1-poziomu)
-		//u_int FileSystemIndex;  //Indeks pozycji pocz¹tku pliku w tablicy FAT --- ZBÊDNE
+		std::string type;
 
 		//Dodatkowe informacje
-		tm creationTime;	 //Czas i data utworzenia pliku
-		tm modificationTime; //Czas i data ostatniej modyfikacji pliku
-		std::string creator; //Nazwa u¿ytkownika, który utworzy³ plik
+		tm creationTime;	 //Czas i data utworzenia
+		std::string creator; //Nazwa u¿ytkownika, który utworzy³ iNode
 
 		/**
 			Konstruktor domyœlny.
 		*/
-		File(): size(0), sizeOnDisk(0), creationTime(), modificationTime(){}
+		iNode() = default;
+	};
+
+	class File : public iNode {
+	public:
+		//Podstawowe informacje
+		size_t blocksOccupied; //Iloœæ zajmowanych bloków
+		size_t sizeOnDisk; //Rozmiar pliku na dysku
+		IndexBlock directBlocks; //Bezpoœrednie bloki (na koñcu 1 blok indeksowy 1-poziomu)
+
+		//Dodatkowe informacje
+		tm modificationTime; //Czas i data ostatniej modyfikacji pliku
 
 		/**
-			Konstruktor inicjalizuj¹cy pola name podanymi zmiennymi.
-
-			@param name_ Nazwa pliku.
+			Konstruktor domyœlny.
 		*/
-		explicit File(const std::string &name_) : name(name_), size(0), sizeOnDisk(0),
-												  creationTime(), modificationTime(){}
+		File() = default;
+		virtual ~File() = default;
 	};
 
 	//Struktura katalogu
-	struct Directory {
+	class Directory : iNode {
+	public:
 		std::string name;  //Nazwa katalogu
 		tm creationTime;   //Czas i data utworzenia katalogu
 
@@ -118,7 +140,7 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		Directory(): creationTime(), parentDirectory(nullptr){}
+		Directory() = default;
 
 		/**
 			Konstruktor inicjalizuj¹cy pole name i parentDirectory podanymi zmiennymi.
@@ -127,7 +149,8 @@ private:
 			@param parentDirectory_ WskaŸnik na katalog utworzenia
 		*/
 		Directory(std::string name_, Directory* parentDirectory_) : name(std::move(name_)), creationTime(),
-		                                                                   parentDirectory(parentDirectory_){}
+		                                                            parentDirectory(parentDirectory_){}
+		virtual ~Directory() = default;
 	};
 
 	class Disk {
@@ -138,12 +161,14 @@ private:
 			//Wektor bitowy bloków (0 - wolny blok, 1 - zajêty blok)
 			std::bitset<DISK_CAPACITY / BLOCK_SIZE> bitVector;
 
+			std::array<iNode, TOTAL_FILE_NUMBER_LIMIT>iNodeTable;
+
 			Directory rootDirectory{ Directory("root", nullptr) }; //Katalog g³ówny
 
 			/**
 				Konstruktor domyœlny. Wykonuje zape³nienie tablicy FileSystem wartoœci¹ -1.
 			*/
-			FileSystem(){}
+			FileSystem() = default;
 		} FileSystem; //System plików FileSystem
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
@@ -187,6 +212,7 @@ private:
 	} DISK; //Prosta klasa dysku (imitacja fizycznego)
 
 	//------------------- Definicje zmiennych -------------------
+	u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	Directory* currentDirectory; //Obecnie u¿ytkowany katalog
 
@@ -251,7 +277,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void DirectoryCreate(const std::string &name) const;
+	void DirectoryCreate(const std::string &name);
 
 	/**
 		Usuwa katalog o podanej nazwie.
@@ -304,6 +330,8 @@ public:
 		@return void.
 	*/
 	void Messages(const bool &onOff);
+
+	void DisplayFileSystemParams() const;
 
 	/**
 		Wyœwietla informacje o wybranym katalogu.
@@ -385,7 +413,7 @@ private:
 		@param file Plik do usuniêcia.
 		@return void.
 	*/
-	void FileDelete(File &file);
+	void FileDelete(File&file);
 
 	/**
 		Zwraca rozmiar podanego katalogu.
@@ -406,14 +434,14 @@ private:
 
 		@return Liczba folderów.
 	*/
-	static const u_int CalculateDirectoryFolderCount(const Directory &directory);
+	static const u_int CalculateDirectoryFolderNumber(const Directory &directory);
 
 	/**
 		Zwraca liczbê plików w danym katalogu i podkatalogach.
 
 		@return Liczba plików.
 	*/
-	static const u_int CalculateDirectoryFileCount(const Directory &directory);
+	static const u_int CalculateDirectoryFileNumber(const Directory &directory);
 
 	/**
 		Zwraca œcie¿kê przekazanego folderu
@@ -478,7 +506,7 @@ private:
 		@param data Dane do zapisania na dysku.
 		@return void.
 	*/
-	void WriteFile(const File &file, const std::string &data);
+	void FileWrite(const File &file, const std::string &data);
 
 	/**
 		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
@@ -499,18 +527,18 @@ private:
 	/**
 		Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
 
-		@param blockCount Liczba bloków na jak¹ szukamy miejsca do alokacji.
+		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<u_int> FindUnallocatedBlocksFragmented(u_int blockCount);
+	const std::vector<u_int> FindUnallocatedBlocksFragmented(u_int blockNumber);
 
 	/*
 		Znajduje nieu¿ywane bloki do zapisania pliku metod¹ best-fit.
 
-		@param blockCount Liczba bloków na jak¹ szukamy miejsca do alokacji.
+		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<u_int> FindUnallocatedBlocksBestFit(const u_int &blockCount);
+	const std::vector<u_int> FindUnallocatedBlocksBestFit(const u_int &blockNumber);
 
 	/*
 		Znajduje nieu¿ywane bloki do zapisania pliku. Najpierw uruchamia funkcjê
@@ -518,10 +546,10 @@ private:
 		uruchamia funkcjê znajduj¹c¹ pierwsze jakiekolwiek wolne bloki i wprowadza
 		fragmentacjê danych.
 
-		@param blockCount Liczba bloków na jak¹ szukamy miejsca do alokacji.
+		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<u_int> FindUnallocatedBlocks(const u_int &blockCount);
+	const std::vector<u_int> FindUnallocatedBlocks(const u_int &blockNumber);
 
 };
 

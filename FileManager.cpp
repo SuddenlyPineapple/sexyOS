@@ -4,13 +4,41 @@
 	Przeznaczenie: Zawiera definicje metod i konstruktorów dla klas z FileManager.h
 
 	@author Tomasz Kiljañczyk
-	@version 30/10/18
+	@version 01/11/18
 */
 
 #include "FileManager.h"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+
+const std::string Serializer::IntToString(unsigned int input) {
+	std::string result;
+
+	while (input != 0)
+	{
+		if (input % 255 == 0)
+		{
+			result.push_back(char(255));
+			input -= 255;
+		}
+		else
+		{
+			result.push_back(input % 255);
+			input -= input % 255;
+		}
+	}
+
+	return result;
+}
+const unsigned Serializer::StringToInt(const std::string& input){
+	unsigned int result = 0;
+	for (const char& c : input)
+	{
+		result += std::bitset<8>(c).to_ulong();
+	}
+	return result;
+}
 
 using u_int = unsigned int;
 
@@ -26,6 +54,8 @@ FileManager::Disk::Disk() {
 	//Zape³nanie naszego dysku zerowymi bajtami (symbolizuje pusty dysk)
 	fill(space.begin(), space.end(), NULL);
 }
+
+
 
 std::shared_ptr<FileManager::Index>& FileManager::IndexBlock::operator[](const size_t &index){
 	return this->value[index];
@@ -84,14 +114,14 @@ void FileManager::FileCreate(const std::string &name, const std::string &data) {
 	//Rozmiar pliku obliczony na podstawie podanych danych
 	const u_int fileSize = CalculateNeededBlocks(data)*BLOCK_SIZE;
 
-	if (currentDirectory->files.size() + currentDirectory->subDirectories.size() < MAX_DIRECTORY_ELEMENTS) {
+	if (fileNumber < TOTAL_FILE_NUMBER_LIMIT) {
 		//Jeœli plik siê zmieœci i nazwa nie u¿yta
-		if (CheckIfEnoughSpace(fileSize) && CheckIfNameUnused(*currentDirectory, name)) {
+		if (CheckIfEnoughSpace(fileSize) && data.size() <= MAX_FILE_SIZE && CheckIfNameUnused(*currentDirectory, name)) {
 			//Jeœli œcie¿ka nie przekracza maksymalnej d³ugoœci
 			if (name.size() + GetCurrentPathLength() < MAX_PATH_LENGTH) {
-				File file = File(name);
-				file.size = fileSize;
-				//Zapisz w plik jego rzeczywisty rozmiar
+				fileNumber++;
+				File file;
+				file.blocksOccupied = fileSize/BLOCK_SIZE;
 				file.sizeOnDisk = data.size();
 
 				//Zapisywanie daty stworzenia pliku
@@ -99,29 +129,27 @@ void FileManager::FileCreate(const std::string &name, const std::string &data) {
 				file.modificationTime = file.creationTime;
 
 				//Lista indeksów bloków, które zostan¹ zaalokowane na potrzeby pliku
-				const std::vector<u_int> blocks = FindUnallocatedBlocks(file.size / BLOCK_SIZE);
+				const std::vector<u_int> blocks = FindUnallocatedBlocks(file.blocksOccupied);
 
-				//Wpisanie bloków do bloku indeksowego
+				//Wpisanie bloków do bezpoœredniego bloku indeksowego
 				for (size_t i = 0; i < BLOCK_DIRECT_INDEX && i < blocks.size(); i++) {
 					file.directBlocks[i] = std::make_shared<Index>(blocks[i]);
 				}
+				//Wpisanie bloków do 1-poziomowego bloku indeksowego
 				if(blocks.size() > BLOCK_DIRECT_INDEX) {
 					file.directBlocks[BLOCK_DIRECT_INDEX] = std::make_shared<IndexBlock>();
-					for (size_t i = 0; i < BLOCK_INDEX_COUNT && i < blocks.size() - BLOCK_DIRECT_INDEX; i++) {
+					for (size_t i = 0; i < BLOCK_INDEX_NUMBER && i < blocks.size() - BLOCK_DIRECT_INDEX; i++) {
 						std::dynamic_pointer_cast<IndexBlock>(file.directBlocks[BLOCK_DIRECT_INDEX])->value[i] = std::make_shared<Index>(blocks[i + BLOCK_DIRECT_INDEX]);
 					}
 				}
 				
-				//Dodanie do pliku indeksu pierwszego bloku na którym jest zapisany
-				//file.FileSystemIndex = blocks[0];
-
 				//Dodanie pliku do obecnego katalogu
-				currentDirectory->files[file.name] = file;
+				currentDirectory->files[name] = file;
 
 				//Zapisanie danych pliku na dysku
-				WriteFile(file, data);
+				FileWrite(file, data);
 
-				if (messages) { std::cout << "Stworzono plik o nazwie '" << file.name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n"; }
+				if (messages) { std::cout << "Stworzono plik o nazwie '" << name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n"; }
 				return;
 			}
 			else { std::cout << "Œcie¿ka za d³uga!\n"; }
@@ -129,6 +157,11 @@ void FileManager::FileCreate(const std::string &name, const std::string &data) {
 		//Jeœli plik siê nie mieœci
 		if (!CheckIfEnoughSpace(fileSize)) {
 			std::cout << "Za ma³o miejsca!\n";
+		}
+		//Jeœli plik jest wiêkszy ni¿ maksymalny dozwolony rozmiar
+		if(data.size() > MAX_FILE_SIZE)
+		{
+			std::cout << "Rozmiar pliku wiêkszy ni¿ maksymalny dozwolony!\n";
 		}
 		//Jeœli nazwa u¿yta
 		if (!CheckIfNameUnused(*currentDirectory, name)) {
@@ -192,7 +225,7 @@ void FileManager::FileTruncate(const std::string &name, const u_int &size) {
 	auto fileIterator = currentDirectory->files.find(name);
 	//Jeœli znaleziono plik
 	if (fileIterator != currentDirectory->files.end()) {
-		if (size <= fileIterator->second.size - BLOCK_SIZE) {
+		if (size <= (fileIterator->second.blocksOccupied - 1)*BLOCK_SIZE) {
 			const u_int sizeToStart = u_int(ceil(double(size) / double(BLOCK_SIZE)))*BLOCK_SIZE;
 			//Zmienna do analizowania, czy ju¿ mo¿na usuwaæ czêœæ pliku
 			u_int currentSize = 0;
@@ -217,9 +250,9 @@ void FileManager::FileTruncate(const std::string &name, const u_int &size) {
 				//zacznij usuwaæ bloki
 				if (currentSize > sizeToStart && index != nullptr) {
 					//Zmniejszenie rozmiaru pliku
-					fileIterator->second.size -= BLOCK_SIZE;
+					fileIterator->second.blocksOccupied -= 1;
 					//Po uciêciu rozmiar i rozmiar rzeczywisty bêd¹ takie same
-					fileIterator->second.sizeOnDisk = fileIterator->second.size;
+					fileIterator->second.sizeOnDisk = fileIterator->second.blocksOccupied*BLOCK_SIZE;
 					//Oznacz obecny indeks jako wolny
 					DISK.FileSystem.bitVector[index->value] = BLOCK_FREE;
 					//Obecny indeks w tablicy FileSystem wskazuje na nic
@@ -232,20 +265,21 @@ void FileManager::FileTruncate(const std::string &name, const u_int &size) {
 					
 				}
 			}
-			if (messages) { std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << fileIterator->second.size << " Bajtów.\n"; }
+			if (messages) { std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << fileIterator->second.blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
 		}
 		else { std::cout << "Podano niepoprawny rozmiar!\n"; }
 	}
 	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
 
-void FileManager::DirectoryCreate(const std::string &name) const
+void FileManager::DirectoryCreate(const std::string &name)
 {
-	if (currentDirectory->files.size() + currentDirectory->subDirectories.size() < MAX_DIRECTORY_ELEMENTS) {
+	if (fileNumber < TOTAL_FILE_NUMBER_LIMIT) {
 		//Jeœli w katalogu nie istnieje podkatalog o podanej nazwie
 		if (currentDirectory->subDirectories.find(name) == currentDirectory->subDirectories.end()) {
 			//Jeœli œcie¿ka nie przekracza maksymalnej d³ugoœci
 			if (name.size() + GetCurrentPathLength() < MAX_PATH_LENGTH) {
+				fileNumber++;
 				//Do podkatalogów obecnego katalogu dodaj nowy katalog o podanej nazwie
 				currentDirectory->subDirectories[name] = Directory(name, &(*currentDirectory));
 				//Zapisanie daty stworzenia katalogu
@@ -315,15 +349,12 @@ void FileManager::FileRename(const std::string &name, const std::string &changeN
 				//Zapisywanie daty modyfikacji pliku
 				file->second.modificationTime = GetCurrentTimeAndDate();
 
-				//Zmiana nazwy pliku
-				file->second.name = changeName;
-
 				//Lokowanie nowego klucza w tablicy hashowej i przypisanie do niego pliku
 				currentDirectory->files[changeName] = file->second;
 				//Usuniêcie starego klucza
 				currentDirectory->files.erase(file);
 
-				if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << currentDirectory->files[changeName].name << "'.\n"; }
+				if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << changeName << "'.\n"; }
 				return;
 			}
 			else { std::cout << "Œcie¿ka za d³uga!\n"; }
@@ -347,6 +378,17 @@ void FileManager::Messages(const bool &onOff) {
 	messages = onOff;
 }
 
+void FileManager::DisplayFileSystemParams() const {
+	std::cout << "Disk capacity: " << DISK_CAPACITY << " Bytes\n";
+	std::cout << "Block size: " << BLOCK_SIZE << " Bytes\n";
+	std::cout << "Max file size: " << MAX_FILE_SIZE << " Bytes\n";
+	std::cout << "Max indexes in block: " << BLOCK_INDEX_NUMBER << " Indexes\n";
+	std::cout << "Max direct indexes in file: " << BLOCK_DIRECT_INDEX << " Indexes\n";
+	std::cout << "Max file number: " << TOTAL_FILE_NUMBER_LIMIT << " Files\n";
+	std::cout << "Max path length: " << MAX_PATH_LENGTH << " Characters\n";
+	std::cout << "Number of files: " << fileNumber << " Files\n";
+}
+
 void FileManager::DisplayDirectoryInfo(const std::string &name) const
 {
 	const auto directoryIterator = currentDirectory->subDirectories.find(name);
@@ -355,7 +397,7 @@ void FileManager::DisplayDirectoryInfo(const std::string &name) const
 		std::cout << "Name: " << directory.name << '\n';
 		std::cout << "Size: " << CalculateDirectorySize(directory) << " Bytes\n";
 		std::cout << "Size on disk: " << CalculateDirectorySize(directory) << " Bytes\n";
-		std::cout << "Contains: " << CalculateDirectoryFileCount(directory) << " Files, " << CalculateDirectoryFolderCount(directory) << " Folders\n";
+		std::cout << "Contains: " << CalculateDirectoryFileNumber(directory) << " Files, " << CalculateDirectoryFolderNumber(directory) << " Folders\n";
 		std::cout << "Created: " << directory.creationTime << '\n';
 	}
 	else { std::cout << "Katalog o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
@@ -365,8 +407,8 @@ void FileManager::DisplayFileInfo(const std::string &name) {
 	const auto fileIterator = currentDirectory->files.find(name);
 	if (fileIterator != currentDirectory->files.end()) {
 		const File file = fileIterator->second;
-		std::cout << "Name: " << file.name << '\n';
-		std::cout << "Size: " << file.size << " Bytes\n";
+		std::cout << "Name: " << name << '\n';
+		std::cout << "Size: " << file.blocksOccupied*BLOCK_SIZE << " Bytes\n";
 		std::cout << "Size on disk: " << file.sizeOnDisk << " Bytes\n";
 		std::cout << "Created: " << file.creationTime << '\n';
 		std::cout << "Modified: " << file.modificationTime << '\n';
@@ -446,10 +488,11 @@ void FileManager::DisplayFileFragments(const std::vector<std::string> &fileFragm
 //-------------------- Metody Pomocnicze --------------------
 
 void FileManager::DirectoryDeleteStructure(Directory &directory) {
+	fileNumber--;
 	//Usuwa wszystkie pliki z katalogu
 	for (auto i = directory.files.begin(); i != directory.files.end(); ++i) {
 		FileDelete(i->second);
-		if (messages) { std::cout << "Usuniêto plik o nazwie '" << i->second.name << "' znajduj¹cy siê w œcie¿ce '" + GetPath(directory) + "'.\n"; }
+		if (messages) { std::cout << "Usuniêto plik o nazwie '" << i->first << "' znajduj¹cy siê w œcie¿ce '" + GetPath(directory) + "'.\n"; }
 	}
 	//Czyœci listê plików w katalogu
 	directory.files.clear();
@@ -464,6 +507,7 @@ void FileManager::DirectoryDeleteStructure(Directory &directory) {
 }
 
 void FileManager::FileDelete(File &file) {
+	fileNumber--;
 	//Obecny indeks
 	u_int indexNumber = 0;
 	std::shared_ptr<Index> index = file.directBlocks[indexNumber];
@@ -492,7 +536,7 @@ const size_t FileManager::CalculateDirectorySize(const Directory &directory)
 
 	//Dodaje rozmiar plików w katalogu do rozmiaru katalogu
 	for (const auto &file : directory.files) {
-		size += file.second.size;
+		size += file.second.blocksOccupied*BLOCK_SIZE;
 	}
 	//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do rozmiaru
 	for (const auto &dir : directory.subDirectories) {
@@ -519,34 +563,34 @@ const size_t FileManager::CalculateDirectorySizeOnDisk(const Directory &director
 	return sizeOnDisk;
 }
 
-const u_int FileManager::CalculateDirectoryFolderCount(const Directory &directory)
+const u_int FileManager::CalculateDirectoryFolderNumber(const Directory &directory)
 {
 	//Iloœæ folderów w danym katalogu
-	u_int folderCount = 0;
+	u_int folderNumber = 0;
 
 	//Dodaje iloœæ folderów w tym folderze do zwracanej zmiennej
-	folderCount += directory.subDirectories.size();
+	folderNumber += directory.subDirectories.size();
 
 	//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do iloœci
 	for (const std::pair<const std::string, Directory> &dir : directory.subDirectories) {
-		folderCount += CalculateDirectoryFolderCount(dir.second);
+		folderNumber += CalculateDirectoryFolderNumber(dir.second);
 	}
-	return folderCount;
+	return folderNumber;
 }
 
-const u_int FileManager::CalculateDirectoryFileCount(const Directory &directory)
+const u_int FileManager::CalculateDirectoryFileNumber(const Directory &directory)
 {
 	//Iloœæ plików w danym katalogu
-	u_int filesCount = 0;
+	u_int filesNumber = 0;
 
 	//Dodaje iloœæ plików w tym folderze do zwracanej zmiennej
-	filesCount += directory.files.size();
+	filesNumber += directory.files.size();
 
 	//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do iloœci
 	for (const std::pair<const std::string, Directory> &dir : directory.subDirectories) {
-		filesCount += CalculateDirectoryFolderCount(dir.second);
+		filesNumber += CalculateDirectoryFolderNumber(dir.second);
 	}
-	return filesCount;
+	return filesNumber;
 }
 
 const std::string FileManager::GetCurrentPath() const
@@ -633,7 +677,7 @@ void FileManager::ChangeBitVectorValue(const u_int &block, const bool &value) {
 	DISK.FileSystem.bitVector[block] = value;
 }
 
-void FileManager::WriteFile(const File &file, const std::string &data) {
+void FileManager::FileWrite(const File &file, const std::string &data) {
 	//Uzyskuje dane podzielone na fragmenty
 	const std::vector<std::string>fileFragments = DataToDataFragments(data);
 	//Index pod którym maj¹ zapisywane byæ dane
@@ -685,7 +729,7 @@ const u_int FileManager::CalculateNeededBlocks(const std::string &data) const
 	return int(ceil(double(data.size()) / double(BLOCK_SIZE)));
 }
 
-const std::vector<u_int> FileManager::FindUnallocatedBlocksFragmented(u_int blockCount) {
+const std::vector<u_int> FileManager::FindUnallocatedBlocksFragmented(u_int blockNumber) {
 	//Lista wolnych bloków
 	std::vector<u_int> blockList;
 
@@ -696,16 +740,16 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksFragmented(u_int bloc
 			//Dodaje indeks bloku
 			blockList.push_back(i);
 			//Potrzeba teraz jeden blok mniej
-			blockCount--;
+			blockNumber--;
 			//Jeœli potrzeba 0 bloków, przerwij
-			if (blockCount == 0) { break; }
+			if (blockNumber == 0) { break; }
 		}
 	}
 	blockList.push_back(-1);
 	return blockList;
 }
 
-const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int &blockCount) {
+const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int &blockNumber) {
 	//Lista indeksów bloków (dopasowanie)
 	std::vector<u_int> blockList;
 	//Najlepsze dopasowanie
@@ -722,12 +766,12 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int &
 		else {
 			//Jeœli uzyskana lista bloków jest wiêksza od iloœci bloków jak¹ chcemy uzyskaæ
 			//to dodaj uzyskane dopasowanie do listy dopasowañ;
-			if (blockList.size() >= blockCount) {
+			if (blockList.size() >= blockNumber) {
 				//Jeœli znalezione dopasowanie mniejsze ni¿ najlepsze dopasowanie
 				if (blockList.size() < bestBlockList.size()) {
 					//Przypisanie nowego najlepszego dopasowania
 					bestBlockList = blockList;
-					if (bestBlockList.size() == blockCount) { break; }
+					if (bestBlockList.size() == blockNumber) { break; }
 				}
 			}
 
@@ -742,7 +786,7 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int &
 	trzeba wykonañ poni¿szy kod. Jeœli ostatni blok w wektorze bitowym
 	bêdzie zajêty to blockList bêdzie pusty i nie spie³ni warunku
 	*/
-	if (blockList.size() >= blockCount) {
+	if (blockList.size() >= blockNumber) {
 		//Jeœli blok wolny
 		if (blockList.size() < bestBlockList.size()) {
 			//Dodaj indeks bloku do listy bloków
@@ -753,7 +797,7 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int &
 	//Jeœli znalezione najlepsze dopasowanie
 	if (bestBlockList.size() < DISK.FileSystem.bitVector.size() + 1) {
 		//Odetnij nadmiarowe indeksy z dopasowania (jeœli wiêksze ni¿ potrzeba)
-		bestBlockList.resize(blockCount);
+		bestBlockList.resize(blockNumber);
 	}
 	//Inaczej zmniejsz dopasowanie do 0, ¿eby po zwróceniu wybrano inn¹ metodê
 	else { bestBlockList.resize(0); }
@@ -761,14 +805,14 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int &
 	return bestBlockList;
 }
 
-const std::vector<u_int> FileManager::FindUnallocatedBlocks(const u_int &blockCount) {
+const std::vector<u_int> FileManager::FindUnallocatedBlocks(const u_int &blockNumber) {
 	//Szuka bloków funkcj¹ z metod¹ best-fit
-	std::vector<u_int> blockList = FindUnallocatedBlocksBestFit(blockCount);
+	std::vector<u_int> blockList = FindUnallocatedBlocksBestFit(blockNumber);
 
 	//Jeœli funkcja z metod¹ best-fit nie znajdzie dopasowañ
 	if (blockList.empty()) {
 		//Szuka niezaalokowanych bloków, wybieraj¹c pierwsze wolne
-		blockList = FindUnallocatedBlocksFragmented(blockCount);
+		blockList = FindUnallocatedBlocksFragmented(blockNumber);
 	}
 
 	return blockList;
