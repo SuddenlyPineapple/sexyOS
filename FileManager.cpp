@@ -49,6 +49,8 @@ std::ostream& operator << (std::ostream &os, const tm &time) {
 	return os;
 }
 
+
+
 //--------------------------- Dysk --------------------------
 
 FileManager::Disk::Disk() {
@@ -78,11 +80,6 @@ void FileManager::Disk::write(const u_int &begin, const u_int &end, const std::s
 	}
 }
 
-void FileManager::Disk::write(const u_int &index, const u_int &data) {
-	//Zapisz liczbê pod danym indeksem
-	space[index] = data;
-}
-
 template<typename T>
 const T FileManager::Disk::read(const u_int &begin, const u_int &end) const {
 	//Dane
@@ -100,6 +97,8 @@ const T FileManager::Disk::read(const u_int &begin, const u_int &end) const {
 	return data;
 }
 
+
+
 //----------------------- FileManager -----------------------
 
 FileManager::FileManager() {
@@ -107,11 +106,13 @@ FileManager::FileManager() {
 	currentDirectory = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.iNodeTable[0]);
 }
 
+
+
 //-------------------- Podstawowe Metody --------------------
 
 void FileManager::FileCreate(const std::string &name, const std::string &data) {
 	//Rozmiar pliku obliczony na podstawie podanych danych
-	const u_int fileSize = CalculateNeededBlocks(data)*BLOCK_SIZE;
+	const u_int fileSize = CalculateNeededBlocks(data.size())*BLOCK_SIZE;
 
 	if (fileNumber < TOTAL_FILE_NUMBER_LIMIT) {
 		//Jeœli plik siê zmieœci i nazwa nie u¿yta
@@ -127,27 +128,12 @@ void FileManager::FileCreate(const std::string &name, const std::string &data) {
 				file->creationTime = GetCurrentTimeAndDate();
 				file->modificationTime = file->creationTime;
 
-				//Lista indeksów bloków, które zostan¹ zaalokowane na potrzeby pliku
-				const std::vector<u_int> blocks = FindUnallocatedBlocks(file->blocksOccupied);
-
-				//Wpisanie bloków do bezpoœredniego bloku indeksowego
-				for (size_t i = 0; i < BLOCK_DIRECT_INDEX && i < blocks.size(); i++) {
-					file->directBlocks[i] = std::make_shared<Index>(blocks[i]);
-				}
-				//Wpisanie bloków do 1-poziomowego bloku indeksowego
-				if (blocks.size() > BLOCK_DIRECT_INDEX) {
-					file->directBlocks[BLOCK_DIRECT_INDEX] = std::make_shared<IndexBlock>();
-					for (size_t i = 0; i < BLOCK_INDEX_NUMBER && i < blocks.size() - BLOCK_DIRECT_INDEX; i++) {
-						std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX])->value[i] = std::make_shared<Index>(blocks[i + BLOCK_DIRECT_INDEX]);
-					}
-				}
+				//Zapisanie danych pliku na dysku
+				FileSaveData(file, data);
 
 				//Dodanie pliku do obecnego katalogu
 				currentDirectory->iNodes[name] = file;
 				ArrayAdd(DISK.FileSystem.iNodeTable, currentDirectory->iNodes[name]);
-
-				//Zapisanie danych pliku na dysku
-				FileWrite(file, data);
 
 				if (messages) { std::cout << "Stworzono plik o nazwie '" << name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n"; }
 				return;
@@ -189,21 +175,59 @@ const std::string FileManager::FileGetData(const std::shared_ptr<File>& file) co
 
 	//Dopóki nie natrafimy na koniec pliku
 	while (index != nullptr) {
-		std::cout << "index value: " << (index != nullptr ? std::to_string(index->value) : "nullptr") << '\n';
 
 		//Dodaje do danych fragment pliku pod wskazanym indeksem
 		data += DISK.read<std::string>(index->value * BLOCK_SIZE, (index->value + 1)*BLOCK_SIZE - 1);
 		//Przypisuje indeksowi kolejny indeks w tablicy FileSystem
 		indexNumber++;
-		if (indexNumber < BLOCK_DIRECT_INDEX) {
+		if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
 			index = file->directBlocks[indexNumber];
 		}
-		else if (file->directBlocks[BLOCK_DIRECT_INDEX] != nullptr) {
-			index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX]))[indexNumber - BLOCK_DIRECT_INDEX];
+		else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
+			index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER];
 		}
 		else { index = nullptr; }
 	}
 	return data;
+}
+
+void FileManager::FileAllocateBlocks(const std::shared_ptr<File> &file, const u_int &neededBlocks) {
+	for (u_int i = 0; i < BLOCK_DIRECT_INDEX_NUMBER; i++) {
+		if (file->directBlocks[i] != nullptr) {
+			DISK.FileSystem.bitVector[file->directBlocks[i]->value] = false;
+		}
+	}
+	for (u_int i = BLOCK_DIRECT_INDEX_NUMBER; i < BLOCK_INDEX_NUMBER; i++) {
+		if (file->directBlocks[i] != nullptr) {
+			for (u_int j = 0; j < BLOCK_INDEX_NUMBER; j++) {
+				if((*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[i]))[j] != nullptr)
+					DISK.FileSystem.bitVector[(*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[i]))[j]->value] = false;
+			}
+		}
+	}
+
+	file->directBlocks.clear();
+	file->blocksOccupied = neededBlocks;
+
+	//Lista indeksów bloków, które zostan¹ zaalokowane na potrzeby pliku
+	const std::vector<u_int> blocks = FindUnallocatedBlocks(neededBlocks);
+
+	//Wpisanie bloków do bezpoœredniego bloku indeksowego
+	for (size_t i = 0; i < BLOCK_DIRECT_INDEX_NUMBER && i < blocks.size(); i++) {
+		file->directBlocks[i] = std::make_shared<Index>(blocks[i]);
+	}
+	//Wpisanie bloków do 1-poziomowego bloku indeksowego
+	if (blocks.size() > BLOCK_DIRECT_INDEX_NUMBER) {
+		file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] = std::make_shared<IndexBlock>();
+		for (size_t i = 0; i < BLOCK_INDEX_NUMBER && i < blocks.size() - BLOCK_DIRECT_INDEX_NUMBER; i++) {
+			std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER])->value[i] = std::make_shared<Index>(blocks[i + BLOCK_DIRECT_INDEX_NUMBER]);
+		}
+	}
+
+	if (detailedMessages) {
+		std::cout << "Zaalokowano bloki: ";
+		for (u_int i = 0; i < blocks.size(); i++) { std::cout << blocks[i] << (i < blocks.size() - 1 ? ", " : ".\n"); }
+	}
 }
 
 void FileManager::FileDelete(const std::string &name) {
@@ -226,6 +250,7 @@ void FileManager::FileDelete(const std::string &name) {
 	else { std::cout << "Plik o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
 
+//!!!!!!!!!!!!!!!!Dokoñczyæ!!!!!!!!!!!!!!!!!!!!!!1
 void FileManager::FileTruncate(const std::string &name, const u_int &size) {
 	//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
 	const auto fileIterator = currentDirectory->iNodes.find(name);
@@ -233,49 +258,95 @@ void FileManager::FileTruncate(const std::string &name, const u_int &size) {
 	if (fileIterator != currentDirectory->iNodes.end()) {
 		if (fileIterator->second->type == "FILE") {
 			std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(fileIterator->second);
-			if (size <= (file->blocksOccupied - 1)*BLOCK_SIZE) {
+			if (size < DISK.FileSystem.freeSpace + file->blocksOccupied * BLOCK_SIZE) {
 				const u_int sizeToStart = u_int(ceil(double(size) / double(BLOCK_SIZE)))*BLOCK_SIZE;
-				//Zmienna do analizowania, czy ju¿ mo¿na usuwaæ czêœæ pliku
+				//Zmienna do analizowania, czy ju¿ mo¿na usuwaæ/dodawaæ bloki do pliku
 				u_int currentSize = 0;
 
 				unsigned int indexNumber = 0;
 				std::shared_ptr<Index> index = file->directBlocks[indexNumber];
 
-				//Dopóki indeks na coœ wskazuje
-				while (index != nullptr) {
-					currentSize += BLOCK_SIZE;
-					if (indexNumber < BLOCK_DIRECT_INDEX) {
-						index = file->directBlocks[indexNumber];
-					}
-					else if (file->directBlocks[BLOCK_DIRECT_INDEX] != nullptr) {
-						index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX]))[indexNumber - BLOCK_DIRECT_INDEX];
-					}
-					else { index = nullptr; }
-					//Spisz kolejny indeks
-					indexNumber++;
-
-					//Jeœli obecny rozmiar przewy¿sza rozmiar potrzebny do rozpoczêcia usuwania
-					//zacznij usuwaæ bloki
-					if (currentSize > sizeToStart && index != nullptr) {
-						//Zmniejszenie rozmiaru pliku
-						file->blocksOccupied -= 1;
-						//Po uciêciu rozmiar i rozmiar rzeczywisty bêd¹ takie same
-						file->sizeOnDisk = file->blocksOccupied*BLOCK_SIZE;
-						//Oznacz obecny indeks jako wolny
-						DISK.FileSystem.bitVector[index->value] = BLOCK_FREE;
-						//Obecny indeks w tablicy FileSystem wskazuje na nic
-						if (indexNumber < BLOCK_DIRECT_INDEX) {
-							file->directBlocks[BLOCK_DIRECT_INDEX] = nullptr;
-						}
-						else if (file->directBlocks[BLOCK_DIRECT_INDEX] != nullptr) {
-							(*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX]))[indexNumber - BLOCK_DIRECT_INDEX] = nullptr;
-						}
-
-					}
+				if (CalculateNeededBlocks(size) == file->blocksOccupied) {
+					if (messages) { std::cout << "Podany rozmiar równy rozmiarowi pliku o nazwie '" << name << "'!\n"; }
+					return;
 				}
-				if (messages) { std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
+				//Jeœli nale¿y zmniejszyæ plik
+				else if (CalculateNeededBlocks(size) < file->blocksOccupied) {
+					//Dopóki indeks na coœ wskazuje
+					while (index != nullptr) {
+						currentSize += BLOCK_SIZE;
+						if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
+							index = file->directBlocks[indexNumber];
+						}
+						else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
+							index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER];
+						}
+						else { index = nullptr; }
+						//Spisz kolejny indeks
+						indexNumber++;
+
+						//Jeœli obecny rozmiar przewy¿sza rozmiar potrzebny do rozpoczêcia usuwania
+						//zacznij usuwaæ bloki
+						if (currentSize > sizeToStart && index != nullptr) {
+							//Zmniejszenie rozmiaru pliku
+							file->blocksOccupied--;
+							//Po uciêciu rozmiar i rozmiar rzeczywisty bêd¹ takie same
+							file->sizeOnDisk = file->blocksOccupied*BLOCK_SIZE;
+							//Oznacz obecny indeks jako wolny
+							DISK.FileSystem.bitVector[index->value] = BLOCK_FREE;
+							//Obecny indeks w tablicy FileSystem wskazuje na nic
+							if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
+								file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
+							}
+							else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
+								(*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
+							}
+						}
+					}
+					if (file->blocksOccupied == BLOCK_INDEX_NUMBER) {
+						file->blocksOccupied--;
+						file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
+					}
+					if (messages) { std::cout << "Zmniejszono plik o nazwie '" << name << "' do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
+				}
+				//Jeœli nale¿y zwiêkszyæ plik
+				else if (CalculateNeededBlocks(size) > file->blocksOccupied) {
+					const u_int neededBlocksNumber = CalculateNeededBlocks(size) - file->blocksOccupied;
+					u_int lastBlockIndex = 0;
+
+					if (file->blocksOccupied <= BLOCK_INDEX_NUMBER) {
+
+					}
+					else {
+						std::shared_ptr<Index> tempIndex;
+						for (u_int i = file->directBlocks.size() - 1; i > BLOCK_DIRECT_INDEX_NUMBER && tempIndex == nullptr; i--) {
+							tempIndex = file->directBlocks[i];
+						}
+						const std::shared_ptr<IndexBlock> tempIndexBlock = std::dynamic_pointer_cast<IndexBlock>(tempIndex);
+						for (u_int i = 0; i < BLOCK_INDEX_NUMBER && tempIndex != nullptr; i++) {
+							lastBlockIndex = tempIndex->value;
+							tempIndex = (*tempIndexBlock)[i];
+						}
+
+						bool fitsAfterLastIndex = true;;
+						for (u_int i = lastBlockIndex + 1; i < lastBlockIndex + neededBlocksNumber + 1; i++) {
+							if (DISK.FileSystem.bitVector[i] == 1) { fitsAfterLastIndex = false; break; }
+						}
+
+						if (fitsAfterLastIndex) {
+
+						}
+						else
+						{
+
+						}
+					}
+
+					std::string dataTemp = FileGetData(file);
+
+				}
 			}
-			else { std::cout << "Podano niepoprawny rozmiar!\n"; }
+			else { std::cout << "Podano za du¿y rozmiar!\n"; }
 		}
 		else { std::cout << "Nazwa " << name << " nie wskazuje na plik!\n"; }
 	}
@@ -354,6 +425,8 @@ void FileManager::DirectoryDown(const std::string &name) {
 	else { std::cout << "Katalog o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 }
 
+
+
 //--------------------- Dodatkowe metody --------------------
 
 void FileManager::FileRename(const std::string &name, const std::string &changeName) const
@@ -395,18 +468,24 @@ void FileManager::DirectoryRoot() {
 	}
 }
 
-//------------------ Metody do wyœwietlania -----------------
-
 void FileManager::Messages(const bool &onOff) {
 	messages = onOff;
 }
+
+void FileManager::DetailedMessages(const bool & onOff) {
+	detailedMessages = onOff;
+}
+
+
+
+//------------------ Metody do wyœwietlania -----------------
 
 void FileManager::DisplayFileSystemParams() const {
 	std::cout << "Disk capacity: " << DISK_CAPACITY << " Bytes\n";
 	std::cout << "Block size: " << BLOCK_SIZE << " Bytes\n";
 	std::cout << "Max file size: " << MAX_FILE_SIZE << " Bytes\n";
 	std::cout << "Max indexes in block: " << BLOCK_INDEX_NUMBER << " Indexes\n";
-	std::cout << "Max direct indexes in file: " << BLOCK_DIRECT_INDEX << " Indexes\n";
+	std::cout << "Max direct indexes in file: " << BLOCK_DIRECT_INDEX_NUMBER << " Indexes\n";
 	std::cout << "Max file number: " << TOTAL_FILE_NUMBER_LIMIT << " Files\n";
 	std::cout << "Max path length: " << MAX_PATH_LENGTH << " Characters\n";
 	std::cout << "Number of files: " << fileNumber << " Files\n";
@@ -486,17 +565,6 @@ void FileManager::DisplayDiskContentChar() {
 	std::cout << '\n';
 }
 
-//void FileManager::DisplayFileAllocationTable() {
-//	u_int index = 0;
-//	for (u_int i = 0; i < DISK.FileSystem.FileAllocationTable.size(); i++) {
-//		if (i % 8 == 0) { std::cout << std::setfill('0') << std::setw(2) << (index / 8) + 1 << ". "; }
-//		std::cout << std::setfill('0') << std::setw(3) << (DISK.FileSystem.FileAllocationTable[i] != u_int(-1) ? std::to_string(DISK.FileSystem.FileAllocationTable[i]) : "NUL")
-//			<< (index % 8 == 7 ? "\n" : " ");
-//		index++;
-//	}
-//	std::cout << '\n';
-//}
-
 void FileManager::DisplayBitVector() {
 	u_int index = 0;
 	for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
@@ -514,6 +582,8 @@ void FileManager::DisplayFileFragments(const std::vector<std::string> &fileFragm
 		std::cout << fileFragment << std::string(BLOCK_SIZE - 1 - fileFragment.size(), ' ') << '\n';
 	}
 }
+
+
 
 //-------------------- Metody Pomocnicze --------------------
 template <typename T, size_t size>
@@ -559,25 +629,33 @@ void FileManager::DirectoryDeleteStructure(const std::shared_ptr<Directory>& dir
 
 void FileManager::FileDelete(const std::shared_ptr<File>& file) {
 	if (file != nullptr) {
+		std::vector<u_int>freedBlocks; //Zmienna u¿yta do wyœwietlenia komunikatu
 		fileNumber--;
 		//Obecny indeks
 		u_int indexNumber = 0;
 		std::shared_ptr<Index> index = file->directBlocks[indexNumber];
 		//Dopóki indeks na coœ wskazuje
 		while (index != nullptr) {
+			freedBlocks.push_back(index->value);
 			//Oznacz obecny indeks jako wolny
 			DISK.FileSystem.bitVector[index->value] = BLOCK_FREE;
 			//Obecny indeks w tablicy FileSystem wskazuje na nic
 			file->directBlocks[indexNumber] = nullptr;
 			//Przypisz do obecnego indeksu kolejny indeks
 			indexNumber++;
-			if (indexNumber < BLOCK_DIRECT_INDEX) {
+			if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
 				index = file->directBlocks[indexNumber];
 			}
-			else if (file->directBlocks[BLOCK_DIRECT_INDEX] != nullptr) {
-				index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX]))[indexNumber - BLOCK_DIRECT_INDEX];
+			else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
+				index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER];
 			}
 			else { index = nullptr; }
+		}
+		if (detailedMessages)
+		{
+			std::sort(freedBlocks.begin(), freedBlocks.end());
+			std::cout << "Zwolniono bloki: ";
+			for (u_int i = 0; i < freedBlocks.size(); i++) { std::cout << freedBlocks[i] << (i < freedBlocks.size() - 1 ? ", " : ".\n"); }
 		}
 	}
 }
@@ -752,29 +830,30 @@ void FileManager::ChangeBitVectorValue(const u_int &block, const bool &value) {
 	DISK.FileSystem.bitVector[block] = value;
 }
 
-void FileManager::FileWrite(const std::shared_ptr<File> &file, const std::string &data) {
+void FileManager::FileSaveData(const std::shared_ptr<File> &file, const std::string &data) {
+	//Alokowanie bloków dla pliku
+	FileAllocateBlocks(file, CalculateNeededBlocks(data.size()));
+
 	//Uzyskuje dane podzielone na fragmenty
 	const std::vector<std::string>fileFragments = DataToDataFragments(data);
 	//Index pod którym maj¹ zapisywane byæ dane
 	u_int indexNumber = 0;
 	std::shared_ptr<Index> index = file->directBlocks[indexNumber];
 
-
-
 	//Zapisuje wszystkie dane na dysku
 	for (const auto& fileFragment : fileFragments)
 	{
 		//Zapisuje fragment na dysku
-		DISK.write(index->value * BLOCK_SIZE, index->value * BLOCK_SIZE + fileFragment.size() - 1, fileFragment);
+		DISK.write(index->value * BLOCK_SIZE, (index->value + 1) * BLOCK_SIZE - 1, fileFragment);
 		//Zmienia wartoœæ bloku w wektorze bitowym na zajêty
 		ChangeBitVectorValue(index->value, BLOCK_OCCUPIED);
 		//Przypisuje do indeksu numer kolejnego bloku
 		indexNumber++;
-		if (indexNumber < BLOCK_DIRECT_INDEX) {
+		if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
 			index = file->directBlocks[indexNumber];
 		}
-		else if (file->directBlocks[BLOCK_DIRECT_INDEX] != nullptr) {
-			index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX]))[indexNumber - BLOCK_DIRECT_INDEX];
+		else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
+			index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER];
 		}
 	}
 }
@@ -785,7 +864,7 @@ const std::vector<std::string> FileManager::DataToDataFragments(const std::strin
 	std::vector<std::string>fileFragments;
 
 	//Przetworzenie ca³ych danych
-	for (u_int i = 0; i < CalculateNeededBlocks(data); i++) {
+	for (u_int i = 0; i < CalculateNeededBlocks(data.size()); i++) {
 		//Oblicza pocz¹tek kolejnej czêœci fragmentu danych.
 		const u_int substrBegin = i * BLOCK_SIZE;
 		//Dodaje do tablicy fragmentów kolejny fragment o d³ugoœci BLOCK_SIZE
@@ -794,14 +873,14 @@ const std::vector<std::string> FileManager::DataToDataFragments(const std::strin
 	return fileFragments;
 }
 
-const u_int FileManager::CalculateNeededBlocks(const std::string &data) const
+const u_int FileManager::CalculateNeededBlocks(const size_t &dataSize) const
 {
 	/*
 	Przybli¿enie w górê rozmiaru pliku przez rozmiar bloku.
 	Jest tak, poniewa¿, jeœli zape³nia chocia¿ o jeden bajt
 	wiêcej przy zajêtym bloku, to trzeba zaalokowaæ wtedy kolejny blok.
 	*/
-	return int(ceil(double(data.size()) / double(BLOCK_SIZE)));
+	return int(ceil(double(dataSize) / double(BLOCK_SIZE)));
 }
 
 const std::vector<u_int> FileManager::FindUnallocatedBlocksFragmented(u_int blockNumber) {

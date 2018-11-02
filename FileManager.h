@@ -50,7 +50,6 @@ public:
 	static const unsigned int StringToInt(const std::string& input);
 };
 
-
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
 	using u_int = unsigned int;
@@ -65,9 +64,9 @@ private:
 	static const bool BLOCK_FREE = false;             //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE;   //Wartoœæ oznaczaj¹ca zajêty blok
 	/**Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks*/
-	static const size_t BLOCK_DIRECT_INDEX = BLOCK_INDEX_NUMBER - 1;
+	static const size_t BLOCK_DIRECT_INDEX_NUMBER = BLOCK_INDEX_NUMBER - 1;
 	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
-	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX + BLOCK_INDEX_NUMBER) * BLOCK_SIZE; 
+	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX_NUMBER + BLOCK_INDEX_NUMBER) * BLOCK_SIZE; 
 
 	//--------------------- Definicje sta³ych -------------------
 
@@ -91,6 +90,9 @@ private:
 
 		IndexBlock() = default;
 		virtual ~IndexBlock() = default;
+
+		const u_int size() const { return value.size(); }
+		void clear() { std::fill(value.begin(), value.end(), nullptr); }
 
 		std::shared_ptr<Index>& operator [] (const size_t &index);
 		const std::shared_ptr<Index>& operator [] (const size_t &index) const;
@@ -198,15 +200,6 @@ private:
 		void write(const u_int &begin, const u_int &end, const std::string &data);
 
 		/**
-			Zapisuje dane (u_int) pod wskazanym indeksem.
-
-			@param index Indeks na którym zapisana zostanie liczba.
-			@param data Liczba typu u_int.
-			@return void.
-		*/
-		void write(const u_int &index, const u_int &data);
-
-		/**
 			Odczytuje dane zadanego typu (jeœli jest on zaimplementowany) w wskazanym przedziale.
 
 			@param begin Indeks od którego dane maj¹ byæ odczytywane.
@@ -220,6 +213,7 @@ private:
 	//------------------- Definicje zmiennych -------------------
 	u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
+	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	std::shared_ptr<Directory> currentDirectory; //Obecnie u¿ywany katalog
 
 public:
@@ -310,6 +304,9 @@ public:
 	void DirectoryDown(const std::string &name);
 
 	//--------------------- Dodatkowe metody --------------------
+
+	void FileAllocateBlocks(const std::shared_ptr<File>& file, const u_int &neededBlocks);
+
 	/**
 		Zmienia nazwê pliku o podanej nazwie.
 
@@ -326,16 +323,19 @@ public:
 	*/
 	void DirectoryRoot();
 
-	//------------------ Metody do wyœwietlania -----------------
 	/**
-		Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.
-		false - komunikaty wy³¹czone.
-		true - komunikaty w³¹czone.
+	Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.
+	false - komunikaty wy³¹czone.
+	true - komunikaty w³¹czone.
 
-		@param onOff Czy komunikaty maj¹ byæ w³¹czone.
-		@return void.
-	*/
+	@param onOff Czy komunikaty maj¹ byæ w³¹czone.
+	@return void.
+*/
 	void Messages(const bool &onOff);
+
+	void DetailedMessages(const bool &onOff);
+
+	//------------------ Metody do wyœwietlania -----------------
 
 	void DisplayFileSystemParams() const;
 
@@ -381,13 +381,6 @@ public:
 		@return void.
 	*/
 	void DisplayDiskContentChar();
-
-	//**
-	//	Wyœwietla tablicê alokacji plików (FileSystem).
-	//
-	//	@return void.
-	//*/
-	//void DisplayFileAllocationTable();
 
 	/**
 		Wyœwietla wektor bitowy.
@@ -514,11 +507,12 @@ private:
 	/**
 		Zapisuje wektor fragmentów File.data na dysku.
 
+		@param name Nazwa pliku.
 		@param file Plik, którego dane bêd¹ zapisane na dysku.
 		@param data Dane do zapisania na dysku.
 		@return void.
 	*/
-	void FileWrite(const std::shared_ptr<File> &file, const std::string &data);
+	void FileSaveData(const std::shared_ptr<File> &file, const std::string &data);
 
 	/**
 		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
@@ -531,10 +525,10 @@ private:
 	/**
 		Oblicza ile bloków zajmie podany string.
 
-		@param data String, którego rozmiar na dysku, bêdzie obliczany.
+		@param dataSize D³ugoœæ danych, których rozmiar na dysku bêdzie obliczany.
 		@return Iloœæ bloków jak¹ zajmie string.
 	*/
-	const u_int CalculateNeededBlocks(const std::string &data) const;
+	const u_int CalculateNeededBlocks(const size_t &dataSize) const;
 
 	/**
 		Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
