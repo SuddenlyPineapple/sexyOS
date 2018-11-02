@@ -4,7 +4,7 @@
 	Przeznaczenie: Zawiera klasy Disk i FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 01/11/18
+	@version 02/11/18
 */
 
 #ifndef SEXYOS_FILEMANAGER_H
@@ -18,8 +18,6 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
-
-#include<iostream>
 
 /*
 	To-do:
@@ -59,21 +57,23 @@ class FileManager {
 
 private:
 	//--------------- Definicje sta³ych statycznych -------------
-	static const size_t BLOCK_SIZE = 32;				 //Rozmiar bloku (bajty)
-	static const size_t DISK_CAPACITY = 1024;        //Pojemnoœæ dysku (bajty)
-	static const size_t BLOCK_INDEX_NUMBER = 3;		 //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
+	static const size_t BLOCK_SIZE = 32;			  //Rozmiar bloku (bajty)
+	static const size_t DISK_CAPACITY = 1024;         //Pojemnoœæ dysku (bajty)
+	static const size_t BLOCK_INDEX_NUMBER = 3;		  //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
 	static const size_t TOTAL_FILE_NUMBER_LIMIT = 32; //Maksymalna iloœæ elementów w katalogu
-	static const size_t BLOCK_DIRECT_INDEX = BLOCK_INDEX_NUMBER - 1; //Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks
-	static const bool BLOCK_FREE = false;            //Wartoœæ oznaczaj¹ca wolny blok
-	static const bool BLOCK_OCCUPIED = !BLOCK_FREE;  //Wartoœæ oznaczaj¹ca zajêty blok
-	static const size_t MAX_PATH_LENGTH = 32;		 //Maksymalna d³ugoœæ œcie¿ki
-	//Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów
+	static const size_t MAX_PATH_LENGTH = 32;		  //Maksymalna d³ugoœæ œcie¿ki
+	static const bool BLOCK_FREE = false;             //Wartoœæ oznaczaj¹ca wolny blok
+	static const bool BLOCK_OCCUPIED = !BLOCK_FREE;   //Wartoœæ oznaczaj¹ca zajêty blok
+	/**Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks*/
+	static const size_t BLOCK_DIRECT_INDEX = BLOCK_INDEX_NUMBER - 1;
+	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
 	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX + BLOCK_INDEX_NUMBER) * BLOCK_SIZE; 
 
 	//--------------------- Definicje sta³ych -------------------
 
 	//---------------- Definicje struktur i klas ----------------
 
+	//Klasa indeksu
 	class Index {
 	public:
 		u_int value; //Wartoœæ indeksu
@@ -82,6 +82,8 @@ private:
 		explicit Index(const u_int &value) : value(value){}
 		virtual ~Index() = default;
 	};
+
+	//Klasa bloku indeksowego
 	class IndexBlock : public Index {
 	public:
 		//Tablica indeksów/bloków indeksowych
@@ -107,14 +109,16 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		iNode() = default;
+		explicit iNode(std::string type_) : type(std::move(type_)), creationTime() {};
+		virtual ~iNode() = default;
 	};
 
+	//Klasa pliku
 	class File : public iNode {
 	public:
 		//Podstawowe informacje
-		size_t blocksOccupied; //Iloœæ zajmowanych bloków
-		size_t sizeOnDisk; //Rozmiar pliku na dysku
+		size_t blocksOccupied;   //Iloœæ zajmowanych bloków
+		size_t sizeOnDisk;       //Rozmiar pliku na dysku
 		IndexBlock directBlocks; //Bezpoœrednie bloki (na koñcu 1 blok indeksowy 1-poziomu)
 
 		//Dodatkowe informacje
@@ -123,36 +127,35 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		File() = default;
+		File() : iNode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime(){}
+
 		virtual ~File() = default;
 	};
 
-	//Struktura katalogu
-	class Directory : iNode {
+	//Klasa katalogu
+	class Directory : public iNode {
 	public:
-		std::string name;  //Nazwa katalogu
-		tm creationTime;   //Czas i data utworzenia katalogu
+		std::string name; //Nazwa katalogu
+		tm creationTime;  //Czas i data utworzenia katalogu
 
-		std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
-		std::unordered_map<std::string, Directory>subDirectories; //Tablica hashowa podkatalogów
-		Directory* parentDirectory; //WskaŸnik na katalog nadrzêdny
-
-		/**
-			Konstruktor domyœlny.
-		*/
-		Directory() = default;
-
+		std::unordered_map<std::string, std::shared_ptr<iNode>> iNodes; //Tablica hashowa iNode
+		std::shared_ptr<Directory> parentDirectory; //WskaŸnik na katalog nadrzêdny
+		//std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
+		//std::unordered_map<std::string, std::shared_ptr<Directory>>subDirectories; //Tablica hashowa podkatalogów
+		
 		/**
 			Konstruktor inicjalizuj¹cy pole name i parentDirectory podanymi zmiennymi.
 
 			@param name_ Nazwa pliku.
 			@param parentDirectory_ WskaŸnik na katalog utworzenia
 		*/
-		Directory(std::string name_, Directory* parentDirectory_) : name(std::move(name_)), creationTime(),
-		                                                            parentDirectory(parentDirectory_){}
+		Directory(std::string name_, std::shared_ptr<Directory> parentDirectory_) 
+										   : iNode("DIRECTORY"), name(std::move(name_)), creationTime(),
+											 parentDirectory(std::move(parentDirectory_)){}
 		virtual ~Directory() = default;
 	};
 
+	//Prosta klasa dysku (imitacja fizycznego)
 	class Disk {
 	public:
 		struct FileSystem {
@@ -161,14 +164,17 @@ private:
 			//Wektor bitowy bloków (0 - wolny blok, 1 - zajêty blok)
 			std::bitset<DISK_CAPACITY / BLOCK_SIZE> bitVector;
 
-			std::array<iNode, TOTAL_FILE_NUMBER_LIMIT>iNodeTable;
+			/**
+			 Tablica iNode. Pierwszy wpis to katalog g³ówny.
+			 */
+			std::array<std::shared_ptr<iNode>, TOTAL_FILE_NUMBER_LIMIT> iNodeTable;
 
-			Directory rootDirectory{ Directory("root", nullptr) }; //Katalog g³ówny
+			std::shared_ptr<Directory>rootDirectory = std::make_shared<Directory>("root", nullptr); //Katalog g³ówny
 
 			/**
-				Konstruktor domyœlny. Wykonuje zape³nienie tablicy FileSystem wartoœci¹ -1.
+				Konstruktor domyœlny. Wpisuje katalog g³ówny do tablicy iWêz³ów.
 			*/
-			FileSystem() = default;
+			FileSystem() { iNodeTable[0] = rootDirectory; }
 		} FileSystem; //System plików FileSystem
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
@@ -208,13 +214,13 @@ private:
 			@return zmienna zadanego typu.
 		*/
 		template<typename T>
-		const T read(const u_int &begin, const u_int &end);
-	} DISK; //Prosta klasa dysku (imitacja fizycznego)
+		const T read(const u_int &begin, const u_int &end) const;
+	} DISK; 
 
 	//------------------- Definicje zmiennych -------------------
 	u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
-	Directory* currentDirectory; //Obecnie u¿ytkowany katalog
+	std::shared_ptr<Directory> currentDirectory; //Obecnie u¿ywany katalog
 
 public:
 	//----------------------- Konstruktor -----------------------
@@ -227,7 +233,7 @@ public:
 	/**
 		Tworzy plik o podanej nazwie i danych w obecnym katalogu.
 
-		@param name Nazwa pliku
+		@param name Nazwa pliku.
 		@param data Dane typu string.
 		@return void.
 	*/
@@ -240,7 +246,7 @@ public:
 		@param name Nazwa pliku.
 		@return Tymczasowo zwraca dane wczytane z dysku.
 	*/
-	const std::string FileOpen(const std::string &name);
+	const std::string FileOpen(const std::string &name) const;
 	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 
 	/**
@@ -249,7 +255,7 @@ public:
 		@param file Plik, którego dane maj¹ byæ wczytane.
 		@return Dane pliku w postaci string.
 	*/
-	const std::string FileGetData(const File &file);
+	const std::string FileGetData(const std::shared_ptr<File>& file) const;
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
@@ -345,7 +351,7 @@ public:
 
 		@return void.
 	*/
-	void DisplayFileInfo(const std::string &name);
+	void DisplayFileInfo(const std::string &name) const;
 
 	/**
 		Wyœwietla strukturê katalogów.
@@ -360,7 +366,7 @@ public:
 		@param level Poziom obecnego katalogu w hierarchii katalogów.
 		@return void.
 	*/
-	static void DisplayDirectory(const Directory &directory, u_int level);
+	static void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
 
 	/**
 		Wyœwietla zawartoœæ dysku w formie binarnej.
@@ -399,13 +405,19 @@ public:
 
 private:
 	//-------------------- Metody Pomocnicze --------------------
+	template<typename T, size_t size>
+	void ArrayErase(std::array<std::shared_ptr<T>, size> &array, std::shared_ptr<T> input);
+
+	template<typename T, size_t size>
+	void ArrayAdd(std::array<std::shared_ptr<T>, size> &array, std::shared_ptr<T> input);
+
 	/**
 		Usuwa ca³¹ strukturê katalogów.
 
 		@param directory Katalog do usuniêcia.
 		@return Rozmiar podanego katalogu.
 	*/
-	void DirectoryDeleteStructure(Directory &directory);
+	void DirectoryDeleteStructure(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Usuwa wskazany plik.
@@ -413,35 +425,35 @@ private:
 		@param file Plik do usuniêcia.
 		@return void.
 	*/
-	void FileDelete(File&file);
+	void FileDelete(const std::shared_ptr<File>& file);
 
 	/**
 		Zwraca rozmiar podanego katalogu.
 
 		@return Rozmiar podanego katalogu.
 	*/
-	static const size_t CalculateDirectorySize(const Directory &directory);
+	static const size_t CalculateDirectorySize(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca rzeczywisty rozmiar podanego katalogu.
 
 		@return Rzeczywisty rozmiar podanego katalogu.
 	*/
-	static const size_t CalculateDirectorySizeOnDisk(const Directory &directory);
+	static const size_t CalculateDirectorySizeOnDisk(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca liczbê folderów (katalogów) w danym katalogu i podkatalogach.
 
 		@return Liczba folderów.
 	*/
-	static const u_int CalculateDirectoryFolderNumber(const Directory &directory);
+	static const u_int CalculateDirectoryFolderNumber(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca liczbê plików w danym katalogu i podkatalogach.
 
 		@return Liczba plików.
 	*/
-	static const u_int CalculateDirectoryFileNumber(const Directory &directory);
+	static const u_int CalculateDirectoryFileNumber(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca œcie¿kê przekazanego folderu
@@ -449,7 +461,7 @@ private:
 		@param directory Katalog, którego œciê¿kê chcemy otrzymaæ.
 		@return Obecna œcie¿ka z odpowiednim formatowaniem.
 	*/
-	static const std::string GetPath(const Directory &directory);
+	static const std::string GetPath(std::shared_ptr<Directory> directory);
 
 	/**
 		Zwraca obecnie u¿ywan¹ œcie¿kê.
@@ -479,7 +491,7 @@ private:
 		@param name Nazwa pliku
 		@return Prawda, jeœli nazwa nieu¿ywana, inaczej fa³sz.
 	*/
-	static const bool CheckIfNameUnused(const Directory &directory, const std::string &name);
+	static const bool CheckIfNameUnused(const std::shared_ptr<Directory>& directory, const std::string &name);
 
 	/**
 		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
@@ -506,7 +518,7 @@ private:
 		@param data Dane do zapisania na dysku.
 		@return void.
 	*/
-	void FileWrite(const File &file, const std::string &data);
+	void FileWrite(const std::shared_ptr<File> &file, const std::string &data);
 
 	/**
 		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
