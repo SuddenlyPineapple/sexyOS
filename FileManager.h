@@ -66,7 +66,7 @@ private:
 	/**Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks*/
 	static const u_int BLOCK_DIRECT_INDEX_NUMBER = BLOCK_INDEX_NUMBER - 1;
 	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
-	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX_NUMBER + BLOCK_INDEX_NUMBER) * BLOCK_SIZE; 
+	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX_NUMBER + (BLOCK_INDEX_NUMBER - BLOCK_DIRECT_INDEX_NUMBER)*BLOCK_INDEX_NUMBER) * BLOCK_SIZE;
 
 	//--------------------- Definicje sta³ych -------------------
 
@@ -78,7 +78,7 @@ private:
 		u_int value; //Wartoœæ indeksu
 
 		Index() : value(NULL) {}
-		explicit Index(const u_int &value) : value(value){}
+		explicit Index(const u_int &value) : value(value) {}
 		virtual ~Index() = default;
 	};
 
@@ -99,7 +99,7 @@ private:
 	};
 
 	//Klasa i-wêz³a
-	class Inode{
+	class Inode {
 	public:
 		//Podstawowe informacje
 		std::string type;
@@ -129,7 +129,7 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		File() : Inode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime(){}
+		File() : Inode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime() {}
 
 		virtual ~File() = default;
 	};
@@ -144,16 +144,16 @@ private:
 		std::string parentDirectory; //WskaŸnik na katalog nadrzêdny
 		//std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
 		//std::unordered_map<std::string, std::shared_ptr<Directory>>subDirectories; //Tablica hashowa podkatalogów
-		
+
 		/**
 			Konstruktor inicjalizuj¹cy pole name i parentDirectory podanymi zmiennymi.
 
 			@param name_ Nazwa pliku.
 			@param parentDirectory_ WskaŸnik na katalog utworzenia
 		*/
-		Directory(std::string parentDirectory_) 
-										   : Inode("DIRECTORY"), creationTime(),
-											 parentDirectory(std::move(parentDirectory_)){}
+		Directory(std::string parentDirectory_)
+			: Inode("DIRECTORY"), creationTime(),
+			parentDirectory(std::move(parentDirectory_)) {}
 		virtual ~Directory() = default;
 
 		bool operator == (const Directory &dir);
@@ -210,7 +210,7 @@ private:
 		*/
 		template<typename T>
 		const T read(const u_int &begin, const u_int &end) const;
-	} DISK; 
+	} DISK;
 
 	//------------------- Definicje zmiennych -------------------
 	u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
@@ -262,16 +262,7 @@ public:
 	*/
 	bool FileDelete(const std::string &name);
 
-	/**
-		Zmniejsza plik do podanego rozmiaru. Podany rozmiar
-		musi byæ mniejszy od rozmiaru pliku o conajmniej jedn¹
-		jednostkê alokacji
-
-		@param name Nazwa pliku.
-		@param size Rozmiar do którego plik ma byæ zmniejszony.
-		@return void.
-	*/
-	bool FileTruncate(const std::string &name, const u_int &size);
+	bool FileSaveData(const std::string& name, const std::string& data);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -306,8 +297,6 @@ public:
 
 	//--------------------- Dodatkowe metody --------------------
 
-	void FileAllocateBlocks(const std::shared_ptr<File>& file, const u_int &neededBlocks);
-
 	/**
 		Zmienia nazwê pliku o podanej nazwie.
 
@@ -316,7 +305,7 @@ public:
 		@return void.
 	*/
 	bool FileRename(const std::string &name, const std::string &changeName);
-	
+
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
 
@@ -378,7 +367,7 @@ public:
 
 	/**
 		Wyœwietla zawartoœæ dysku jako znaki.
-	    '.' - puste pole.
+		'.' - puste pole.
 
 		@return void.
 	*/
@@ -394,11 +383,15 @@ public:
 private:
 	//-------------------- Metody Pomocnicze --------------------
 
-	void FileAllocationIncrease(std::shared_ptr<File> &file, const u_int &size);
+	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int> &blocks) const;
 
-	void FileAllocationDecrease(std::shared_ptr<File> &file, const u_int &size);
+	void FileAllocateBlocks(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks);
 
-	void FileDeallocate(std::shared_ptr<File> &file);
+	void FileAllocationIncrease(std::shared_ptr<File>& file, const u_int &neededBlocks);
+
+	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int &neededBlocks);
+
+	void FileDeallocate(const std::shared_ptr<File>& file);
 
 	template<typename T, size_t size>
 	void ArrayErase(std::array<std::shared_ptr<T>, size> &array, std::shared_ptr<T> input);
@@ -506,6 +499,18 @@ private:
 	*/
 	void ChangeBitVectorValue(const u_int &block, const bool &value);
 
+
+	/**
+		Zmniejsza plik do podanego rozmiaru. Podany rozmiar
+		musi byæ mniejszy od rozmiaru pliku o conajmniej jedn¹
+		jednostkê alokacji
+
+		@param name Nazwa pliku.
+		@param size Rozmiar do którego plik ma byæ zmniejszony.
+		@return void.
+	*/
+	void FileTruncate(std::shared_ptr<File> file, const u_int &neededBlocks);
+
 	/**
 		Zapisuje wektor fragmentów File.data na dysku.
 
@@ -513,7 +518,7 @@ private:
 		@param data Dane do zapisania na dysku.
 		@return void.
 	*/
-	void FileSaveData(const std::shared_ptr<File> &file, const std::string &data);
+	void FileSaveData(std::shared_ptr<File> &file, const std::string &data);
 
 	/**
 		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
