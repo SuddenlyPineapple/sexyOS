@@ -21,7 +21,7 @@
 
 /*
 	To-do:
-	- iNode
+	- Inode
 	- otwieranie i zamykanie pliku
 	- plik flagi
 	- defragmentator
@@ -52,19 +52,19 @@ public:
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
+private:
 	using u_int = unsigned int;
 
-private:
 	//--------------- Definicje sta³ych statycznych -------------
 	static const size_t BLOCK_SIZE = 32;			  //Rozmiar bloku (bajty)
 	static const size_t DISK_CAPACITY = 1024;         //Pojemnoœæ dysku (bajty)
-	static const size_t BLOCK_INDEX_NUMBER = 3;		  //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
-	static const size_t TOTAL_FILE_NUMBER_LIMIT = 32; //Maksymalna iloœæ elementów w katalogu
-	static const size_t MAX_PATH_LENGTH = 32;		  //Maksymalna d³ugoœæ œcie¿ki
+	static const u_int BLOCK_INDEX_NUMBER = 3;		  //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
+	static const u_int TOTAL_INODE_NUMBER_LIMIT = 32;  //Maksymalna iloœæ elementów w katalogu
+	static const u_int MAX_PATH_LENGTH = 32;		  //Maksymalna d³ugoœæ œcie¿ki
 	static const bool BLOCK_FREE = false;             //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE;   //Wartoœæ oznaczaj¹ca zajêty blok
 	/**Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks*/
-	static const size_t BLOCK_DIRECT_INDEX_NUMBER = BLOCK_INDEX_NUMBER - 1;
+	static const u_int BLOCK_DIRECT_INDEX_NUMBER = BLOCK_INDEX_NUMBER - 1;
 	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
 	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX_NUMBER + BLOCK_INDEX_NUMBER) * BLOCK_SIZE; 
 
@@ -98,25 +98,25 @@ private:
 		const std::shared_ptr<Index>& operator [] (const size_t &index) const;
 	};
 
-	//Struktura I-wêz³a
-	class iNode{
+	//Klasa i-wêz³a
+	class Inode{
 	public:
 		//Podstawowe informacje
 		std::string type;
 
 		//Dodatkowe informacje
 		tm creationTime;	 //Czas i data utworzenia
-		std::string creator; //Nazwa u¿ytkownika, który utworzy³ iNode
+		std::string creator; //Nazwa u¿ytkownika, który utworzy³ Inode
 
 		/**
 			Konstruktor domyœlny.
 		*/
-		explicit iNode(std::string type_) : type(std::move(type_)), creationTime() {};
-		virtual ~iNode() = default;
+		explicit Inode(std::string type_) : type(std::move(type_)), creationTime() {};
+		virtual ~Inode() = default;
 	};
 
-	//Klasa pliku
-	class File : public iNode {
+	//Klasa pliku dziedzicz¹ca po i-wêŸle
+	class File : public Inode {
 	public:
 		//Podstawowe informacje
 		size_t blocksOccupied;   //Iloœæ zajmowanych bloków
@@ -129,19 +129,19 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		File() : iNode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime(){}
+		File() : Inode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime(){}
 
 		virtual ~File() = default;
 	};
 
-	//Klasa katalogu
-	class Directory : public iNode {
+	//Klasa katalogu dziedzicz¹ po i-wêŸle
+	class Directory : public Inode {
 	public:
-		std::string name; //Nazwa katalogu
+		//std::string name; //Nazwa katalogu
 		tm creationTime;  //Czas i data utworzenia katalogu
 
-		std::unordered_map<std::string, std::shared_ptr<iNode>> iNodes; //Tablica hashowa iNode
-		std::shared_ptr<Directory> parentDirectory; //WskaŸnik na katalog nadrzêdny
+		std::unordered_map<std::string, std::string> Inodes; //Tablica hashowa Inode
+		std::string parentDirectory; //WskaŸnik na katalog nadrzêdny
 		//std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
 		//std::unordered_map<std::string, std::shared_ptr<Directory>>subDirectories; //Tablica hashowa podkatalogów
 		
@@ -151,10 +151,12 @@ private:
 			@param name_ Nazwa pliku.
 			@param parentDirectory_ WskaŸnik na katalog utworzenia
 		*/
-		Directory(std::string name_, std::shared_ptr<Directory> parentDirectory_) 
-										   : iNode("DIRECTORY"), name(std::move(name_)), creationTime(),
+		Directory(std::string parentDirectory_) 
+										   : Inode("DIRECTORY"), creationTime(),
 											 parentDirectory(std::move(parentDirectory_)){}
 		virtual ~Directory() = default;
+
+		bool operator == (const Directory &dir);
 	};
 
 	//Prosta klasa dysku (imitacja fizycznego)
@@ -167,16 +169,16 @@ private:
 			std::bitset<DISK_CAPACITY / BLOCK_SIZE> bitVector;
 
 			/**
-			 Tablica iNode. Pierwszy wpis to katalog g³ówny.
+			 Mapa Inode.
 			 */
-			std::array<std::shared_ptr<iNode>, TOTAL_FILE_NUMBER_LIMIT> iNodeTable;
+			std::unordered_map<std::string, std::shared_ptr<Inode>> InodeTable;
 
-			std::shared_ptr<Directory>rootDirectory = std::make_shared<Directory>("root", nullptr); //Katalog g³ówny
+			std::string rootDirectory = "root/"; //Katalog g³ówny
 
 			/**
 				Konstruktor domyœlny. Wpisuje katalog g³ówny do tablicy iWêz³ów.
 			*/
-			FileSystem() { iNodeTable[0] = rootDirectory; }
+			FileSystem() { InodeTable[rootDirectory] = std::make_shared<Directory>(""); }
 		} FileSystem; //System plików FileSystem
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
@@ -213,8 +215,8 @@ private:
 	//------------------- Definicje zmiennych -------------------
 	u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
-	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
-	std::shared_ptr<Directory> currentDirectory; //Obecnie u¿ywany katalog
+	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania szczegó³owych powiadomieñ
+	std::string currentDirectory; //Obecnie u¿ywany katalog
 
 public:
 	//----------------------- Konstruktor -----------------------
@@ -231,7 +233,7 @@ public:
 		@param data Dane typu string.
 		@return void.
 	*/
-	void FileCreate(const std::string &name, const std::string &data);
+	bool FileCreate(const std::string &name, const std::string &data);
 
 	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 	/**
@@ -258,7 +260,7 @@ public:
 		@param name Nazwa pliku.
 		@return void.
 	*/
-	void FileDelete(const std::string &name);
+	bool FileDelete(const std::string &name);
 
 	/**
 		Zmniejsza plik do podanego rozmiaru. Podany rozmiar
@@ -269,7 +271,7 @@ public:
 		@param size Rozmiar do którego plik ma byæ zmniejszony.
 		@return void.
 	*/
-	void FileTruncate(const std::string &name, const u_int &size);
+	bool FileTruncate(const std::string &name, const u_int &size);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -277,7 +279,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void DirectoryCreate(const std::string &name);
+	bool DirectoryCreate(const std::string &name);
 
 	/**
 		Usuwa katalog o podanej nazwie.
@@ -285,8 +287,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void DirectoryDelete(const std::string &name);
-
+	bool DirectoryDelete(const std::string &name);
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu nadrzêdnego.
@@ -314,7 +315,7 @@ public:
 		@param changeName Zmieniona nazwa pliku.
 		@return void.
 	*/
-	void FileRename(const std::string &name, const std::string &changeName) const;
+	bool FileRename(const std::string &name, const std::string &changeName);
 	
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
@@ -344,21 +345,21 @@ public:
 
 		@return void.
 	*/
-	void DisplayDirectoryInfo(const std::string &name) const;
+	bool DisplayDirectoryInfo(const std::string &name);
 
 	/**
 		Wyœwietla informacje o pliku.
 
 		@return void.
 	*/
-	void DisplayFileInfo(const std::string &name) const;
+	bool DisplayFileInfo(const std::string &name);
 
 	/**
 		Wyœwietla strukturê katalogów.
 
 		@return void.
 	*/
-	void DisplayDirectoryStructure() const;
+	void DisplayDirectoryStructure();
 	/**
 		Wyœwietla rekurencyjnie katalog i jego podkatalogi.
 
@@ -366,7 +367,7 @@ public:
 		@param level Poziom obecnego katalogu w hierarchii katalogów.
 		@return void.
 	*/
-	static void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
+	void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
 
 	/**
 		Wyœwietla zawartoœæ dysku w formie binarnej.
@@ -376,7 +377,8 @@ public:
 	void DisplayDiskContentBinary();
 
 	/**
-		Wyœwietla zawartoœæ dysku w znaków.
+		Wyœwietla zawartoœæ dysku jako znaki.
+	    '.' - puste pole.
 
 		@return void.
 	*/
@@ -389,15 +391,15 @@ public:
 	*/
 	void DisplayBitVector();
 
-	/**
-		Wyœwietla plik podzielony na fragmenty.
-
-		@return void.
-	*/
-	static void DisplayFileFragments(const std::vector<std::string> &fileFragments);
-
 private:
 	//-------------------- Metody Pomocnicze --------------------
+
+	void FileAllocationIncrease(std::shared_ptr<File> &file, const u_int &size);
+
+	void FileAllocationDecrease(std::shared_ptr<File> &file, const u_int &size);
+
+	void FileDeallocate(std::shared_ptr<File> &file);
+
 	template<typename T, size_t size>
 	void ArrayErase(std::array<std::shared_ptr<T>, size> &array, std::shared_ptr<T> input);
 
@@ -410,7 +412,7 @@ private:
 		@param directory Katalog do usuniêcia.
 		@return Rozmiar podanego katalogu.
 	*/
-	void DirectoryDeleteStructure(const std::shared_ptr<Directory>& directory);
+	void DirectoryDeleteStructure(std::shared_ptr<Directory>& directory);
 
 	/**
 		Usuwa wskazany plik.
@@ -418,35 +420,35 @@ private:
 		@param file Plik do usuniêcia.
 		@return void.
 	*/
-	void FileDelete(const std::shared_ptr<File>& file);
+	void FileDelete(std::shared_ptr<File>& file);
 
 	/**
 		Zwraca rozmiar podanego katalogu.
 
 		@return Rozmiar podanego katalogu.
 	*/
-	static const size_t CalculateDirectorySize(const std::shared_ptr<Directory>& directory);
+	const size_t CalculateDirectorySize(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca rzeczywisty rozmiar podanego katalogu.
 
 		@return Rzeczywisty rozmiar podanego katalogu.
 	*/
-	static const size_t CalculateDirectorySizeOnDisk(const std::shared_ptr<Directory>& directory);
+	const size_t CalculateDirectorySizeOnDisk(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca liczbê folderów (katalogów) w danym katalogu i podkatalogach.
 
 		@return Liczba folderów.
 	*/
-	static const u_int CalculateDirectoryFolderNumber(const std::shared_ptr<Directory>& directory);
+	const u_int CalculateDirectoryFolderNumber(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca liczbê plików w danym katalogu i podkatalogach.
 
 		@return Liczba plików.
 	*/
-	static const u_int CalculateDirectoryFileNumber(const std::shared_ptr<Directory>& directory);
+	const u_int CalculateDirectoryFileNumber(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca œcie¿kê przekazanego folderu
@@ -454,7 +456,7 @@ private:
 		@param directory Katalog, którego œciê¿kê chcemy otrzymaæ.
 		@return Obecna œcie¿ka z odpowiednim formatowaniem.
 	*/
-	static const std::string GetPath(std::shared_ptr<Directory> directory);
+	const std::string GetPath(const std::shared_ptr<Directory>& directory);
 
 	/**
 		Zwraca obecnie u¿ywan¹ œcie¿kê.
@@ -484,7 +486,7 @@ private:
 		@param name Nazwa pliku
 		@return Prawda, jeœli nazwa nieu¿ywana, inaczej fa³sz.
 	*/
-	static const bool CheckIfNameUnused(const std::shared_ptr<Directory>& directory, const std::string &name);
+	const bool CheckIfNameUnused(const std::string& directory, const std::string &name);
 
 	/**
 		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
@@ -507,7 +509,6 @@ private:
 	/**
 		Zapisuje wektor fragmentów File.data na dysku.
 
-		@param name Nazwa pliku.
 		@param file Plik, którego dane bêd¹ zapisane na dysku.
 		@param data Dane do zapisania na dysku.
 		@return void.
