@@ -21,10 +21,9 @@
 
 /*
 	To-do:
-	- Inode
-	- otwieranie i zamykanie pliku
+	- otwieranie i zamykanie pliku (zale¿y czy mój zakres zadania)
 	- plik flagi
-	- defragmentator
+	- defragmentator (bardzo opcjonalne)
 	- zapisywanie plików z kodem asemblerowym
 	- pliki executable
 */
@@ -59,7 +58,7 @@ private:
 	static const size_t BLOCK_SIZE = 32;			  //Rozmiar bloku (bajty)
 	static const size_t DISK_CAPACITY = 1024;         //Pojemnoœæ dysku (bajty)
 	static const u_int BLOCK_INDEX_NUMBER = 3;		  //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
-	static const u_int TOTAL_INODE_NUMBER_LIMIT = 32;  //Maksymalna iloœæ elementów w katalogu
+	static const u_int INODE_NUMBER_LIMIT = 32;  //Maksymalna iloœæ elementów w katalogu
 	static const u_int MAX_PATH_LENGTH = 32;		  //Maksymalna d³ugoœæ œcie¿ki
 	static const bool BLOCK_FREE = false;             //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE;   //Wartoœæ oznaczaj¹ca zajêty blok
@@ -68,7 +67,11 @@ private:
 	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
 	static const size_t MAX_FILE_SIZE = (BLOCK_DIRECT_INDEX_NUMBER + (BLOCK_INDEX_NUMBER - BLOCK_DIRECT_INDEX_NUMBER)*BLOCK_INDEX_NUMBER) * BLOCK_SIZE;
 
+
+
 	//--------------------- Definicje sta³ych -------------------
+
+
 
 	//---------------- Definicje struktur i klas ----------------
 
@@ -84,15 +87,15 @@ private:
 
 	//Klasa bloku indeksowego
 	class IndexBlock : public Index {
-	public:
+	private:
 		//Tablica indeksów/bloków indeksowych
-		std::array<std::shared_ptr<Index>, BLOCK_INDEX_NUMBER> value;
-
+		std::array<std::shared_ptr<Index>, BLOCK_INDEX_NUMBER> block;
+	public:
 		IndexBlock() = default;
 		virtual ~IndexBlock() = default;
 
-		const u_int size() const { return value.size(); }
-		void clear() { std::fill(value.begin(), value.end(), nullptr); }
+		const u_int size() const { return block.size(); }
+		void clear() { std::fill(block.begin(), block.end(), nullptr); }
 
 		std::shared_ptr<Index>& operator [] (const size_t &index);
 		const std::shared_ptr<Index>& operator [] (const size_t &index) const;
@@ -106,7 +109,7 @@ private:
 
 		//Dodatkowe informacje
 		tm creationTime;	 //Czas i data utworzenia
-		std::string creator; //Nazwa u¿ytkownika, który utworzy³ Inode
+		//std::string creator; //Nazwa u¿ytkownika, który utworzy³ Inode
 
 		/**
 			Konstruktor domyœlny.
@@ -137,26 +140,19 @@ private:
 	//Klasa katalogu dziedzicz¹ po i-wêŸle
 	class Directory : public Inode {
 	public:
-		//std::string name; //Nazwa katalogu
-		tm creationTime;  //Czas i data utworzenia katalogu
-
 		std::unordered_map<std::string, std::string> Inodes; //Tablica hashowa Inode
 		std::string parentDirectory; //WskaŸnik na katalog nadrzêdny
-		//std::unordered_map<std::string, File> files; //Tablica hashowa plików w katalogu
-		//std::unordered_map<std::string, std::shared_ptr<Directory>>subDirectories; //Tablica hashowa podkatalogów
 
 		/**
-			Konstruktor inicjalizuj¹cy pole name i parentDirectory podanymi zmiennymi.
+			Konstruktor inicjalizuj¹cy parentDirectory podan¹ zmiennymi.
 
-			@param name_ Nazwa pliku.
 			@param parentDirectory_ WskaŸnik na katalog utworzenia
 		*/
-		Directory(std::string parentDirectory_)
-			: Inode("DIRECTORY"), creationTime(),
-			parentDirectory(std::move(parentDirectory_)) {}
+		explicit Directory(std::string parentDirectory_)
+			: Inode("DIRECTORY"), parentDirectory(std::move(parentDirectory_)) {}
 		virtual ~Directory() = default;
 
-		bool operator == (const Directory &dir);
+		bool operator == (const Directory &dir) const;
 	};
 
 	//Prosta klasa dysku (imitacja fizycznego)
@@ -213,10 +209,11 @@ private:
 	} DISK;
 
 	//------------------- Definicje zmiennych -------------------
-	u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
+	//u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania szczegó³owych powiadomieñ
 	std::string currentDirectory; //Obecnie u¿ywany katalog
+
 
 public:
 	//----------------------- Konstruktor -----------------------
@@ -224,6 +221,8 @@ public:
 		Konstruktor domyœlny. Przypisuje do obecnego katalogu katalog g³ówny.
 	*/
 	FileManager();
+
+
 
 	//-------------------- Podstawowe Metody --------------------
 	/**
@@ -295,6 +294,8 @@ public:
 	*/
 	void DirectoryDown(const std::string &name);
 
+
+
 	//--------------------- Dodatkowe metody --------------------
 
 	/**
@@ -324,6 +325,8 @@ public:
 	void Messages(const bool &onOff);
 
 	void DetailedMessages(const bool &onOff);
+
+
 
 	//------------------ Metody do wyœwietlania -----------------
 
@@ -380,7 +383,29 @@ public:
 	*/
 	void DisplayBitVector();
 
+
 private:
+	//------------------- Metody Sprawdzaj¹ce -------------------
+
+	/**
+		Sprawdza czy nazwa pliku jest u¿ywana w danym katalogu.
+
+		@param directory Katalog, w którym sprawdzana jest nazwa pliku.
+		@param name Nazwa pliku
+		@return Prawda, jeœli nazwa nieu¿ywana, inaczej fa³sz.
+	*/
+	const bool CheckIfNameUnused(const std::string& directory, const std::string& name);
+
+	/**
+		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
+
+		@param dataSize Rozmiar danych, dla których bêdziemy sprawdzac miejsce.
+		@return void.
+	*/
+	const bool CheckIfEnoughSpace(const u_int& dataSize) const;
+
+
+
 	//-------------------- Metody Pomocnicze --------------------
 
 	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int> &blocks) const;
@@ -392,12 +417,6 @@ private:
 	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int &neededBlocks);
 
 	void FileDeallocate(const std::shared_ptr<File>& file);
-
-	template<typename T, size_t size>
-	void ArrayErase(std::array<std::shared_ptr<T>, size> &array, std::shared_ptr<T> input);
-
-	template<typename T, size_t size>
-	void ArrayAdd(std::array<std::shared_ptr<T>, size> &array, std::shared_ptr<T> input);
 
 	/**
 		Usuwa ca³¹ strukturê katalogów.
@@ -473,23 +492,6 @@ private:
 	static const tm GetCurrentTimeAndDate();
 
 	/**
-		Sprawdza czy nazwa pliku jest u¿ywana w danym katalogu.
-
-		@param directory Katalog, w którym sprawdzana jest nazwa pliku.
-		@param name Nazwa pliku
-		@return Prawda, jeœli nazwa nieu¿ywana, inaczej fa³sz.
-	*/
-	const bool CheckIfNameUnused(const std::string& directory, const std::string &name);
-
-	/**
-		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
-
-		@param dataSize Rozmiar danych, dla których bêdziemy sprawdzac miejsce.
-		@return void.
-	*/
-	const bool CheckIfEnoughSpace(const u_int &dataSize) const;
-
-	/**
 		Zmienia wartoœæ w wektorze bitowym i zarz¹ pole freeSpace
 		w strukturze FileSystem.
 
@@ -505,8 +507,8 @@ private:
 		musi byæ mniejszy od rozmiaru pliku o conajmniej jedn¹
 		jednostkê alokacji
 
-		@param name Nazwa pliku.
-		@param size Rozmiar do którego plik ma byæ zmniejszony.
+		@param file WskaŸnik na plik, którego rozmiar chcemy zmieniæ.
+		@param neededBlocks Iloœæ bloków do alokacji.
 		@return void.
 	*/
 	void FileTruncate(std::shared_ptr<File> file, const u_int &neededBlocks);
