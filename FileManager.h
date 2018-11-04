@@ -55,13 +55,13 @@ private:
 	using u_int = unsigned int;
 
 	//--------------- Definicje sta³ych statycznych -------------
-	static const size_t BLOCK_SIZE = 32;			  //Rozmiar bloku (bajty)
-	static const size_t DISK_CAPACITY = 1024;         //Pojemnoœæ dysku (bajty)
-	static const u_int BLOCK_INDEX_NUMBER = 3;		  //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
-	static const u_int INODE_NUMBER_LIMIT = 32;  //Maksymalna iloœæ elementów w katalogu
-	static const u_int MAX_PATH_LENGTH = 32;		  //Maksymalna d³ugoœæ œcie¿ki
-	static const bool BLOCK_FREE = false;             //Wartoœæ oznaczaj¹ca wolny blok
-	static const bool BLOCK_OCCUPIED = !BLOCK_FREE;   //Wartoœæ oznaczaj¹ca zajêty blok
+	static const size_t BLOCK_SIZE = 32;	   	    //Rozmiar bloku (bajty)
+	static const size_t DISK_CAPACITY = 1024;       //Pojemnoœæ dysku (bajty)
+	static const u_int BLOCK_INDEX_NUMBER = 3;	    //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
+	static const u_int INODE_NUMBER_LIMIT = 32;     //Maksymalna iloœæ elementów w katalogu
+	static const u_int MAX_PATH_LENGTH = 32;        //Maksymalna d³ugoœæ œcie¿ki
+	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
+	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
 	/**Wartoœæ oznaczaj¹ca iloœæ indeksów w polu directBlocks*/
 	static const u_int BLOCK_DIRECT_INDEX_NUMBER = BLOCK_INDEX_NUMBER - 1;
 	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
@@ -141,7 +141,7 @@ private:
 	class Directory : public Inode {
 	public:
 		std::unordered_map<std::string, std::string> Inodes; //Tablica hashowa Inode
-		std::string parentDirectory; //WskaŸnik na katalog nadrzêdny
+		//std::string parentDirectory; //WskaŸnik na katalog nadrzêdny
 
 		/**
 			Konstruktor inicjalizuj¹cy parentDirectory podan¹ zmiennymi.
@@ -149,7 +149,7 @@ private:
 			@param parentDirectory_ WskaŸnik na katalog utworzenia
 		*/
 		explicit Directory(std::string parentDirectory_)
-			: Inode("DIRECTORY"), parentDirectory(std::move(parentDirectory_)) {}
+			: Inode("DIRECTORY")/*, parentDirectory(std::move(parentDirectory_))*/ {}
 		virtual ~Directory() = default;
 
 		bool operator == (const Directory &dir) const;
@@ -241,16 +241,13 @@ public:
 		@param name Nazwa pliku.
 		@return Tymczasowo zwraca dane wczytane z dysku.
 	*/
-	const std::string FileOpen(const std::string &name) const;
+	//const std::string FileOpen(const std::string &name) const;
 	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 
-	/**
-		Wczytuje dane pliku z dysku.
 
-		@param file Plik, którego dane maj¹ byæ wczytane.
-		@return Dane pliku w postaci string.
-	*/
-	const std::string FileGetData(const std::shared_ptr<File>& file) const;
+	const std::string FileGetData(const std::string& file);
+
+	bool FileSaveData(const std::string& name, const std::string& data);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
@@ -260,8 +257,6 @@ public:
 		@return void.
 	*/
 	bool FileDelete(const std::string &name);
-
-	bool FileSaveData(const std::string& name, const std::string& data);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -284,7 +279,7 @@ public:
 
 		@return void.
 	*/
-	void DirectoryUp();
+	bool DirectoryUp();
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu podrzêdnego o podanej nazwie
@@ -292,7 +287,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	void DirectoryDown(const std::string &name);
+	bool DirectoryDown(const std::string &name);
 
 
 
@@ -407,6 +402,16 @@ private:
 
 
 	//-------------------- Metody Pomocnicze --------------------
+
+	const std::string GetCurrentDirectoryParent() const;
+
+	/**
+		Wczytuje dane pliku z dysku.
+
+		@param file Plik, którego dane maj¹ byæ wczytane.
+		@return Dane pliku w postaci string.
+	*/
+	const std::string FileGetData(const std::shared_ptr<File>& file) const;
 
 	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int> &blocks) const;
 
