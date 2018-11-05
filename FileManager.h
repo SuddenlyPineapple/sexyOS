@@ -81,7 +81,7 @@ private:
 		u_int value; //Wartoœæ indeksu
 
 		Index() : value(NULL) {}
-		explicit Index(const u_int &value) : value(value) {}
+		explicit Index(const u_int& value) : value(value) {}
 		virtual ~Index() = default;
 	};
 
@@ -97,8 +97,8 @@ private:
 		const u_int size() const { return block.size(); }
 		void clear() { std::fill(block.begin(), block.end(), nullptr); }
 
-		std::shared_ptr<Index>& operator [] (const size_t &index);
-		const std::shared_ptr<Index>& operator [] (const size_t &index) const;
+		std::shared_ptr<Index>& operator [] (const size_t& index);
+		const std::shared_ptr<Index>& operator [] (const size_t& index) const;
 	};
 
 	//Klasa i-wêz³a
@@ -140,19 +140,17 @@ private:
 	//Klasa katalogu dziedzicz¹ po i-wêŸle
 	class Directory : public Inode {
 	public:
-		std::unordered_map<std::string, std::string> Inodes; //Tablica hashowa Inode
+		std::unordered_map<std::string, std::string> files; //Tablica hashowa Inode
 		//std::string parentDirectory; //WskaŸnik na katalog nadrzêdny
 
 		/**
-			Konstruktor inicjalizuj¹cy parentDirectory podan¹ zmiennymi.
-
-			@param parentDirectory_ WskaŸnik na katalog utworzenia
+			Konstruktor inicjalizuj¹cy nadrzêdny Inode typem "DIRECTORY".
 		*/
-		explicit Directory(std::string parentDirectory_)
-			: Inode("DIRECTORY")/*, parentDirectory(std::move(parentDirectory_))*/ {}
+		explicit Directory()
+			: Inode("DIRECTORY") {}
 		virtual ~Directory() = default;
 
-		bool operator == (const Directory &dir) const;
+		bool operator == (const Directory& dir) const;
 	};
 
 	//Prosta klasa dysku (imitacja fizycznego)
@@ -174,7 +172,7 @@ private:
 			/**
 				Konstruktor domyœlny. Wpisuje katalog g³ówny do tablicy iWêz³ów.
 			*/
-			FileSystem() { InodeTable[rootDirectory] = std::make_shared<Directory>(""); }
+			FileSystem() { InodeTable[rootDirectory] = std::make_shared<Directory>(); }
 		} FileSystem; //System plików FileSystem
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
@@ -195,7 +193,7 @@ private:
 			@param data Dane typu string.
 			@return void.
 		*/
-		void write(const u_int &begin, const u_int &end, const std::string &data);
+		void write(const u_int& begin, const u_int& end, const std::string& data);
 
 		/**
 			Odczytuje dane zadanego typu (jeœli jest on zaimplementowany) w wskazanym przedziale.
@@ -205,7 +203,7 @@ private:
 			@return zmienna zadanego typu.
 		*/
 		template<typename T>
-		const T read(const u_int &begin, const u_int &end) const;
+		const T read(const u_int& begin, const u_int& end) const;
 	} DISK;
 
 	//------------------- Definicje zmiennych -------------------
@@ -232,7 +230,7 @@ public:
 		@param data Dane typu string.
 		@return void.
 	*/
-	bool FileCreate(const std::string &name, const std::string &data);
+	bool FileCreate(const std::string& name, const std::string& data);
 
 	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 	/**
@@ -241,7 +239,7 @@ public:
 		@param name Nazwa pliku.
 		@return Tymczasowo zwraca dane wczytane z dysku.
 	*/
-	//const std::string FileOpen(const std::string &name) const;
+	//const std::string FileOpen(const std::string& name) const;
 	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 
 
@@ -256,7 +254,7 @@ public:
 		@param name Nazwa pliku.
 		@return void.
 	*/
-	bool FileDelete(const std::string &name);
+	bool FileDelete(const std::string& name);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -264,7 +262,7 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	bool DirectoryCreate(const std::string &name);
+	bool DirectoryCreate(const std::string& name);
 
 	/**
 		Usuwa katalog o podanej nazwie.
@@ -272,7 +270,9 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	bool DirectoryDelete(const std::string &name);
+	bool DirectoryDelete(const std::string& name);
+
+	bool DirectoryChange(const std::string& name);
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu nadrzêdnego.
@@ -287,11 +287,13 @@ public:
 		@param name Nazwa katalogu.
 		@return void.
 	*/
-	bool DirectoryDown(const std::string &name);
+	bool DirectoryDown(const std::string& name);
 
 
 
 	//--------------------- Dodatkowe metody --------------------
+
+	bool DirectoryRename(const std::string& name, const std::string& changeName);
 
 	/**
 		Zmienia nazwê pliku o podanej nazwie.
@@ -300,7 +302,7 @@ public:
 		@param changeName Zmieniona nazwa pliku.
 		@return void.
 	*/
-	bool FileRename(const std::string &name, const std::string &changeName);
+	bool FileRename(const std::string& name, const std::string& changeName);
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
@@ -317,11 +319,16 @@ public:
 	@param onOff Czy komunikaty maj¹ byæ w³¹czone.
 	@return void.
 */
-	void Messages(const bool &onOff);
+	void Messages(const bool& onOff);
 
-	void DetailedMessages(const bool &onOff);
+	void DetailedMessages(const bool& onOff);
 
+	/**
+	Zwraca obecnie u¿ywan¹ œcie¿kê.
 
+	@return Obecna œcie¿ka z odpowiednim formatowaniem.
+*/
+	const std::string GetCurrentPath() const;
 
 	//------------------ Metody do wyœwietlania -----------------
 
@@ -332,14 +339,14 @@ public:
 
 		@return void.
 	*/
-	bool DisplayDirectoryInfo(const std::string &name);
+	bool DisplayDirectoryInfo(const std::string& name);
 
 	/**
 		Wyœwietla informacje o pliku.
 
 		@return void.
 	*/
-	bool DisplayFileInfo(const std::string &name);
+	bool DisplayFileInfo(const std::string& name);
 
 	/**
 		Wyœwietla strukturê katalogów.
@@ -413,13 +420,13 @@ private:
 	*/
 	const std::string FileGetData(const std::shared_ptr<File>& file) const;
 
-	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int> &blocks) const;
+	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks) const;
 
 	void FileAllocateBlocks(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks);
 
-	void FileAllocationIncrease(std::shared_ptr<File>& file, const u_int &neededBlocks);
+	void FileAllocationIncrease(std::shared_ptr<File>& file, const u_int& neededBlocks);
 
-	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int &neededBlocks);
+	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks);
 
 	void FileDeallocate(const std::shared_ptr<File>& file);
 
@@ -476,13 +483,6 @@ private:
 	const std::string GetPath(const std::shared_ptr<Directory>& directory);
 
 	/**
-		Zwraca obecnie u¿ywan¹ œcie¿kê.
-
-		@return Obecna œcie¿ka z odpowiednim formatowaniem.
-	*/
-	const std::string GetCurrentPath() const;
-
-	/**
 		Zwraca d³ugoœæ obecnej œcie¿ki.
 
 		@return d³ugoœæ obecnej œcie¿ki.
@@ -504,7 +504,7 @@ private:
 		@param value Wartoœæ do przypisania do wskazanego bloku (0 - wolny, 1 - zajêty)
 		@return void.
 	*/
-	void ChangeBitVectorValue(const u_int &block, const bool &value);
+	void ChangeBitVectorValue(const u_int& block, const bool& value);
 
 
 	/**
@@ -516,7 +516,7 @@ private:
 		@param neededBlocks Iloœæ bloków do alokacji.
 		@return void.
 	*/
-	void FileTruncate(std::shared_ptr<File> file, const u_int &neededBlocks);
+	void FileTruncate(std::shared_ptr<File> file, const u_int& neededBlocks);
 
 	/**
 		Zapisuje wektor fragmentów File.data na dysku.
@@ -525,7 +525,7 @@ private:
 		@param data Dane do zapisania na dysku.
 		@return void.
 	*/
-	void FileSaveData(std::shared_ptr<File> &file, const std::string &data);
+	void FileSaveData(std::shared_ptr<File>& file, const std::string& data);
 
 	/**
 		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
@@ -533,7 +533,7 @@ private:
 		@param data String do podzielenia na fradmenty.
 		@return Wektor fragmentów string.
 	*/
-	const std::vector<std::string> DataToDataFragments(const std::string &data) const;
+	const std::vector<std::string> DataToDataFragments(const std::string& data) const;
 
 	/**
 		Oblicza ile bloków zajmie podany string.
@@ -541,7 +541,7 @@ private:
 		@param dataSize D³ugoœæ danych, których rozmiar na dysku bêdzie obliczany.
 		@return Iloœæ bloków jak¹ zajmie string.
 	*/
-	const u_int CalculateNeededBlocks(const size_t &dataSize) const;
+	const u_int CalculateNeededBlocks(const size_t& dataSize) const;
 
 	/**
 		Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
@@ -557,7 +557,7 @@ private:
 		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<u_int> FindUnallocatedBlocksBestFit(const u_int &blockNumber);
+	const std::vector<u_int> FindUnallocatedBlocksBestFit(const u_int& blockNumber);
 
 	/*
 		Znajduje nieu¿ywane bloki do zapisania pliku. Najpierw uruchamia funkcjê
@@ -568,7 +568,7 @@ private:
 		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
 		@return Wektor indeksów bloków do zaalokowania.
 	*/
-	const std::vector<u_int> FindUnallocatedBlocks(const u_int &blockNumber);
+	const std::vector<u_int> FindUnallocatedBlocks(const u_int& blockNumber);
 
 };
 
