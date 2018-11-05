@@ -5,7 +5,10 @@
 
 PageTableData::PageTableData(bool bit, int frame) : bit(bit), frame(frame) {}
 
-MemoryManager::MemoryManager() = default;
+MemoryManager::MemoryManager(){
+    for (int i = 0; i < 16; i++)
+        Frames.emplace_back(FrameData(1, -1, -1, NULL));
+};
 
 MemoryManager::~MemoryManager() = default;
 

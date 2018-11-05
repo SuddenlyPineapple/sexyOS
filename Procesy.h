@@ -35,8 +35,10 @@ public:
 };
 
 	void Set_PID(int i);//funcja pomocnicza
-	PCB* find_kid(unsigned int PID);// funckja pomocnicza do znalezienia procesu po PID
+	PCB* GET_kid(unsigned int PID);// funckja pomocnicza do znalezienia procesu po PID
+	bool find_kid(unsigned int PID);
 	void display_allkids();//funkcja która pokazuje dzieci procesu i dzieci dzieci
+	void display_allkids(int a);//funkcja pomocnicza do tej wy¿ej
 	void change_state(Process_state x);//zmiana stanu procesu
 	void update();//fukncja aktualizujaca dane w procesie (do zrobienia)
 

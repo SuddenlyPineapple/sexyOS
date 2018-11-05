@@ -70,7 +70,7 @@ class MemoryManager {
          */
         void showMem(int begin, int bytes);
 
-        //Pokazuje zawartść pliku stronicowania
+        //Pokazuje zawartość pliku stronicowania
         void showPageFile();
 
         //Pokazuje zawartość tablicy wymiany processu
@@ -86,7 +86,7 @@ class MemoryManager {
 
 //------------- Funkcje użytkowe MemoryManagera  --------------
 
-        //Tworzy process bezczynności systemu umieszczany w pamięci RAM przy starcie systemu
+        //Tworzy proces bezczynności systemu umieszczany w pamięci RAM przy starcie systemu
         void memoryInit();
 
         //Metoda ładująca program do pamięci - ładuje pierwsza stronicę programu do pamięci RAM
@@ -106,25 +106,19 @@ class MemoryManager {
         std::vector<PageTableData> *createPageList(int mem, int PID);
 
         //Pobiera rozkaz z danego adresu
-        /* PCB *process - wskaźnik do PCB danego processu
+        /* PCB *process - wskaźnik do PCB danego procesu
          * int LR - wartość licznika rozkazów
          */
         std::string GET(PCB *process, int LR);
 
-        //zapisuje dany fragment do pamięci
+        //Zapisuje dany fragment do pamięci
         /* *process - wskaźnik do PCB danego procesu
          * adress - stan licznika rozkazów
          * data - rejestr z danymi
          */
         int Write(PCB *process, int adress, std::string data);
 
-        //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
-        /*  *page_table - wskaźnik na tablicę
-         *  pageID - numer stronicy do zamiany
-         *  PID - ID procesu
-         * @return int zwraca numer podmienionej ramki, do której została wstawiona stronica
-        */
-         int insertPage(std::vector<PageTableData> *pageList, int pageID, int PID);
+
 
          
 
@@ -145,6 +139,13 @@ class MemoryManager {
          */
         int LoadtoMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
 
+        //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
+        /*  *pageList - wskaźnik na tablicę
+         *  pageID - numer stronicy do zamiany
+         *  PID - ID procesu
+         * @return int zwraca numer podmienionej ramki, do której została wstawiona stronica
+        */
+        int insertPage(std::vector<PageTableData> *pageList, int pageID, int PID);
 
     public:
         //------------- Konstruktor  -------------
