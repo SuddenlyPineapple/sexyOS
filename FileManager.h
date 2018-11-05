@@ -114,7 +114,7 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		explicit Inode(std::string type_) : type(std::move(type_)), creationTime() {};
+		explicit Inode(std::string type_) : type(std::move(type_)), creationTime(FileManager::GetCurrentTimeAndDate()) {}
 		virtual ~Inode() = default;
 	};
 
@@ -132,7 +132,7 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		File() : Inode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime() {}
+		File() : Inode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime(creationTime) {}
 
 		virtual ~File() = default;
 	};
@@ -146,8 +146,7 @@ private:
 		/**
 			Konstruktor inicjalizuj¹cy nadrzêdny Inode typem "DIRECTORY".
 		*/
-		explicit Directory()
-			: Inode("DIRECTORY") {}
+		explicit Directory() : Inode("DIRECTORY") {}
 		virtual ~Directory() = default;
 
 		bool operator == (const Directory& dir) const;
@@ -224,24 +223,12 @@ public:
 
 	//-------------------- Podstawowe Metody --------------------
 	/**
-		Tworzy plik o podanej nazwie i danych w obecnym katalogu.
+		Tworzy plik o podanej nazwie w obecnym katalogu.
 
 		@param name Nazwa pliku.
-		@param data Dane typu string.
-		@return void.
+		@return True, jeœli operacja siê uda³a i false, jeœli operacja nie powiod³a siê.
 	*/
-	bool FileCreate(const std::string& name, const std::string& data);
-
-	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
-	/**
-		Funkcja niedokoñczona.
-
-		@param name Nazwa pliku.
-		@return Tymczasowo zwraca dane wczytane z dysku.
-	*/
-	//const std::string FileOpen(const std::string& name) const;
-	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
-
+	bool FileCreate(const std::string& name);
 
 	const std::string FileGetData(const std::string& file);
 
@@ -292,6 +279,15 @@ public:
 
 
 	//--------------------- Dodatkowe metody --------------------
+
+	/**
+		Tworzy plik o podanej nazwie w obecnym katalogu i zapisuje w nim dane.
+
+		@param name Nazwa pliku.
+		@param data Dane typu string.
+		@return void.
+	*/
+	bool FileCreate(const std::string& name, const std::string& data);
 
 	bool DirectoryRename(const std::string& name, const std::string& changeName);
 
@@ -354,14 +350,6 @@ public:
 		@return void.
 	*/
 	void DisplayDirectoryStructure();
-	/**
-		Wyœwietla rekurencyjnie katalog i jego podkatalogi.
-
-		@param directory Katalog szczytowy do wyœwietlenia.
-		@param level Poziom obecnego katalogu w hierarchii katalogów.
-		@return void.
-	*/
-	void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
 
 	/**
 		Wyœwietla zawartoœæ dysku w formie binarnej.
@@ -394,9 +382,9 @@ private:
 
 		@param directory Katalog, w którym sprawdzana jest nazwa pliku.
 		@param name Nazwa pliku
-		@return Prawda, jeœli nazwa nieu¿ywana, inaczej fa³sz.
+		@return Prawda, jeœli nazwa u¿ywana, inaczej fa³sz.
 	*/
-	const bool CheckIfNameUnused(const std::string& directory, const std::string& name);
+	const bool CheckIfNameUsed(const std::string& directory, const std::string& name);
 
 	/**
 		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
@@ -408,43 +396,15 @@ private:
 
 
 
-	//-------------------- Metody Pomocnicze --------------------
-
-	const std::string GetCurrentDirectoryParent() const;
+	//-------------------- Metody Obliczaj¹ce -------------------
 
 	/**
-		Wczytuje dane pliku z dysku.
+		Oblicza ile bloków zajmie podany string.
 
-		@param file Plik, którego dane maj¹ byæ wczytane.
-		@return Dane pliku w postaci string.
+		@param dataSize D³ugoœæ danych, których rozmiar na dysku bêdzie obliczany.
+		@return Iloœæ bloków jak¹ zajmie string.
 	*/
-	const std::string FileGetData(const std::shared_ptr<File>& file) const;
-
-	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks) const;
-
-	void FileAllocateBlocks(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks);
-
-	void FileAllocationIncrease(std::shared_ptr<File>& file, const u_int& neededBlocks);
-
-	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks);
-
-	void FileDeallocate(const std::shared_ptr<File>& file);
-
-	/**
-		Usuwa ca³¹ strukturê katalogów.
-
-		@param directory Katalog do usuniêcia.
-		@return Rozmiar podanego katalogu.
-	*/
-	void DirectoryDeleteStructure(std::shared_ptr<Directory>& directory);
-
-	/**
-		Usuwa wskazany plik.
-
-		@param file Plik do usuniêcia.
-		@return void.
-	*/
-	void FileDelete(std::shared_ptr<File>& file);
+	const u_int CalculateNeededBlocks(const size_t& dataSize) const;
 
 	/**
 		Zwraca rozmiar podanego katalogu.
@@ -474,38 +434,9 @@ private:
 	*/
 	const u_int CalculateDirectoryFileNumber(const std::shared_ptr<Directory>& directory);
 
-	/**
-		Zwraca œcie¿kê przekazanego folderu
 
-		@param directory Katalog, którego œciê¿kê chcemy otrzymaæ.
-		@return Obecna œcie¿ka z odpowiednim formatowaniem.
-	*/
-	const std::string GetPath(const std::shared_ptr<Directory>& directory);
 
-	/**
-		Zwraca d³ugoœæ obecnej œcie¿ki.
-
-		@return d³ugoœæ obecnej œcie¿ki.
-	*/
-	const size_t GetCurrentPathLength() const;
-
-	/**
-		Zwraca aktualny czas i datê.
-
-		@return Czas i data.
-	*/
-	static const tm GetCurrentTimeAndDate();
-
-	/**
-		Zmienia wartoœæ w wektorze bitowym i zarz¹ pole freeSpace
-		w strukturze FileSystem.
-
-		@param block Indeks bloku, którego wartoœæ w wektorze bitowym bêdzie zmieniana.
-		@param value Wartoœæ do przypisania do wskazanego bloku (0 - wolny, 1 - zajêty)
-		@return void.
-	*/
-	void ChangeBitVectorValue(const u_int& block, const bool& value);
-
+	//--------------------- Metody Alokacji ---------------------
 
 	/**
 		Zmniejsza plik do podanego rozmiaru. Podany rozmiar
@@ -518,36 +449,21 @@ private:
 	*/
 	void FileTruncate(std::shared_ptr<File> file, const u_int& neededBlocks);
 
-	/**
-		Zapisuje wektor fragmentów File.data na dysku.
+	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks) const;
 
-		@param file Plik, którego dane bêd¹ zapisane na dysku.
-		@param data Dane do zapisania na dysku.
-		@return void.
-	*/
-	void FileSaveData(std::shared_ptr<File>& file, const std::string& data);
+	void FileAllocateBlocks(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks);
 
-	/**
-		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
+	void FileAllocationIncrease(std::shared_ptr<File>& file, const u_int& neededBlocks);
 
-		@param data String do podzielenia na fradmenty.
-		@return Wektor fragmentów string.
-	*/
-	const std::vector<std::string> DataToDataFragments(const std::string& data) const;
+	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks);
+
+	void FileDeallocate(const std::shared_ptr<File>& file);
 
 	/**
-		Oblicza ile bloków zajmie podany string.
+	Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
 
-		@param dataSize D³ugoœæ danych, których rozmiar na dysku bêdzie obliczany.
-		@return Iloœæ bloków jak¹ zajmie string.
-	*/
-	const u_int CalculateNeededBlocks(const size_t& dataSize) const;
-
-	/**
-		Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
-
-		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
-		@return Wektor indeksów bloków do zaalokowania.
+	@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
+	@return Wektor indeksów bloków do zaalokowania.
 	*/
 	const std::vector<u_int> FindUnallocatedBlocksFragmented(u_int blockNumber);
 
@@ -570,6 +486,98 @@ private:
 	*/
 	const std::vector<u_int> FindUnallocatedBlocks(const u_int& blockNumber);
 
+
+
+	//----------------------- Metody Inne -----------------------
+
+	/**
+		Zapisuje wektor fragmentów File.data na dysku.
+
+		@param file Plik, którego dane bêd¹ zapisane na dysku.
+		@param data Dane do zapisania na dysku.
+		@return void.
+	*/
+	void FileSaveData(std::shared_ptr<File>& file, const std::string& data);
+
+	/**
+		Wczytuje dane pliku z dysku.
+
+		@param file Plik, którego dane maj¹ byæ wczytane.
+		@return Dane pliku w postaci string.
+	*/
+	const std::string FileGetData(const std::shared_ptr<File>& file) const;
+
+	/**
+		Usuwa wskazany plik.
+
+		@param file Plik do usuniêcia.
+		@return void.
+	*/
+	void FileDelete(std::shared_ptr<File>& file);
+
+	/**
+		Usuwa ca³¹ strukturê katalogów.
+
+		@param directory Katalog do usuniêcia.
+		@return Rozmiar podanego katalogu.
+	*/
+	void DirectoryDeleteStructure(std::shared_ptr<Directory>& directory);
+
+	/**
+		Wyœwietla rekurencyjnie katalog i jego podkatalogi.
+
+		@param directory Katalog szczytowy do wyœwietlenia.
+		@param level Poziom obecnego katalogu w hierarchii katalogów.
+		@return void.
+	*/
+	void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
+
+	/**
+		Zwraca œcie¿kê podanego katalogu.
+
+		@param directory Katalog, którego œciê¿kê chcemy otrzymaæ.
+		@return Obecna œcie¿ka z odpowiednim formatowaniem.
+	*/
+	const std::string GetPath(const std::shared_ptr<Directory>& directory);
+
+	/**
+		Zwraca œcie¿kê katologu nadrzêdnego wzglêdem obecnego katalogu.
+
+		@return Œcie¿ka katalogu nadrzêdnego.
+	*/
+	const std::string GetCurrentDirectoryParent() const;
+
+	/**
+		Zwraca d³ugoœæ obecnej œcie¿ki.
+
+		@return d³ugoœæ obecnej œcie¿ki.
+	*/
+	const size_t GetCurrentPathLength() const;
+	
+	/**
+		Zwraca aktualny czas i datê.
+
+		@return Czas i data.
+	*/
+	static const tm GetCurrentTimeAndDate();
+
+	/**
+		Zmienia wartoœæ w wektorze bitowym i zarz¹ pole freeSpace
+		w strukturze FileSystem.
+
+		@param block Indeks bloku, którego wartoœæ w wektorze bitowym bêdzie zmieniana.
+		@param value Wartoœæ do przypisania do wskazanego bloku (0 - wolny, 1 - zajêty)
+		@return void.
+	*/
+	void ChangeBitVectorValue(const u_int& block, const bool& value);
+
+	/**
+		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
+
+		@param data String do podzielenia na fradmenty.
+		@return Wektor fragmentów string.
+	*/
+	const std::vector<std::string> DataToDataFragments(const std::string& data) const;
 };
 
 static FileManager fileManager;
