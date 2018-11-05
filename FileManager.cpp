@@ -15,27 +15,21 @@
 
 const std::string Serializer::IntToString(unsigned int input) {
 	std::string result;
-
-	while (input != 0)
-	{
-		if (input % 255 == 0)
-		{
+	while (input != 0) {
+		if (input % 255 == 0) {
 			result.push_back(char(255));
 			input -= 255;
 		}
-		else
-		{
+		else {
 			result.push_back(input % 255);
 			input -= input % 255;
 		}
 	}
-
 	return result;
 }
 const unsigned Serializer::StringToInt(const std::string& input) {
 	unsigned int result = 0;
-	for (const char& c : input)
-	{
+	for (const char& c : input) {
 		result += std::bitset<8>(c).to_ulong();
 	}
 	return result;
@@ -433,9 +427,7 @@ bool FileManager::DirectoryRename(const std::string& name, const std::string& ch
 						std::cout << "Nazwa katalogu '" << changeName << "' ju¿ zajêta!\n";
 					}
 				}
-				else {
-					std::cout << "Katalog o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n";
-				}
+				else { std::cout << "Katalog o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 			}
 			else { std::cout << "Katalog o nazwie '" << name << "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!\n"; }
 		}
