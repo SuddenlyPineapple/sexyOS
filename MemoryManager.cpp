@@ -29,18 +29,18 @@ MemoryManager::FrameData::FrameData(bool isFree, int PID, int pageID, std::vecto
 void MemoryManager::stackUpdate(int frameID) {
     if(frameID > 15) return;
 
-    for(auto it = LRUStack.begin(); it!= LRUStack.end(); it++){
+    for(auto it = Stack.begin(); it!= Stack.end(); it++){
         if(*it == frameID){
-            LRUStack.erase(it);
+            Stack.erase(it);
             break;
         }
     }
 
-    LRUStack.push_front(frameID);
+    Stack.push_front(frameID);
 }
 
-void MemoryManager::showLRUStack() {
-    for(auto frame:LRUStack){
+void MemoryManager::showStack() {
+    for(auto frame:Stack){
         std::cout << frame << " ";
     }
     std::cout << std::endl;
