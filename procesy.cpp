@@ -34,9 +34,9 @@ PCB* PCB::find_kid(unsigned int PID)
 void PCB::display_allkids()
 {	
 	for (PCB* kid : this->child_vector) {
-		if(kid->parent_proc->PID==1)std::cout << "\t" << kid->PID << std::endl;
+		if(kid->parent_proc->PID==1)std::cout << "\t nazwa procesu " << kid->process_name << " PID procesu "<< kid->PID << std::endl;
 		else
-		std::cout <<"\t\t"<< kid->PID << std::endl;
+		std::cout <<"\t\t nazwa procesu " << kid->process_name << " PID procesu " << kid->PID << std::endl;
 		
 		if (!kid->child_vector.empty()) {
 			std::cout << "\t"; kid->display_allkids(); 
@@ -150,7 +150,7 @@ void proc_tree::fork(PCB * proc, const std::string name, std::vector<std::string
 
 void proc_tree::display_tree()
 {
-	std::cout << proc.PID << std::endl;
+	std::cout <<"nazwa procesu "<<proc.process_name<<" PID procesu "<< proc.PID << std::endl;
 	proc.display_allkids();
 
 
