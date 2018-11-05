@@ -11,7 +11,7 @@ int main() {
     memoryManager.stackUpdate(1);
     memoryManager.stackUpdate(5);
     memoryManager.stackUpdate(16);
-    memoryManager.showLRUStack();
+    memoryManager.showStack();
     */
     return 0;
 }

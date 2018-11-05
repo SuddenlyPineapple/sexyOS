@@ -24,7 +24,7 @@ class MemoryManager {
     public:
         char RAM[256]; //Pamięć Fizyczna Komputera [256 bajtów]
     private:
-        //------------- Struktura Pojedyńczej Stronicy w Pamięci -------------
+        //------------- Struktura Pojedynczej Stronicy w Pamięci -------------
         struct Page {
             char data[16]{}; //Dane stronicy
 
@@ -56,12 +56,12 @@ class MemoryManager {
         //Stos dzięki, którem wiemy, która ramka jest najdłużej w pamięci i którą ramkę możemy zastąpić
         //Jako, że mamy 256B pamięci ram, a jedna ramka posiada 16B, to będziemy mieć łącznie 16 ramek [0-15]
         //Więcej: https://pl.wikipedia.org/wiki/Least_Recently_Used
-        std::list<int> LRUStack {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        std::list<int> Stack {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
 
-//------------- Funkcje do wyświetlania bierzących stanów pamięci oraz pracy krokowej  --------------
+//------------- Funkcje do wyświetlania bieżących stanów pamięci oraz pracy krokowej  --------------
     public:
-        //Pokazuje zawartość pamięci operacyjnej [RAM]
+        //Pokazuje zawartość pamięci operacyjnej [RAM][fizycznej]
         void showMem();
 
         //Pokazuje odpowiednie fragmenty pamięci [RAM]
@@ -78,11 +78,11 @@ class MemoryManager {
          */
         void showPageTable(std::vector<PageTableData> *pageList);
 
-        //Pokazuje Stos ostatnio używanych ramek (Od najmłodszych do najstarszych)
-        void showLRUStack();
+        //Pokazuje Stos ostatnio używanych ramek
+        void showStack();
 
+        //Pokazuje listę ramek w pamięci wraz z informacją do kogo dana ramka należy
         void showFrames();
-
 
 //------------- Funkcje użytkowe MemoryManagera  --------------
 
@@ -91,13 +91,42 @@ class MemoryManager {
 
         //Metoda ładująca program do pamięci - ładuje pierwsza stronicę programu do pamięci RAM
         /* path - ścieżka do programu na dysku twardym
-         * mem -
-         * PID - numer procesu
+         * mem - stan licznika rozkazów
+         * PID - ID procesu
          */
         int loadProgram(std::string path, int mem, int PID);
 
         //Usuwa z pamięci dane wybranego procesu
         void kill(int PID);
+
+        //Tworzy wskaźnik do tablicy stronic danego procesu - funkcja wywoływana przy tworzeniu procesu
+        /*  mem - stan licznika rozkazów
+         *  PID - ID procesu
+         */
+        std::vector<PageTableData> *createPageList(int mem, int PID);
+
+        //Pobiera rozkaz z danego adresu
+        /* PCB *process - wskaźnik do PCB danego processu
+         * int LR - wartość licznika rozkazów
+         */
+        std::string GET(PCB *process, int LR);
+
+        //zapisuje dany fragment do pamięci
+        /* *process - wskaźnik do PCB danego procesu
+         * adress - stan licznika rozkazów
+         * data - rejestr z danymi
+         */
+        int Write(PCB *process, int adress, std::string data);
+
+        //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
+        /*  *page_table - wskaźnik na tablicę
+         *  pageID - numer stronicy do zamiany
+         *  PID - ID procesu
+         * @return int zwraca numer podmienionej ramki, do której została wstawiona stronica
+        */
+         int insertPage(std::vector<PageTableData> *pageList, int pageID, int PID);
+
+         
 
     private:
         //Zwraca adres pierwszej wolnej ramki w pamięci
@@ -115,6 +144,8 @@ class MemoryManager {
          *  *pageList - wskaźnik na tablicę stronic procesu
          */
         int LoadtoMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
+
+
     public:
         //------------- Konstruktor  -------------
         MemoryManager();
