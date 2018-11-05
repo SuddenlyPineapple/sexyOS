@@ -57,7 +57,7 @@ bool FileManager::Directory::operator==(const Directory& dir) const
 
 
 //------------------------ Serializer -----------------------
-const std::string Serializer::IntToString(u_int input) {
+const std::string Serializer::IntToString(unsigned int input) {
 	std::string result;
 	while (input != 0) {
 		if (input % 255 == 0) {
@@ -82,6 +82,14 @@ const u_int Serializer::StringToInt(const std::string& input) {
 
 
 //--------------------------- Dysk --------------------------
+
+FileManager::Disk::FileSystem::FileSystem()
+{
+	InodeTable[rootDirectory] = std::make_shared<Directory>();
+	for (u_int i = 0; i < bitVector.size(); i++) {
+		bitVector[i] = BLOCK_FREE;
+	}
+}
 
 FileManager::Disk::Disk() {
 	//Zape³nanie naszego dysku zerowymi bajtami (symbolizuje pusty dysk)
@@ -137,19 +145,23 @@ FileManager::FileManager() {
 
 bool FileManager::FileCreate(const std::string& name) {
 	try {
+		if (name.empty()) { throw "Pusta nazwa!"; }
 		std::vector<std::string> errorDescriptions;
 		bool error = false;
 		//Error1
-		if (name.empty()) { errorDescriptions.push_back("Pusta nazwa!"); throw errorDescriptions; }
+		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
 		//Error2
-		if (DISK.FileSystem.InodeTable.size() >= INODE_NUMBER_LIMIT) { errorDescriptions.push_back("Osi¹gniêto limit elementów w systemie plików!"); error = true; }
+		if (DISK.FileSystem.InodeTable.size() >= INODE_NUMBER_LIMIT) {
+			errorDescriptions.emplace_back(
+				"Osi¹gniêto limit elementów w systemie plików!"); error = true;
+		}
 		//Error3
 		if (CheckIfNameUsed(currentDirectory, name)) { errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true; }
 		//Error4
-		if (name.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) { errorDescriptions.push_back("Œcie¿ka za d³uga!"); error = true; }
+		if (name.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) { errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true; }
 		if (error) { throw errorDescriptions; }
 
-		std::shared_ptr<File> file = std::make_shared<File>();
+		const std::shared_ptr<File> file = std::make_shared<File>();
 
 		//Dodanie pliku do obecnego katalogu
 		DISK.FileSystem.InodeTable[GetCurrentPath() + name] = file;
@@ -157,6 +169,51 @@ bool FileManager::FileCreate(const std::string& name) {
 
 		if (messages) { std::cout << "Stworzono plik o nazwie '" << name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n"; }
 		return true;
+	}
+	catch (const std::string& description) {
+		std::cout << description << '\n';
+		return false;
+	}
+	catch (const std::vector<std::string>& descriptions) {
+		std::cout << descriptions;
+		return false;
+	}
+}
+
+bool FileManager::FileSaveData(const std::string& name, const std::string& data) {
+	try {
+		if (name.empty()) { throw "Pusta nazwa!"; }
+		std::vector<std::string> errorDescriptions;
+		bool error = false;
+		//Error1
+		if (data.size() > MAX_FILE_SIZE) { errorDescriptions.emplace_back("Podane dane przekraczaj¹ maksymalny rozmiar pliku!"); error = true; }
+
+		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+		//Error2
+		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
+			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '"); throw errorDescriptions;
+		}
+
+		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
+		//Error3
+		if (inode->type != "FILE") { errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '"); error = true; }
+
+		std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
+		//Error4
+		if (data.size() > DISK.FileSystem.freeSpace - file->blocksOccupied*BLOCK_SIZE) {
+			errorDescriptions.
+				emplace_back("Za ma³o miejsca na dysku!"); error = true;
+		}
+		if (error) { throw errorDescriptions; }
+
+		FileSaveData(file, data);
+		if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
+		return true;
+	}
+	catch(const std::string& description) {
+		std::cout << description << '\n';
+		return false;
 	}
 	catch (const std::vector<std::string>& descriptions) {
 		std::cout << descriptions;
@@ -166,6 +223,7 @@ bool FileManager::FileCreate(const std::string& name) {
 
 const std::string FileManager::FileGetData(const std::string& name) {
 	try {
+		if (name.empty()) { throw "Pusta nazwa!"; }
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
 		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
 
@@ -179,48 +237,15 @@ const std::string FileManager::FileGetData(const std::string& name) {
 
 		return FileGetData(std::dynamic_pointer_cast<File>(inode));
 	}
-	catch (const std::string description) {
+	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return "";
 	}
 }
 
-bool FileManager::FileSaveData(const std::string& name, const std::string& data) {
-	try {
-		std::vector<std::string> errorDescriptions;
-		bool error = false;
-		//Error1
-		if (data.size() > MAX_FILE_SIZE) { errorDescriptions.push_back("Podane dane przekraczaj¹ maksymalny rozmiar pliku!"); error = true; }
-
-		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-		//Error2
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '"); error = true; throw errorDescriptions;
-		}
-
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
-		//Error3
-		if (inode->type != "FILE") { errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '"); error = true; }
-
-		std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
-		//Error4
-		if (data.size() > DISK.FileSystem.freeSpace - file->blocksOccupied*BLOCK_SIZE) { errorDescriptions.push_back("Za ma³o miejsca na dysku!"); error = true; }
-		if (error) { throw errorDescriptions; }
-
-		FileSaveData(file, data);
-		std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n";
-		return true;
-	}
-	catch (const std::vector<std::string>& descriptions)
-	{
-		std::cout << descriptions;
-		return false;
-	}
-}
-
 bool FileManager::FileDelete(const std::string& name) {
 	try {
+		if (name.empty()) { throw "Pusta nazwa!"; }
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
 		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
 		//Error1
@@ -240,30 +265,34 @@ bool FileManager::FileDelete(const std::string& name) {
 		if (messages) { std::cout << "Usuniêto plik o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n"; }
 		return true;
 	}
-	catch (const std::string description) {
+	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return false;
 	}
 }
 
-bool FileManager::DirectoryCreate(const std::string& name) {
+bool FileManager::DirectoryCreate(std::string name) {
 	try {
 		std::vector<std::string> errorDescriptions;
 		bool error = false;
 		//Error1
-		if (name.empty()) { errorDescriptions.push_back("Pusta nazwa!"); throw errorDescriptions; }
+		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
+
+		if (*(name.end() - 1) != '/') { name += '/'; }
 		//Error2
-		if (DISK.FileSystem.InodeTable.size() >= INODE_NUMBER_LIMIT) { errorDescriptions.push_back("Osi¹gniêto limit elementów w systemie plików!"); error = true; }
-		//Error3
-		if (*(name.end() - 1) != '/') { errorDescriptions.push_back("Niepoprawna nazwa!"); error = true; }
+		if (DISK.FileSystem.InodeTable.size() >= INODE_NUMBER_LIMIT) {
+			errorDescriptions.emplace_back(
+				"Osi¹gniêto limit elementów w systemie plików!"); error = true;
+		}
 
 		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-		//Error4
+		//Error3
 		if (directoryIterator != std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
 			errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
 		}
-		//Error5
-		if (name.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) { errorDescriptions.push_back("Œcie¿ka za d³uga!"); error = true; }
+
+		//Error4
+		if (name.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) { errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true; }
 		if (error) { throw errorDescriptions; }
 
 		//Do iWêz³ów w obecnym katalogu dodaj nowy podkatalog
@@ -280,8 +309,10 @@ bool FileManager::DirectoryCreate(const std::string& name) {
 	}
 }
 
-bool FileManager::DirectoryDelete(const std::string& name) {
+bool FileManager::DirectoryDelete(std::string name) {
 	try {
+		if (name.empty()) { throw "Pusta nazwa!"; }
+		if (*(name.end() - 1) != '/') { name += '/'; }
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za katalogiem o podanej nazwie
 		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
 
@@ -308,23 +339,25 @@ bool FileManager::DirectoryDelete(const std::string& name) {
 		if (messages) { std::cout << "Usuniêto katalog o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n"; }
 		return true;
 	}
-	catch (const std::string description) {
+	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return false;
 	}
 }
 
-bool FileManager::DirectoryChange(const std::string& name) {
+bool FileManager::DirectoryChange(std::string path) {
 	try {
-		const auto inodeTableIterator = DISK.FileSystem.InodeTable.find(name);
+		if (path.empty()) { throw "Pusta œcie¿ka!"; }
+		if (*(path.end() - 1) != '/') { path += '/'; }
+		const auto inodeTableIterator = DISK.FileSystem.InodeTable.find(path);
 
 		//Error1
 		if (inodeTableIterator != DISK.FileSystem.InodeTable.end()) {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+			throw("Katalog o œcie¿ce '" + path + "' nie znaleziony!");
 		}
 		//Error2
 		if (inodeTableIterator->second->type == "DIRECTORY") {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+			throw("Katalog o œcie¿ce '" + path + "' nie znaleziony!");
 		}
 
 		//Przejœcie do katalogu o wskazanej nazwie
@@ -332,7 +365,7 @@ bool FileManager::DirectoryChange(const std::string& name) {
 		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
 		return true;
 	}
-	catch (const std::string description) {
+	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return false;
 	}
@@ -352,8 +385,10 @@ bool FileManager::DirectoryUp() {
 	}
 }
 
-bool FileManager::DirectoryDown(const std::string& name) {
+bool FileManager::DirectoryDown(std::string name) {
 	try {
+		if (*(name.end() - 1) != '/') { name += '/'; }
+
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za katalogiem o podanej nazwie
 		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
 
@@ -373,7 +408,7 @@ bool FileManager::DirectoryDown(const std::string& name) {
 		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
 		return true;
 	}
-	catch (const std::string description) {
+	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return false;
 	}
@@ -388,13 +423,19 @@ bool FileManager::FileCreate(const std::string& name, const std::string& data) {
 		std::vector<std::string> errorDescriptions;
 		bool error = false;
 		//Error1
-		if (data.size() > MAX_FILE_SIZE) { errorDescriptions.push_back("Podane dane przekraczaj¹ maksymalny rozmiar pliku!"); error = true; }
+		if (data.size() > MAX_FILE_SIZE) {
+			errorDescriptions.emplace_back(
+				"Podane dane przekraczaj¹ maksymalny rozmiar pliku!"); error = true;
+		}
 		//Error2
-		if (!CheckIfEnoughSpace(CalculateNeededBlocks(data.size())*BLOCK_SIZE)) { errorDescriptions.push_back("Za ma³o miejsca na dysku!"); error = true; }
+		if (!CheckIfEnoughSpace(CalculateNeededBlocks(data.size())*BLOCK_SIZE)) {
+			errorDescriptions.
+				emplace_back("Za ma³o miejsca na dysku!"); error = true;
+		}
 		if (error) { throw errorDescriptions; }
 
 		FileCreate(name);
-		std::shared_ptr<File> file = std::make_shared<File>();
+		const std::shared_ptr<File> file = std::make_shared<File>();
 
 		//Dodanie pliku do obecnego katalogu
 		DISK.FileSystem.InodeTable[GetCurrentPath() + name] = file;
@@ -412,35 +453,36 @@ bool FileManager::FileCreate(const std::string& name, const std::string& data) {
 	}
 }
 
-bool FileManager::DirectoryRename(const std::string& name, const std::string& changeName) {
+bool FileManager::DirectoryRename(std::string name, std::string changeName) {
 	try {
 		std::vector<std::string> errorDescriptions;
 		bool error = false;
 
 		//Error1
-		if (name.empty()) { errorDescriptions.push_back("Pusta nazwa!"); throw errorDescriptions; }
+		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
 		//Error2
-		if (changeName.empty()) { errorDescriptions.push_back("Pusta nowa nazwa!"); throw errorDescriptions; }
+		if (changeName.empty()) { errorDescriptions.emplace_back("Pusta nowa nazwa!"); throw errorDescriptions; }
+
+		if (*(changeName.end() - 1) != '/') { changeName += '/'; }
+		if (*(name.end() - 1) != '/') { name += '/'; }
 		//Error3
-		if (*(name.end() - 1) != '/') { errorDescriptions.push_back("Niepoprawna nazwa!"); error = true; }
-		//Error4
 		if (CheckIfNameUsed(currentDirectory, changeName)) {
 			errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
 		}
-		//Error5
+		//Error4
 		if (changeName.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) {
-			errorDescriptions.push_back("Œcie¿ka za d³uga!"); error = true;
+			errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true;
 		}
 
 		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-		//Error6
+		//Error5
 		if (directoryIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
 			errorDescriptions.push_back("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-			error = true; throw errorDescriptions;
+			throw errorDescriptions;
 		}
 
 		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[directoryIterator->second];
-		//Error7
+		//Error6
 		if (inode->type != "DIRECTORY") {
 			errorDescriptions.push_back("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
 			error = true;
@@ -473,23 +515,23 @@ bool FileManager::FileRename(const std::string& name, const std::string& changeN
 		bool error = false;
 
 		//Error1
-		if (name.empty()) { errorDescriptions.push_back("Pusta nazwa!"); throw errorDescriptions; }
+		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
 		//Error2
-		if (changeName.empty()) { errorDescriptions.push_back("Pusta nowa nazwa!"); throw errorDescriptions; }
+		if (changeName.empty()) { errorDescriptions.emplace_back("Pusta nowa nazwa!"); throw errorDescriptions; }
 		//Error3
 		if (CheckIfNameUsed(currentDirectory, changeName)) {
 			errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
 		}
 		//Error4
 		if (changeName.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) {
-			errorDescriptions.push_back("Œcie¿ka za d³uga!"); error = true;
+			errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true;
 		}
 
 		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
 		//Error5
 		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
 			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-			error = true; throw errorDescriptions;
+			throw errorDescriptions;
 		}
 
 		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
@@ -578,7 +620,7 @@ bool FileManager::DisplayDirectoryInfo(const std::string& name) {
 
 		return true;
 	}
-	catch (const std::string description) {
+	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return false;
 	}
@@ -611,7 +653,7 @@ bool FileManager::DisplayFileInfo(const std::string& name) {
 
 		return true;
 	}
-	catch (const std::string description) {
+	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return false;
 	}
@@ -856,7 +898,6 @@ void FileManager::FileAllocationIncrease(std::shared_ptr<File>& file, const u_in
 		fitsAfterLastIndex = false;
 	}
 
-
 	if (fitsAfterLastIndex) {
 		std::vector<u_int>blocks;
 		for (u_int i = lastBlockIndex; i < lastBlockIndex + increaseBlocksNumber; i++) {
@@ -868,7 +909,7 @@ void FileManager::FileAllocationIncrease(std::shared_ptr<File>& file, const u_in
 		if (file->blocksOccupied > 0) { FileDeallocate(file); };
 		FileAllocateBlocks(file, FindUnallocatedBlocks(neededBlocks));
 	}
-	if (messages) { std::cout << "Zwiêkszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
+	if (detailedMessages) { std::cout << "Zwiêkszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
 }
 
 void FileManager::FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks) {
@@ -914,7 +955,7 @@ void FileManager::FileAllocationDecrease(const std::shared_ptr<File>& file, cons
 		file->blocksOccupied--;
 		file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
 	}
-	if (messages) { std::cout << "Zmniejszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
+	if (detailedMessages) { std::cout << "Zmniejszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
 }
 
 void FileManager::FileDeallocate(const std::shared_ptr<File>& file) {
@@ -941,6 +982,7 @@ void FileManager::FileDeallocate(const std::shared_ptr<File>& file) {
 			}
 		}
 		file->directBlocks.clear();
+		file->blocksOccupied = 0;
 	}
 	if (detailedMessages) {
 		std::sort(freedBlocks.begin(), freedBlocks.end());
@@ -1089,7 +1131,7 @@ void FileManager::FileSaveData(std::shared_ptr<File>& file, const std::string& d
 
 const std::string FileManager::FileGetData(const std::shared_ptr<File>& file) const {
 	//Dane
-	std::string data = "";
+	std::string data;
 	//Indeks do wczytywania danych z dysku
 	size_t indexNumber = 0;
 	size_t indexInBlockNumber = 0;
@@ -1161,7 +1203,7 @@ void FileManager::DisplayDirectory(const std::shared_ptr<Directory>& directory, 
 		level++;
 		for (auto i = directory->files.begin(); i != directory->files.end(); ++i) {
 			if (DISK.FileSystem.InodeTable[i->second]->type == "DIRECTORY") {
-				std::cout << std::string(level + 1, ' ') << i->first << "/\n";
+				std::cout << std::string(level + 1, ' ') << i->first << "\n";
 				DisplayDirectory(std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[i->second]), level);
 			}
 		}
