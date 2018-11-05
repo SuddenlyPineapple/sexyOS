@@ -1,13 +1,12 @@
-#include "stdafx.h"
-#include "interpreter.h"
+#include "Interpreter.h"
 #include <iostream>
 #include <string>
 #include <fstream>
 
 
-interpreter::interpreter() { A = B = C = D = 0; }
+Interpreter::Interpreter() { A = B = C = D = 0; }
 
-void interpreter::stan_rejestrow()
+void Interpreter::stan_rejestrow()
 {
 	std::cout << "\nA: " << A << "\nB: " << B << "\nC: " << C << "\nD: " << D <<"\nilosc rozkazow: "<<counter<< "\n\n";
 }
@@ -15,7 +14,7 @@ void interpreter::stan_rejestrow()
 
 // chyba bede musial zmienic niektore nazwy rozkazow w tych ifach, bo asembler to nie asembler najwyrazniej. bucholc mnie takich rozkazow nauczyl jakie mam teraz, a nie jakies dziwne 2literowe,nie wiadomo skad, no bo w sumie to o co chodzi, po co zmieniac nazwy rozkazow? Jest jeden asembler po co tak konfudowac ludzi? No Bambo to pewnie bedzie chcial te dziwne, bo on sam jest dziwny i w ogole co ja mam dac na tej prezentacji, no bo sory, ale on nie dal mi zadnych materialow. Nie wiem co mam jeszcze napisac, by bylo smiesznie, ze jest taki dlugi komentarz. Na co mam jewszcze narzekac? A niewazne, i tak juz jest chyba wystarczajaco dlugi, nie? no dobra, juz koncze. xoxo
 
-void interpreter::wykonanie_programu(rozkazy r)
+void Interpreter::wykonanie_programu(Rozkazy r)
 {
 	int i=counter++;
 	std::string rozkaz = r.rozkaz; // rozkaz bedzie z memory manager potem
@@ -157,7 +156,7 @@ void interpreter::wykonanie_programu(rozkazy r)
 		std::ifstream plik("plik.txt");
 		while(!plik.eof())
 		{ 
-		rozkazy ro;
+		Rozkazy ro;
 		plik >> ro.rozkaz >> ro.rej;
 		wykonanie_programu(ro);
 		}

@@ -4,17 +4,17 @@
 
 
 
-struct rozkazy //to 1 rozkaz, ale whatevs
+struct Rozkazy //to 1 rozkaz, ale whatevs
 {
 	std::string rej;
 	std::string rozkaz;
 };
 
-//zapodaj cos tu do interfejsu krokowego, jo³.
-class interpreter
+//zapodaj cos tu do interfejsu krokowego, joï¿½.
+class Interpreter
 {
 public:
-	interpreter();
+	Interpreter();
 	int A;
 	int B;
 	int C;
@@ -26,6 +26,6 @@ public:
 	void pobierz_rozkazy();//nic tu nie ma
 
 	void stan_rejestrow();
-	void wykonanie_programu(rozkazy);
+	void wykonanie_programu(Rozkazy);
 };
 
