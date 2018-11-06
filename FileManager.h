@@ -142,8 +142,6 @@ private:
 		*/
 		explicit Directory() : Inode("DIRECTORY") {}
 		virtual ~Directory() = default;
-
-		bool operator == (const Directory& dir) const;
 	};
 
 	//Prosta klasa dysku (imitacja fizycznego) - przechowuje dane + system plików
@@ -358,6 +356,11 @@ public:
 
 	//------------------ Metody do wyœwietlania -----------------
 
+	/**
+		Wyœwietla parametry systemu plików.
+
+		@return void.
+	*/
 	void DisplayFileSystemParams() const;
 
 	/**
@@ -365,7 +368,7 @@ public:
 
 		@return void.
 	*/
-	bool DisplayDirectoryInfo(const std::string& name);
+	bool DisplayDirectoryInfo(std::string name);
 
 	/**
 		Wyœwietla informacje o pliku.
@@ -589,6 +592,14 @@ private:
 	void DirectoryDeleteStructure(std::shared_ptr<Directory>& directory);
 
 	/**
+		Aktualizuje œcie¿ki w ca³ej strukturze katalogów.
+
+		@param directory WskaŸnik na katalog, którego œcie¿ki chcemy zauktualizowaæ.
+		@return Rozmiar podanego katalogu.
+	*/
+	void DirectoryRenameStructure(std::shared_ptr<Directory>& directory);
+
+	/**
 		Wyœwietla rekurencyjnie katalog i jego podkatalogi.
 
 		@param directory Katalog szczytowy do wyœwietlenia.
@@ -596,6 +607,14 @@ private:
 		@return void.
 	*/
 	void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
+
+	/**
+		Usuwa i-wêze³ z tablicy i-wêz³ów.
+
+		@param inode WskaŸnik na i-wêze³ do usuniêcia.
+		@return void.
+	*/
+	void InodeTableRemove(const std::shared_ptr<Inode>& inode);
 
 	/**
 		Zwraca œcie¿kê podanego katalogu.
