@@ -169,7 +169,7 @@ bool FileManager::FileCreate(const std::string& name) {
 	}
 }
 
-bool FileManager::FileSaveData(const std::string& name, const std::string& data) {
+bool FileManager::FileWriteData(const std::string& name, const std::string& data) {
 	try {
 		if (name.empty()) { throw "Pusta nazwa!"; }
 		std::vector<std::string> errorDescriptions;
@@ -196,7 +196,7 @@ bool FileManager::FileSaveData(const std::string& name, const std::string& data)
 		}
 		if (error) { throw errorDescriptions; }
 
-		FileSaveData(file, data);
+		FileWriteData(file, data);
 		if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
 		return true;
 	}
@@ -210,7 +210,7 @@ bool FileManager::FileSaveData(const std::string& name, const std::string& data)
 	}
 }
 
-const std::string FileManager::FileGetData(const std::string& name) {
+const std::string FileManager::FileReadData(const std::string& name) {
 	try {
 		if (name.empty()) { throw "Pusta nazwa!"; }
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
@@ -224,7 +224,7 @@ const std::string FileManager::FileGetData(const std::string& name) {
 		//Error2
 		if (inode->type != "FILE") { throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!"); }
 
-		return FileGetData(std::dynamic_pointer_cast<File>(inode));
+		return FileReadData(std::dynamic_pointer_cast<File>(inode));
 	}
 	catch (const std::string& description) {
 		std::cout << description << '\n';
@@ -406,6 +406,17 @@ bool FileManager::DirectoryDown(std::string name) {
 
 
 //--------------------- Dodatkowe metody --------------------
+void FileManager::DiskFormat() {
+	currentDirectory = DISK.FileSystem.rootDirectory;
+
+	DISK.FileSystem.InodeTable.clear();
+	DISK.FileSystem.InodeTable[DISK.FileSystem.rootDirectory] = std::make_shared<Directory>();
+	for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
+		DISK.FileSystem.bitVector[i] = BLOCK_FREE;
+	}
+
+	if (messages) { std::cout << "Sformatowano dysk!\n"; }
+}
 
 bool FileManager::FileCreate(const std::string& name, const std::string& data) {
 	try {
@@ -431,7 +442,7 @@ bool FileManager::FileCreate(const std::string& name, const std::string& data) {
 		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files[name] = GetCurrentPath() + name;
 
 		//Zapisanie danych pliku na dysku
-		FileSaveData(name, data);
+		FileWriteData(name, data);
 
 		return true;
 	}
@@ -638,7 +649,7 @@ bool FileManager::DisplayFileInfo(const std::string& name) {
 		std::cout << "Size on disk: " << file->sizeOnDisk << " Bytes\n";
 		std::cout << "Created: " << file->creationTime << '\n';
 		std::cout << "Modified: " << file->modificationTime << '\n';
-		std::cout << "Saved data: " << FileGetData(file) << '\n';
+		std::cout << "Saved data: " << FileReadData(file) << '\n';
 
 		return true;
 	}
@@ -1080,7 +1091,7 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocks(const u_int& blockNu
 
 //----------------------- Metody Inne -----------------------
 
-void FileManager::FileSaveData(std::shared_ptr<File>& file, const std::string& data) {
+void FileManager::FileWriteData(std::shared_ptr<File>& file, const std::string& data) {
 	file->modificationTime = GetCurrentTimeAndDate();
 
 	//Uzyskuje dane podzielone na fragmenty
@@ -1110,7 +1121,7 @@ void FileManager::FileSaveData(std::shared_ptr<File>& file, const std::string& d
 	}
 }
 
-const std::string FileManager::FileGetData(const std::shared_ptr<File>& file) const {
+const std::string FileManager::FileReadData(const std::shared_ptr<File>& file) const {
 	std::string data;
 	//Indeks do wczytywania danych z dysku
 	size_t indexNumber = 0;

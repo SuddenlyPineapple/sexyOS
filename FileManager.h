@@ -229,7 +229,7 @@ public:
 		@param data Dane do zapisu.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool FileSaveData(const std::string& name, const std::string& data);
+	bool FileWriteData(const std::string& name, const std::string& data);
 
 	/**
 		Odczytuje dane z podanego pliku.
@@ -237,7 +237,7 @@ public:
 		@param name Nazwa pliku.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	const std::string FileGetData(const std::string& name);
+	const std::string FileReadData(const std::string& name);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
@@ -290,6 +290,14 @@ public:
 
 
 	//--------------------- Dodatkowe metody --------------------
+
+	/**
+		Formatuje dysk. Zeruje wektor bitowy, usuwa wszystkie i-wêz³y,
+		tworzy nowy katalog g³ówny.
+
+		@return void.
+	*/
+	void DiskFormat();
 
 	/**
 		Tworzy plik o podanej nazwie w obecnym katalogu i zapisuje w nim podane dane.
@@ -565,7 +573,7 @@ private:
 		@param data Dane do zapisania na dysku.
 		@return void.
 	*/
-	void FileSaveData(std::shared_ptr<File>& file, const std::string& data);
+	void FileWriteData(std::shared_ptr<File>& file, const std::string& data);
 
 	/**
 		Wczytuje dane pliku z dysku.
@@ -573,7 +581,7 @@ private:
 		@param file WskaŸnik na plik którego dane maj¹ byæ wczytane z dysku.
 		@return Dane pliku w postaci string.
 	*/
-	const std::string FileGetData(const std::shared_ptr<File>& file) const;
+	const std::string FileReadData(const std::shared_ptr<File>& file) const;
 
 	/**
 		Usuwa wskazany plik.
