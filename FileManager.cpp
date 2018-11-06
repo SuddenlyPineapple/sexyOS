@@ -265,7 +265,6 @@ bool FileManager::FileDelete(const std::string& name) {
 }
 
 bool FileManager::FileOpen(const std::string & name) {
-<<<<<<< HEAD
 	try {
 		//Error1
 		if (name.empty()) { throw "Pusta nazwa!"; }
@@ -314,42 +313,23 @@ bool FileManager::FileClose(const std::string & path) {
 		std::cout << description << '\n';
 		return false;
 	}
-=======
-	return false;
-}
-
-bool FileManager::FileClose(const std::string & name) {
-	return false;
->>>>>>> 3b567d58d87389659a9092de5f02974fba4e26d7
 }
 
 bool FileManager::FileSetFlags(const std::string& name, const std::string& user, const bool& read, const bool& write) {
 	try {
-<<<<<<< HEAD
 		//Error1
 		if (name.empty()) { throw "Pusta nazwa!"; }
 		//Error2
-=======
-		if (name.empty()) { throw "Pusta nazwa!"; }
->>>>>>> 3b567d58d87389659a9092de5f02974fba4e26d7
 		if (name.empty()) { throw "Pusty u¿ytkownik!"; }
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
 		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
 
-<<<<<<< HEAD
 		//Error3
-=======
-		//Error1
->>>>>>> 3b567d58d87389659a9092de5f02974fba4e26d7
 		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
 			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
 		}
 		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
-<<<<<<< HEAD
 		//Error4
-=======
-		//Error2
->>>>>>> 3b567d58d87389659a9092de5f02974fba4e26d7
 		if (inode->type != "FILE") { throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!"); }
 
 		std::dynamic_pointer_cast<File>(inode)->flags[1] = read;

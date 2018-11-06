@@ -266,11 +266,7 @@ public:
 
 	bool FileOpen(const std::string& name);
 
-<<<<<<< HEAD
 	bool FileClose(const std::string& path);
-=======
-	bool FileClose(const std::string& name);
->>>>>>> 3b567d58d87389659a9092de5f02974fba4e26d7
 
 	/**
 		Ustawia zestaw flag w pliku o podanej nazwie dla podanego u¿ytkownika.
