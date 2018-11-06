@@ -21,10 +21,10 @@
 
 /*
 	To-do:
-	- otwieranie i zamykanie pliku (zale¿y czy mój zakres zadania)
-	- plik - flagi
-	- zapisywanie plików z kodem asemblerowym
-	- pliki executable
+	- zabezpieczenia + flagi w plikach
+	- otwieranie i zamykanie pliku
+	- zapisywanie plików z kodem asemblerowym (opcjonalne)
+	- pliki executable (opcjonalne)
 */
 
 //Klasa serializera (konwertowanie danych)
@@ -122,7 +122,21 @@ private:
 		IndexBlock directBlocks; //Bezpoœrednie bloki (na koñcu 1 blok indeksowy 1-poziomu)
 
 		//Dodatkowe informacje
+		std::string creator;
 		tm modificationTime; //Czas i data ostatniej modyfikacji pliku
+
+		/**
+			Flagi znaczenie:
+
+			indeks 0 - flaga plik otwarty
+
+			indeks 1 - flaga odczytu
+
+			indeks 2 - flaga zapisu
+
+			Domyœlnie plik jest zamkniêty i ma ustawione prawa odczytu i zapisu.
+		 */
+		std::bitset<3> flags;
 
 		/**
 			Konstruktor domyœlny.
@@ -184,7 +198,7 @@ private:
 			@param data Dane typu string.
 			@return void.
 		*/
-		void write(const u_int& begin, const u_int& end, const std::string& data);
+		void write(const u_int& begin, const std::string& data);
 
 		/**
 			Odczytuje dane zadanego typu (jeœli jest on zaimplementowany) w wskazanym przedziale.
@@ -194,14 +208,16 @@ private:
 			@return zmienna zadanego typu.
 		*/
 		template<typename T>
-		const T read(const u_int& begin, const u_int& end) const;
+		const T read(const u_int& begin) const;
 	} DISK;
 
+
+
 	//------------------- Definicje zmiennych -------------------
-	//u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania szczegó³owych powiadomieñ
 	std::string currentDirectory; //Obecnie u¿ywany katalog
+	std::unordered_map<std::string, u_int> usedFiles;
 
 
 public:
@@ -247,6 +263,21 @@ public:
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool FileDelete(const std::string& name);
+
+	bool FileOpen(const std::string& name);
+
+	bool FileClose(const std::string& path);
+
+	/**
+		Ustawia zestaw flag w pliku o podanej nazwie dla podanego u¿ytkownika.
+
+		@param name Nazwa pliku.
+		@param user U¿ytkownik do jakiego chcemy przypisaæ flagi.
+		@param read Flaga odczytu.
+		@param write Flaga zapisu.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool FileSetFlags(const std::string& name, const std::string& user, const bool& read, const bool& write);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
@@ -308,14 +339,9 @@ public:
 	*/
 	bool FileCreate(const std::string& name, const std::string& data);
 
-	/**
-		Zmienia nazwê pliku (w obecnej œcie¿ce) o podanej nazwie.
+	bool FilePIDSet(const std::string& name, const u_int& pid);
 
-		@param name Obecna nazwa pliku.
-		@param changeName Zmieniona nazwa pliku.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
-	*/
-	bool DirectoryRename(std::string name, std::string changeName);
+	u_int FilePIDGet(const std::string& path);
 
 	/**
 		Zmienia nazwê katalogu (w obecnej œcie¿ce) o podanej nazwie.
@@ -325,6 +351,15 @@ public:
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool FileRename(const std::string& name, const std::string& changeName);
+
+	/**
+		Zmienia nazwê pliku (w obecnej œcie¿ce) o podanej nazwie.
+
+		@param name Obecna nazwa pliku.
+		@param changeName Zmieniona nazwa pliku.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool DirectoryRename(std::string name, std::string changeName);
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
@@ -645,7 +680,7 @@ private:
 		@return d³ugoœæ obecnej œcie¿ki.
 	*/
 	const size_t GetCurrentPathLength() const;
-	
+
 	/**
 		Zwraca aktualny czas i datê.
 
