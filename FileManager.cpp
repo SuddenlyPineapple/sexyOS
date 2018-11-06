@@ -151,6 +151,8 @@ bool FileManager::FileCreate(const std::string& name) {
 		if (error) { throw errorDescriptions; }
 
 		const std::shared_ptr<File> file = std::make_shared<File>();
+		file->flags[1] = true;
+		file->flags[2] = true;
 
 		//Dodanie pliku do obecnego katalogu
 		DISK.FileSystem.InodeTable[GetCurrentPath() + name] = file;
@@ -257,6 +259,40 @@ bool FileManager::FileDelete(const std::string& name) {
 	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return false;
+	}
+}
+
+bool FileManager::FileOpen(const std::string & name) {
+	return false;
+}
+
+bool FileManager::FileClose(const std::string & name) {
+	return false;
+}
+
+bool FileManager::FileSetFlags(const std::string& name, const std::string& user, const bool& read, const bool& write) {
+	try {
+		if (name.empty()) { throw "Pusta nazwa!"; }
+		if (name.empty()) { throw "Pusty u¿ytkownik!"; }
+		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+
+		//Error1
+		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
+			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+		}
+		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
+		//Error2
+		if (inode->type != "FILE") { throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!"); }
+
+		std::dynamic_pointer_cast<File>(inode)->flags[1] = read;
+		std::dynamic_pointer_cast<File>(inode)->flags[2] = write;
+
+		return true;
+	}
+	catch (const std::string& description) {
+		std::cout << description << '\n';
+		return "";
 	}
 }
 

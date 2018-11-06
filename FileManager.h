@@ -21,10 +21,10 @@
 
 /*
 	To-do:
-	- otwieranie i zamykanie pliku (zale¿y czy mój zakres zadania)
-	- plik - flagi
-	- zapisywanie plików z kodem asemblerowym
-	- pliki executable
+	- zabezpieczenia + flagi w plikach
+	- otwieranie i zamykanie pliku
+	- zapisywanie plików z kodem asemblerowym (opcjonalne)
+	- pliki executable (opcjonalne)
 */
 
 //Klasa serializera (konwertowanie danych)
@@ -122,7 +122,21 @@ private:
 		IndexBlock directBlocks; //Bezpoœrednie bloki (na koñcu 1 blok indeksowy 1-poziomu)
 
 		//Dodatkowe informacje
+		std::string creator;
 		tm modificationTime; //Czas i data ostatniej modyfikacji pliku
+
+		/**
+			Flagi znaczenie:
+
+			indeks 0 - flaga plik otwarty
+
+			indeks 1 - flaga odczytu
+
+			indeks 2 - flaga zapisu
+
+			Domyœlnie plik jest zamkniêty i ma ustawione prawa odczytu i zapisu.
+		 */
+		std::bitset<3> flags;
 
 		/**
 			Konstruktor domyœlny.
@@ -247,6 +261,21 @@ public:
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool FileDelete(const std::string& name);
+
+	bool FileOpen(const std::string& name);
+
+	bool FileClose(const std::string& name);
+
+	/**
+		Ustawia zestaw flag w pliku o podanej nazwie dla podanego u¿ytkownika.
+
+		@param name Nazwa pliku.
+		@param user U¿ytkownik do jakiego chcemy przypisaæ flagi.
+		@param read Flaga odczytu.
+		@param write Flaga zapisu.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool FileSetFlags(const std::string& name, const std::string& user, const bool& read, const bool& write);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
