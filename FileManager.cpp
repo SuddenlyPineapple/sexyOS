@@ -351,7 +351,7 @@ bool FileManager::DirectoryChange(std::string path) {
 
 		//Przejœcie do katalogu o wskazanej nazwie
 		currentDirectory = inodeTableIterator->first;
-		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
+		if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
 		return true;
 	}
 	catch (const std::string& description) {
@@ -365,7 +365,7 @@ bool FileManager::DirectoryUp() {
 		if (GetCurrentDirectoryParent().empty()) { throw std::string("Jesteœ w katalogu g³ównym!"); }
 		//Przejœcie do katalogu nadrzêdnego
 		else { currentDirectory = GetCurrentDirectoryParent(); }
-		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
+		if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
 		return true;
 	}
 	catch (const std::string& description) {
@@ -394,7 +394,7 @@ bool FileManager::DirectoryDown(std::string name) {
 
 		//Przejœcie do katalogu o wskazanej nazwie
 		currentDirectory = GetCurrentPath() + directoryIterator->first;
-		std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
+		if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
 		return true;
 	}
 	catch (const std::string& description) {
@@ -554,7 +554,7 @@ bool FileManager::FileRename(const std::string& name, const std::string& changeN
 
 void FileManager::DirectoryRoot() {
 	currentDirectory = DISK.FileSystem.rootDirectory;
-	std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n";
+	if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
 }
 
 void FileManager::Messages(const bool& onOff) {
