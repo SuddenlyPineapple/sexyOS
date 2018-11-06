@@ -490,16 +490,25 @@ bool FileManager::DirectoryDown(std::string name) {
 
 
 //--------------------- Dodatkowe metody --------------------
-void FileManager::DiskFormat() {
-	currentDirectory = DISK.FileSystem.rootDirectory;
+bool FileManager::DiskFormat() {
+	try {
+		if (!usedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
 
-	DISK.FileSystem.InodeTable.clear();
-	DISK.FileSystem.InodeTable[DISK.FileSystem.rootDirectory] = std::make_shared<Directory>();
-	for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
-		DISK.FileSystem.bitVector[i] = BLOCK_FREE;
+		currentDirectory = DISK.FileSystem.rootDirectory;
+
+		DISK.FileSystem.InodeTable.clear();
+		DISK.FileSystem.InodeTable[DISK.FileSystem.rootDirectory] = std::make_shared<Directory>();
+		for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
+			DISK.FileSystem.bitVector[i] = BLOCK_FREE;
+		}
+
+		if (messages) { std::cout << "Sformatowano dysk!\n"; }
+		return true;
 	}
-
-	if (messages) { std::cout << "Sformatowano dysk!\n"; }
+	catch (const std::string& description) {
+		std::cout << description << '\n';
+		return false;
+	}
 }
 
 bool FileManager::FileCreate(const std::string& name, const std::string& data) {
@@ -543,7 +552,7 @@ bool FileManager::FilePIDSet(const std::string& path, const u_int& pid) {
 		if (path.empty()) { throw "Pusta nazwa!"; }
 
 		//Error2
-		if(std::dynamic_pointer_cast<File>(DISK.FileSystem.InodeTable[path])->flags[0] == false) {
+		if (std::dynamic_pointer_cast<File>(DISK.FileSystem.InodeTable[path])->flags[0] == false) {
 			throw "Plik o œcie¿ce '" + path + "' nie jest otwarty!";
 		}
 
@@ -575,6 +584,31 @@ u_int FileManager::FilePIDGet(const std::string& path) {
 	catch (const std::string& description) {
 		std::cout << description << '\n';
 		return u_int(-1);
+	}
+}
+
+bool FileManager::FilePIDRemove(const std::string& path) {
+	try {
+		//Error1
+		if (path.empty()) { throw "Pusta nazwa!"; }
+
+		//Error2
+		if (std::dynamic_pointer_cast<File>(DISK.FileSystem.InodeTable[path])->flags[0] == false) {
+			throw "Plik o œcie¿ce '" + path + "' nie jest otwarty!";
+		}
+
+		const auto fileIterator = usedFiles.find(path);
+		//Error3
+		if (fileIterator == usedFiles.end()) { throw("Plik o œcie¿ce '" + path + "' nie znaleziony wœród u¿ywanych plików!"); }
+
+		usedFiles.erase(path);
+
+		if (detailedMessages) { std::cout << "Pliku o œcie¿ce '" << GetCurrentPath() + path << "' nie jest ju¿ u¿ywany.\n"; }
+		return true;
+	}
+	catch (const std::string& description) {
+		std::cout << description << '\n';
+		return false;
 	}
 }
 

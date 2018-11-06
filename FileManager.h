@@ -21,8 +21,8 @@
 
 /*
 	To-do:
-	- zabezpieczenia + flagi w plikach
-	- otwieranie i zamykanie pliku
+	- przerobiæ zapisywanie i odczytywanie z nazw na œcie¿ki plików
+	- dodaæ zabezpieczenie do zapisywania i odczytywania danych tylko dla plików otwartych
 	- zapisywanie plików z kodem asemblerowym (opcjonalne)
 	- pliki executable (opcjonalne)
 */
@@ -328,7 +328,7 @@ public:
 
 		@return void.
 	*/
-	void DiskFormat();
+	bool DiskFormat();
 
 	/**
 		Tworzy plik o podanej nazwie w obecnym katalogu i zapisuje w nim podane dane.
@@ -339,9 +339,11 @@ public:
 	*/
 	bool FileCreate(const std::string& name, const std::string& data);
 
-	bool FilePIDSet(const std::string& name, const u_int& pid);
+	bool FilePIDSet(const std::string& path, const u_int& pid);
 
 	u_int FilePIDGet(const std::string& path);
+
+	bool FilePIDRemove(const std::string& path);
 
 	/**
 		Zmienia nazwê katalogu (w obecnej œcie¿ce) o podanej nazwie.
