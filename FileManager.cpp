@@ -69,7 +69,7 @@ const std::shared_ptr<FileManager::Index>& FileManager::IndexBlock::operator[](c
 }
 
 void FileManager::Disk::write(const u_int& begin, const std::string& data) {
-	const u_int end = begin + FileManager::BLOCK_SIZE;
+	const u_int end = begin + FileManager::BLOCK_SIZE - 1;
 	//Indeks który bêdzie s³u¿y³ do wskazywania na komórki pamiêci
 	u_int index = begin;
 	//Iterowanie po danych typu string i zapisywanie znaków na dysku
@@ -502,7 +502,7 @@ bool FileManager::FileCreate(const std::string& name, const std::string& data) {
 		}
 		if (error) { throw errorDescriptions; }
 
-		FileCreate(name);
+		if (!FileCreate(name)) { throw errorDescriptions; };
 		const std::shared_ptr<File> file = std::make_shared<File>();
 
 		//Dodanie pliku do obecnego katalogu
@@ -1043,7 +1043,7 @@ void FileManager::FileAllocationIncrease(std::shared_ptr<File>& file, const u_in
 		if (file->blocksOccupied > 0) { FileDeallocate(file); };
 		FileAllocateBlocks(file, FindUnallocatedBlocks(neededBlocks));
 	}
-	if (detailedMessages) { std::cout << "Zwiêkszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
+	if (detailedMessages) { std::cout << "Zwiêkszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
 }
 
 void FileManager::FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks) {
@@ -1089,7 +1089,7 @@ void FileManager::FileAllocationDecrease(const std::shared_ptr<File>& file, cons
 		file->blocksOccupied--;
 		file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
 	}
-	if (detailedMessages) { std::cout << "Zmniejszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajtów.\n"; }
+	if (detailedMessages) { std::cout << "Zmniejszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
 }
 
 void FileManager::FileDeallocate(const std::shared_ptr<File>& file) {
