@@ -45,31 +45,6 @@ bool operator == (const tm& time1, const tm& time2) {
 
 
 
-//------------------------ Serializer -----------------------
-const std::string Serializer::IntToString(unsigned int input) {
-	std::string result;
-	while (input != 0) {
-		if (input % 255 == 0) {
-			result.push_back(char(255));
-			input -= 255;
-		}
-		else {
-			result.push_back(input % 255);
-			input -= input % 255;
-		}
-	}
-	return result;
-}
-const u_int Serializer::StringToInt(const std::string& input) {
-	u_int result = 0;
-	for (const char& c : input) {
-		result += std::bitset<8>(c).to_ulong();
-	}
-	return result;
-}
-
-
-
 //--------------------------- Dysk --------------------------
 
 FileManager::Disk::FileSystem::FileSystem()

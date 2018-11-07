@@ -27,26 +27,7 @@
 	- pliki executable (opcjonalne)
 */
 
-//Klasa serializera (konwertowanie danych)
-class Serializer {
-public:
-	/**
-		Zamienia int na string, gdzie liczba przekonwertowywana
-		jest na znaki, aby zajmowa³a mniej miejsca na dysku.
 
-		@param input Liczba jak¹ chcemy zamieniæ na string.
-		@return Liczba ca³kowita przekonwertowana na string.
-	*/
-	static const std::string IntToString(unsigned int input);
-
-	/**
-		Zamienia string na int. Do u¿ycia w przypadku odczytywania liczby z dysku.
-
-		@param input Tekst jaki chcemy zamieniæ na liczbê.
-		@return Liczba powsta³a po zsumowaniu znaków.
-	*/
-	static const unsigned int StringToInt(const std::string& input);
-};
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
