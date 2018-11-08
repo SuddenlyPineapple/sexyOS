@@ -140,7 +140,7 @@ class MemoryManager {
         int LoadtoMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
 
         //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
-        /*  *pageList - wskaźnik na tablicę
+        /*  *pageList - wskaźnik na indeks stronic procesu
          *  pageID - numer stronicy do zamiany
          *  PID - ID procesu
          * @return int zwraca numer podmienionej ramki, do której została wstawiona stronica
