@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include <map>
-//#include "Processes.h"
+#include "Procesy.h"
 
 //------------- Tablica stronic procesu-------------
 //Indeks stronic dla każdego procesu, vector tej struktury znajduje się w PCB
@@ -107,14 +107,14 @@ class MemoryManager {
 
         //Pobiera rozkaz z danego adresu
         /* PCB *process - wskaźnik do PCB danego procesu
-         * int LR - wartość licznika rozkazów
+         * int LADDR - adres logiczny
          */
-        std::string GET(PCB *process, int LR);
+        std::string GET(PCB *process, int LADDR);
 
         //Zapisuje dany fragment do pamięci
         /* *process - wskaźnik do PCB danego procesu
-         * adress - stan licznika rozkazów
-         * data - rejestr z danymi
+         * adress - adres logiczny w pamięci
+         * data - dane do zapisania w pamięci
          */
         int Write(PCB *process, int adress, std::string data);
 
