@@ -22,7 +22,7 @@ MemoryManager::FrameData::FrameData(bool isFree, int PID, int pageID, std::vecto
 
 MemoryManager::MemoryManager(){
     for (int i = 0; i < 16; i++)
-        Frames.emplace_back(FrameData(true, -1, -1, NULL));
+        Frames.emplace_back(FrameData(true, -1, -1, nullptr));
 };
 
 MemoryManager::~MemoryManager() = default;
@@ -114,17 +114,13 @@ void MemoryManager::stackUpdate(int frameID) {
 
 std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
     double pages = ceil((double)mem/16);
-    int Frame = -1;
     auto *pageList = new std::vector<PageTableData>();
 
     for(int i = 0; i < pages; i++){
         pageList->push_back(PageTableData(false, 0));
     }
 
-    //Załadowanie pierwszej stronicy do pamięci fizycznej
-    //TODO: uncomment this when function will be ready
-    //loadtoMemory(PageFile.at(PID).at(0), 0, PID, pageList);
-
+    loadToMemory(PageFile[PID][0], 0, PID, pageList);
     return pageList;
 }
 
@@ -159,7 +155,8 @@ int MemoryManager::loadProgram(std::string path, int mem, int PID) {
 
 int MemoryManager::loadToMemory(MemoryManager::Page page, int pageID, int PID, std::vector<PageTableData> *pageList) {
     int frame = seekFreeFrame();
-    if(!frame)
+
+    if(frame == -1)
         frame = insertPage(pageList, pageID, PID);
 
     //Przepisywanie stronicy do pamięci RAM
@@ -185,7 +182,42 @@ int MemoryManager::loadToMemory(MemoryManager::Page page, int pageID, int PID, s
 }
 
 std::string MemoryManager::GET(PCB *process, int LADDR) {
-    return std::__cxx11::string();
+    std::string response;
+    bool reading = true;
+    int Frame = -1;
+    int PageID = LADDR/16;
+
+    //przekroczenie zakres dla tego procesu
+    if(process->pageList->size() <= PageID){
+        std::cout << "Error: Exceeded memory range!";
+        reading = false;
+        response = "ERROR";
+    }
+
+    while(reading){
+        PageID = LADDR/16; //Numer stronicy w pamięci
+
+        if(process->pageList->size() <= PageID){
+            reading = false;
+            break;
+        }
+
+        //Sprawdza, czy stronica znajduje się w pamięci operacyjnej
+        if(!process->pageList->at(PageID).bit)
+            loadToMemory(PageFile[process->PID][PageID], PageID, process->PID, process->pageList);
+
+        if(process->pageList->at(PageID).bit){
+            Frame = process->pageList->at(PageID).frame;//Bieżąco używana ramka
+            stackUpdate(Frame);//Ramka została użyta, więc trzeba zaktualizować stos
+            if(RAM[Frame * 16 + LADDR - (16 * PageID)] == ' ') //Odczytywanie do napotkania spacji
+                reading = false;
+            else
+                response+= RAM[Frame * 16 + LADDR - (16*PageID)];
+        }
+        LADDR++;
+    }
+
+    return response;
 }
 
 int MemoryManager::Write(PCB *process, int adress, std::string data) {
@@ -196,18 +228,18 @@ int MemoryManager::Write(PCB *process, int adress, std::string data) {
         return -1;
     }
 
-    int pageN;
+    int pageID;
     for(int i = 0; i < data.size(); i++){
-        pageN = (adress+i)/16;
-        if(!process->pageList->at(pageN).bit)
-            loadToMemory(PageFile[process->PID][pageN], pageN, process->PID, process->pageList);
-        RAM[process->pageList->at(pageN).frame * 16 + adress + i - (16 * pageN)] = data[i];
-        stackUpdate(process->pageList->at(pageN).frame);
+        pageID = (adress+i)/16;
+        if(!process->pageList->at(pageID).bit)
+            loadToMemory(PageFile[process->PID][pageID], pageID, process->PID, process->pageList);
+        RAM[process->pageList->at(pageID).frame * 16 + adress + i - (16 * pageID)] = data[i];
+        stackUpdate(process->pageList->at(pageID).frame);
     }
     return 1;
 }
 
-//TODO: ZMIENIC CIAŁO TEJ FUNKCJI NA FIFIO - napisać od nowa
+//TODO: ZROBIC FIFIO
 int MemoryManager::insertPage(std::vector<PageTableData> *pageList, int pageID, int PID) {
     //*it numer ramki ktora jest ofiara
     auto it = Stack.end(); it--;
@@ -218,12 +250,11 @@ int MemoryManager::insertPage(std::vector<PageTableData> *pageList, int pageID, 
     }
 
     //Zmieniam wartosci w tablicy stronic ofiary
-    Frames[Frame].pageList->at(Frames[Frame].pageID).bit = 0;
+    Frames[Frame].pageList->at(Frames[Frame].pageID).bit = false;
     Frames[Frame].pageList->at(Frames[Frame].pageID).frame = -1;
 
     return Frame;
 }
-
 
 
 

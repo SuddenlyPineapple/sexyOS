@@ -7,11 +7,12 @@ int main() {
     memoryManager.memoryInit();
     //memoryManager.showFrames();
 
-    auto test = memoryManager.createPageList(120,10);
+    auto test = memoryManager.createPageList(16,1);
     //memoryManager.showPageTable(test);
 
-    //memoryManager.showMem();
-
+    memoryManager.showMem();
+    //memoryManager.showFrames();
+    //memoryManager.showPageFile();
 
     /*
     memoryManager.showLRUStack();
