@@ -149,8 +149,53 @@ void MemoryManager::kill(int PID) {
 }
 
 int MemoryManager::loadProgram(std::string path, int mem, int PID) {
-    //TODO: napisać ten szajs
-    return 0;
+    double pagesAmount = ceil((double)mem/16);
+    std::fstream file(path); //Plik na dysku
+    std::string scrap; //Zmienna pomocnicza
+    std::string program; //Program w jednej linii
+    std::vector<Page> pageVector; //Wektor stronic do dodania
+
+    if(!file.is_open()){
+        std::cout << "Error: Can't open file! \n";
+        return -1;
+    }
+
+    while(std::getline(file, scrap)){
+        //Dodanie spacji zamiast końca linii
+        if(!file.eof())
+            scrap+= " ";
+        program += scrap;
+    }
+    scrap.clear();
+
+    //Dzielenie programu na stronice
+    for (char i : program) {
+        scrap+= i;
+        //Tworzenie Stronicy
+        if(scrap.size() == 16){
+            pageVector.emplace_back(Page(scrap));
+            scrap.clear();
+        }
+    }
+
+    if(!scrap.empty())
+        pageVector.emplace_back(Page(scrap));
+    scrap.clear();
+
+    if(pagesAmount * 16 < 16 * pageVector.size()){
+        std::cout << "Error: Program has not assigned enough memory!\n";
+        return -1;
+    }
+
+
+    //Sprawdzanie, czy program nie potrzebuje wiecej stronic w pamięci
+    for(int i = pageVector.size(); i < pagesAmount; i++)
+        pageVector.emplace_back(scrap);
+
+    //Dodanie stronic do pliku wymiany
+    PageFile.insert(std::make_pair(PID, pageVector));
+
+    return 1;
 }
 
 int MemoryManager::loadToMemory(MemoryManager::Page page, int pageID, int PID, std::vector<PageTableData> *pageList) {
