@@ -1,5 +1,4 @@
 // Created by Wojciech Kasperski on 15-Oct-18.
-
 #ifndef SEXYOS_MEMORYMANAGER_H
 #define SEXYOS_MEMORYMANAGER_H
 
@@ -91,7 +90,7 @@ class MemoryManager {
 
         //Metoda ładująca program do pamięci - ładuje pierwsza stronicę programu do pamięci RAM
         /* path - ścieżka do programu na dysku twardym
-         * mem - stan licznika rozkazów
+         * mem - potrzebna ilość pamięci
          * PID - ID procesu
          */
         int loadProgram(std::string path, int mem, int PID);
@@ -100,7 +99,7 @@ class MemoryManager {
         void kill(int PID);
 
         //Tworzy wskaźnik do tablicy stronic danego procesu - funkcja wywoływana przy tworzeniu procesu
-        /*  mem - stan licznika rozkazów
+        /*  mem - potrzebna ilość pamięci
          *  PID - ID procesu
          */
         std::vector<PageTableData> *createPageList(int mem, int PID);
@@ -109,14 +108,15 @@ class MemoryManager {
         /* PCB *process - wskaźnik do PCB danego procesu
          * int LADDR - adres logiczny
          */
-        std::string GET(PCB *process, int LADDR);
+        //std::string GET(PCB *process, int LADDR);
 
         //Zapisuje dany fragment do pamięci
         /* *process - wskaźnik do PCB danego procesu
          * adress - adres logiczny w pamięci
          * data - dane do zapisania w pamięci
          */
-        int Write(PCB *process, int adress, std::string data);
+        //TODO:CZEMU KURWA NIE WIDZI TEGO JEBANEGO PCB
+        //int Write(PCB *process, int adress, std::string data);
 
 
 
@@ -137,7 +137,7 @@ class MemoryManager {
          *  PID - numer procesu
          *  *pageList - wskaźnik na tablicę stronic procesu
          */
-        int LoadtoMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
+        int loadtoMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
 
         //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
         /*  *pageList - wskaźnik na indeks stronic procesu
@@ -153,6 +153,4 @@ class MemoryManager {
         //------------- Destruktor  --------------
         ~MemoryManager();
 };
-
-
 #endif //SEXYOS_MEMORYMANAGER_H
