@@ -1,9 +1,18 @@
 #include <iostream>
+#include "Procesy.h"
 #include "MemoryManager.h"
 
 int main() {
     MemoryManager memoryManager;
     memoryManager.memoryInit();
+    //memoryManager.showFrames();
+
+    auto test = memoryManager.createPageList(120,10);
+    //memoryManager.showPageTable(test);
+
+    //memoryManager.showMem();
+
+
     /*
     memoryManager.showLRUStack();
     memoryManager.stackUpdate(12);

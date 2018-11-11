@@ -1,12 +1,14 @@
 // Created by Wojciech Kasperski on 15-Oct-18.
-#ifndef SEXYOS_MEMORYMANAGER_H
-#define SEXYOS_MEMORYMANAGER_H
-
+#ifndef SEXYOS_MEMORYMANGER_H
+#define SEXYOS_MEMORYMANGER_H
 #include <list>
 #include <string>
 #include <vector>
 #include <map>
-#include "Procesy.h"
+#include <iostream>
+#include <cmath>
+
+class PCB;
 
 //------------- Tablica stronic procesu-------------
 //Indeks stronic dla każdego procesu, vector tej struktury znajduje się w PCB
@@ -14,6 +16,7 @@ struct PageTableData {
     bool bit;  //Wartość bool'owska sprawdzająca zajętość tablicy w pamięci [Sprawdza, czy ramka znajduje się w pamięci RAM]
     int frame; //Numer ramki w której znajduje się stronica
 
+    PageTableData();
     PageTableData(bool bit, int frame);
 };
 
@@ -108,15 +111,14 @@ class MemoryManager {
         /* PCB *process - wskaźnik do PCB danego procesu
          * int LADDR - adres logiczny
          */
-        //std::string GET(PCB *process, int LADDR);
+        std::string GET(PCB *process, int LADDR);
 
         //Zapisuje dany fragment do pamięci
         /* *process - wskaźnik do PCB danego procesu
          * adress - adres logiczny w pamięci
          * data - dane do zapisania w pamięci
          */
-        //TODO:CZEMU KURWA NIE WIDZI TEGO JEBANEGO PCB
-        //int Write(PCB *process, int adress, std::string data);
+        int Write(PCB *process, int adress, std::string data);
 
 
 
@@ -137,7 +139,7 @@ class MemoryManager {
          *  PID - numer procesu
          *  *pageList - wskaźnik na tablicę stronic procesu
          */
-        int loadtoMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
+        int loadToMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
 
         //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
         /*  *pageList - wskaźnik na indeks stronic procesu

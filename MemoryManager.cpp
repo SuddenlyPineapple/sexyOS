@@ -1,7 +1,4 @@
 // Created by Wojciech Kasperski on 15-Oct-18.
-
-#include <iostream>
-#include <cmath>
 #include "MemoryManager.h"
 #include "Procesy.h"
 
@@ -15,6 +12,11 @@ MemoryManager::Page::Page(std::string data) {
 MemoryManager::Page::Page() = default;
 
 PageTableData::PageTableData(bool bit, int frame) : bit(bit), frame(frame) {}
+
+PageTableData::PageTableData(){
+    this->bit = false;
+    this->frame = -1;
+};
 
 MemoryManager::FrameData::FrameData(bool isFree, int PID, int pageID, std::vector<PageTableData> *pageList) : isFree(isFree), PID(PID),pageID(pageID), pageList(pageList) {}
 
@@ -154,6 +156,75 @@ int MemoryManager::loadProgram(std::string path, int mem, int PID) {
     //TODO: napisać ten szajs
     return 0;
 }
+
+int MemoryManager::loadToMemory(MemoryManager::Page page, int pageID, int PID, std::vector<PageTableData> *pageList) {
+    int frame = seekFreeFrame();
+    if(!frame)
+        frame = insertPage(pageList, pageID, PID);
+
+    //Przepisywanie stronicy do pamięci RAM
+    int it = 0;
+    int end = frame * 16 + 16;
+    for(int i = frame * 16; i < end; i++)
+        RAM[i] = page.data[it++];
+
+    //Zmienianie bit'u w indeksie wymiany stronic
+    pageList->at(pageID).bit = true;
+    pageList->at(pageID).frame = frame;
+
+    //Aktualizacja stosu używalności
+    stackUpdate(frame);
+
+    //Aktualizacja informacji o ramce
+    Frames[frame].isFree = false;
+    Frames[frame].pageID = pageID;
+    Frames[frame].PID = PID;
+    Frames[frame].pageList = pageList;
+
+    return frame;
+}
+
+std::string MemoryManager::GET(PCB *process, int LADDR) {
+    return std::__cxx11::string();
+}
+
+int MemoryManager::Write(PCB *process, int adress, std::string data) {
+    if(data.size() == 0) return 1;
+
+    if(adress + data.size() - 1 > process->pageList->size() * 16 - 1 || adress < 0){
+        std::cout << "Error: Exceeded memory amount for this process! \n";
+        return -1;
+    }
+
+    int pageN;
+    for(int i = 0; i < data.size(); i++){
+        pageN = (adress+i)/16;
+        if(!process->pageList->at(pageN).bit)
+            loadToMemory(PageFile[process->PID][pageN], pageN, process->PID, process->pageList);
+        RAM[process->pageList->at(pageN).frame * 16 + adress + i - (16 * pageN)] = data[i];
+        stackUpdate(process->pageList->at(pageN).frame);
+    }
+    return 1;
+}
+
+//TODO: ZMIENIC CIAŁO TEJ FUNKCJI NA FIFIO - napisać od nowa
+int MemoryManager::insertPage(std::vector<PageTableData> *pageList, int pageID, int PID) {
+    //*it numer ramki ktora jest ofiara
+    auto it = Stack.end(); it--;
+    int Frame = *it;
+    // Przepisuje zawartosc z ramki ofiary do Pliku wymiany
+    for (int i = Frame * 16; i < Frame * 16 + 16; i++) {
+        PageFile[Frames[Frame].PID][Frames[Frame].pageID].data[i - (Frame * 16)] = RAM[i];
+    }
+
+    //Zmieniam wartosci w tablicy stronic ofiary
+    Frames[Frame].pageList->at(Frames[Frame].pageID).bit = 0;
+    Frames[Frame].pageList->at(Frames[Frame].pageID).frame = -1;
+
+    return Frame;
+}
+
+
 
 
 
