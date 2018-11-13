@@ -11,10 +11,10 @@ struct rozkazy //to 1 rozkaz, ale whatevs
 };
 
 //zapodaj cos tu do interfejsu krokowego, jo³.
-class interpreter
+class Interpreter
 {
 public:
-	interpreter();
+	Interpreter();
 	int A;
 	int B;
 	int C;
