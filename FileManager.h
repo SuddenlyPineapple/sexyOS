@@ -21,33 +21,13 @@
 
 /*
 	To-do:
-	- otwieranie i zamykanie pliku (zale¿y czy mój zakres zadania)
-	- plik flagi
-	- defragmentator (bardzo opcjonalne)
-	- zapisywanie plików z kodem asemblerowym
-	- pliki executable
+	- przerobiæ zapisywanie i odczytywanie z nazw na œcie¿ki plików
+	- dodaæ zabezpieczenie do zapisywania i odczytywania danych tylko dla plików otwartych
+	- zapisywanie plików z kodem asemblerowym (opcjonalne)
+	- pliki executable (opcjonalne)
 */
 
-//Klasa serializera (konwertowanie danych)
-class Serializer {
-public:
-	/**
-		Zamienia int na string, gdzie liczba przekonwertowywana
-		jest na znaki, aby zajmowa³a mniej miejsca na dysku.
 
-		@param input Liczba jak¹ chcemy zamieniæ na string.
-		@return Liczba ca³kowita przekonwertowana na string.
-	*/
-	static const std::string IntToString(unsigned int input);
-
-	/**
-		Zamienia string na int.
-
-		@param input Tekst jaki chcemy zamieniæ na liczbê.
-		@return Liczba powsta³a po zsumowaniu znaków.
-	*/
-	static const unsigned int StringToInt(const std::string& input);
-};
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
@@ -69,13 +49,9 @@ private:
 
 
 
-	//--------------------- Definicje sta³ych -------------------
-
-
-
 	//---------------- Definicje struktur i klas ----------------
 
-	//Klasa indeksu
+	//Klasa indeksu - przechowuje indeks bloku dyskowego.
 	class Index {
 	public:
 		u_int value; //Wartoœæ indeksu
@@ -85,7 +61,7 @@ private:
 		virtual ~Index() = default;
 	};
 
-	//Klasa bloku indeksowego
+	//Klasa bloku indeksowego - przechowuje tablicê indeksów.
 	class IndexBlock : public Index {
 	private:
 		//Tablica indeksów/bloków indeksowych
@@ -101,7 +77,7 @@ private:
 		const std::shared_ptr<Index>& operator [] (const size_t& index) const;
 	};
 
-	//Klasa i-wêz³a
+	//Klasa i-wêz³a - zawiera podstawowe informacje o pliku
 	class Inode {
 	public:
 		//Podstawowe informacje
@@ -114,11 +90,11 @@ private:
 		/**
 			Konstruktor domyœlny.
 		*/
-		explicit Inode(std::string type_) : type(std::move(type_)), creationTime() {};
+		explicit Inode(std::string type_) : type(std::move(type_)), creationTime(FileManager::GetCurrentTimeAndDate()) {}
 		virtual ~Inode() = default;
 	};
 
-	//Klasa pliku dziedzicz¹ca po i-wêŸle
+	//Klasa pliku dziedzicz¹ca po i-wêŸle - zawiera informacje specyficzne dla pliku
 	class File : public Inode {
 	public:
 		//Podstawowe informacje
@@ -127,33 +103,43 @@ private:
 		IndexBlock directBlocks; //Bezpoœrednie bloki (na koñcu 1 blok indeksowy 1-poziomu)
 
 		//Dodatkowe informacje
+		std::string creator;
 		tm modificationTime; //Czas i data ostatniej modyfikacji pliku
+
+		/**
+			Flagi znaczenie:
+
+			indeks 0 - flaga plik otwarty
+
+			indeks 1 - flaga odczytu
+
+			indeks 2 - flaga zapisu
+
+			Domyœlnie plik jest zamkniêty i ma ustawione prawa odczytu i zapisu.
+		 */
+		std::bitset<3> flags;
 
 		/**
 			Konstruktor domyœlny.
 		*/
-		File() : Inode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime() {}
+		File() : Inode("FILE"), blocksOccupied(0), sizeOnDisk(0), modificationTime(creationTime) {}
 
 		virtual ~File() = default;
 	};
 
-	//Klasa katalogu dziedzicz¹ po i-wêŸle
+	//Klasa katalogu dziedzicz¹ po i-wêŸle - zawiera informacje specyficzne dla katalogu
 	class Directory : public Inode {
 	public:
 		std::unordered_map<std::string, std::string> files; //Tablica hashowa Inode
-		//std::string parentDirectory; //WskaŸnik na katalog nadrzêdny
 
 		/**
 			Konstruktor inicjalizuj¹cy nadrzêdny Inode typem "DIRECTORY".
 		*/
-		explicit Directory()
-			: Inode("DIRECTORY") {}
+		explicit Directory() : Inode("DIRECTORY") {}
 		virtual ~Directory() = default;
-
-		bool operator == (const Directory& dir) const;
 	};
 
-	//Prosta klasa dysku (imitacja fizycznego)
+	//Prosta klasa dysku (imitacja fizycznego) - przechowuje dane + system plików
 	class Disk {
 	public:
 		struct FileSystem {
@@ -172,7 +158,7 @@ private:
 			/**
 				Konstruktor domyœlny. Wpisuje katalog g³ówny do tablicy iWêz³ów.
 			*/
-			FileSystem() { InodeTable[rootDirectory] = std::make_shared<Directory>(); }
+			FileSystem();
 		} FileSystem; //System plików FileSystem
 
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
@@ -193,7 +179,7 @@ private:
 			@param data Dane typu string.
 			@return void.
 		*/
-		void write(const u_int& begin, const u_int& end, const std::string& data);
+		void write(const u_int& begin, const std::string& data);
 
 		/**
 			Odczytuje dane zadanego typu (jeœli jest on zaimplementowany) w wskazanym przedziale.
@@ -203,14 +189,16 @@ private:
 			@return zmienna zadanego typu.
 		*/
 		template<typename T>
-		const T read(const u_int& begin, const u_int& end) const;
+		const T read(const u_int& begin) const;
 	} DISK;
 
+
+
 	//------------------- Definicje zmiennych -------------------
-	//u_int fileNumber = 0;  //Licznik plików w systemie (katalogi to te¿ pliki)
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania szczegó³owych powiadomieñ
 	std::string currentDirectory; //Obecnie u¿ywany katalog
+	std::unordered_map<std::string, u_int> usedFiles;
 
 
 public:
@@ -224,85 +212,137 @@ public:
 
 	//-------------------- Podstawowe Metody --------------------
 	/**
-		Tworzy plik o podanej nazwie i danych w obecnym katalogu.
+		Tworzy plik o podanej nazwie w obecnym katalogu.
 
 		@param name Nazwa pliku.
-		@param data Dane typu string.
-		@return void.
+		@return True, jeœli operacja siê uda³a i false, jeœli operacja nie powiod³a siê.
 	*/
-	bool FileCreate(const std::string& name, const std::string& data);
+	bool FileCreate(const std::string& name);
 
-	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
 	/**
-		Funkcja niedokoñczona.
+		Zapisuje podane dane w danym pliku.
 
 		@param name Nazwa pliku.
-		@return Tymczasowo zwraca dane wczytane z dysku.
+		@param data Dane do zapisu.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	//const std::string FileOpen(const std::string& name) const;
-	//!!!!!!!!!! NIEDOKOÑCZONE !!!!!!!!!!
+	bool FileWriteData(const std::string& name, const std::string& data);
 
+	/**
+		Odczytuje dane z podanego pliku.
 
-	const std::string FileGetData(const std::string& file);
-
-	bool FileSaveData(const std::string& name, const std::string& data);
+		@param name Nazwa pliku.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	const std::string FileReadData(const std::string& name);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
-		Plik jest wymazywany z tablicy FileSystem oraz wektora bitowego.
+		Plik jest wymazywany z tablicy i-wêz³ów oraz wektora bitowego.
 
 		@param name Nazwa pliku.
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool FileDelete(const std::string& name);
+
+	bool FileOpen(const std::string& name);
+
+	bool FileClose(const std::string& path);
+
+	/**
+		Ustawia zestaw flag w pliku o podanej nazwie dla podanego u¿ytkownika.
+
+		@param name Nazwa pliku.
+		@param user U¿ytkownik do jakiego chcemy przypisaæ flagi.
+		@param read Flaga odczytu.
+		@param write Flaga zapisu.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool FileSetFlags(const std::string& name, const std::string& user, const bool& read, const bool& write);
 
 	/**
 		Tworzy nowy katalog w obecnym katalogu.
 
 		@param name Nazwa katalogu.
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool DirectoryCreate(const std::string& name);
+	bool DirectoryCreate(std::string name);
 
 	/**
 		Usuwa katalog o podanej nazwie.
 
 		@param name Nazwa katalogu.
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool DirectoryDelete(const std::string& name);
+	bool DirectoryDelete(std::string name);
 
-	bool DirectoryChange(const std::string& name);
+	/**
+		Przechodzi z obecnego katalogu wskazanego katalogu.
+
+		@param path œcie¿ka katalogu, do którego chcemy przejœæ.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool DirectoryChange(std::string path);
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu nadrzêdnego.
 
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool DirectoryUp();
 
 	/**
-		Przechodzi z obecnego katalogu do katalogu podrzêdnego o podanej nazwie
+		Przechodzi z obecnego katalogu do katalogu podrzêdnego o podanej nazwie.
 
 		@param name Nazwa katalogu.
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool DirectoryDown(const std::string& name);
+	bool DirectoryDown(std::string name);
 
 
 
 	//--------------------- Dodatkowe metody --------------------
 
-	bool DirectoryRename(const std::string& name, const std::string& changeName);
+	/**
+		Formatuje dysk. Zeruje wektor bitowy, usuwa wszystkie i-wêz³y,
+		tworzy nowy katalog g³ówny.
+
+		@return void.
+	*/
+	bool DiskFormat();
 
 	/**
-		Zmienia nazwê pliku o podanej nazwie.
+		Tworzy plik o podanej nazwie w obecnym katalogu i zapisuje w nim podane dane.
+
+		@param name Nazwa pliku.
+		@param data Dane typu string.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool FileCreate(const std::string& name, const std::string& data);
+
+	bool FilePIDSet(const std::string& path, const u_int& pid);
+
+	u_int FilePIDGet(const std::string& path);
+
+	bool FilePIDRemove(const std::string& path);
+
+	/**
+		Zmienia nazwê katalogu (w obecnej œcie¿ce) o podanej nazwie.
 
 		@param name Obecna nazwa pliku.
 		@param changeName Zmieniona nazwa pliku.
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool FileRename(const std::string& name, const std::string& changeName);
+
+	/**
+		Zmienia nazwê pliku (w obecnej œcie¿ce) o podanej nazwie.
+
+		@param name Obecna nazwa pliku.
+		@param changeName Zmieniona nazwa pliku.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool DirectoryRename(std::string name, std::string changeName);
 
 	/**
 		Przechodzi z obecnego katalogu do katalogu g³ównego.
@@ -312,26 +352,41 @@ public:
 	void DirectoryRoot();
 
 	/**
-	Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.
-	false - komunikaty wy³¹czone.
-	true - komunikaty w³¹czone.
+		Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.
+		false - komunikaty wy³¹czone.
+		true - komunikaty w³¹czone.
 
-	@param onOff Czy komunikaty maj¹ byæ w³¹czone.
-	@return void.
-*/
+		@param onOff Czy komunikaty maj¹ byæ w³¹czone.
+		@return void.
+	*/
 	void Messages(const bool& onOff);
 
+	/**
+		Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie szczegó³owych komunikatów.
+		false - komunikaty wy³¹czone.
+		true - komunikaty w³¹czone.
+
+		@param onOff Czy komunikaty maj¹ byæ w³¹czone.
+		@return void.
+	*/
 	void DetailedMessages(const bool& onOff);
 
 	/**
-	Zwraca obecnie u¿ywan¹ œcie¿kê.
+		Zwraca obecnie u¿ywan¹ œcie¿kê.
 
-	@return Obecna œcie¿ka z odpowiednim formatowaniem.
-*/
+		@return Obecna œcie¿ka z odpowiednim formatowaniem.
+	*/
 	const std::string GetCurrentPath() const;
+
+
 
 	//------------------ Metody do wyœwietlania -----------------
 
+	/**
+		Wyœwietla parametry systemu plików.
+
+		@return void.
+	*/
 	void DisplayFileSystemParams() const;
 
 	/**
@@ -339,29 +394,21 @@ public:
 
 		@return void.
 	*/
-	bool DisplayDirectoryInfo(const std::string& name);
+	bool DisplayDirectoryInfo(std::string name);
 
 	/**
 		Wyœwietla informacje o pliku.
 
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool DisplayFileInfo(const std::string& name);
 
 	/**
 		Wyœwietla strukturê katalogów.
 
-		@return void.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	void DisplayDirectoryStructure();
-	/**
-		Wyœwietla rekurencyjnie katalog i jego podkatalogi.
-
-		@param directory Katalog szczytowy do wyœwietlenia.
-		@param level Poziom obecnego katalogu w hierarchii katalogów.
-		@return void.
-	*/
-	void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
 
 	/**
 		Wyœwietla zawartoœæ dysku w formie binarnej.
@@ -394,9 +441,9 @@ private:
 
 		@param directory Katalog, w którym sprawdzana jest nazwa pliku.
 		@param name Nazwa pliku
-		@return Prawda, jeœli nazwa nieu¿ywana, inaczej fa³sz.
+		@return Prawda, jeœli nazwa u¿ywana, inaczej fa³sz.
 	*/
-	const bool CheckIfNameUnused(const std::string& directory, const std::string& name);
+	const bool CheckIfNameUsed(const std::string& directory, const std::string& name);
 
 	/**
 		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
@@ -408,43 +455,15 @@ private:
 
 
 
-	//-------------------- Metody Pomocnicze --------------------
-
-	const std::string GetCurrentDirectoryParent() const;
+	//-------------------- Metody Obliczaj¹ce -------------------
 
 	/**
-		Wczytuje dane pliku z dysku.
+		Oblicza ile bloków zajmie podany string.
 
-		@param file Plik, którego dane maj¹ byæ wczytane.
-		@return Dane pliku w postaci string.
+		@param dataSize D³ugoœæ danych, których rozmiar na dysku bêdzie obliczany.
+		@return Iloœæ bloków jak¹ zajmie string.
 	*/
-	const std::string FileGetData(const std::shared_ptr<File>& file) const;
-
-	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks) const;
-
-	void FileAllocateBlocks(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks);
-
-	void FileAllocationIncrease(std::shared_ptr<File>& file, const u_int& neededBlocks);
-
-	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks);
-
-	void FileDeallocate(const std::shared_ptr<File>& file);
-
-	/**
-		Usuwa ca³¹ strukturê katalogów.
-
-		@param directory Katalog do usuniêcia.
-		@return Rozmiar podanego katalogu.
-	*/
-	void DirectoryDeleteStructure(std::shared_ptr<Directory>& directory);
-
-	/**
-		Usuwa wskazany plik.
-
-		@param file Plik do usuniêcia.
-		@return void.
-	*/
-	void FileDelete(std::shared_ptr<File>& file);
+	const u_int CalculateNeededBlocks(const size_t& dataSize) const;
 
 	/**
 		Zwraca rozmiar podanego katalogu.
@@ -474,13 +493,169 @@ private:
 	*/
 	const u_int CalculateDirectoryFileNumber(const std::shared_ptr<Directory>& directory);
 
-	/**
-		Zwraca œcie¿kê przekazanego folderu
 
-		@param directory Katalog, którego œciê¿kê chcemy otrzymaæ.
-		@return Obecna œcie¿ka z odpowiednim formatowaniem.
+
+	//--------------------- Metody Alokacji ---------------------
+
+	/**
+		Zmniejsza lub zwiêksza plik do podanego rozmiaru.
+
+		@param file WskaŸnik na plik, którego rozmiar chcemy zmieniæ.
+		@param neededBlocks Iloœæ bloków do alokacji.
+		@return void.
+	*/
+	void FileTruncate(std::shared_ptr<File> file, const u_int& neededBlocks);
+
+	/**
+		Dodaje do pliku podane indeksy bloków.
+
+		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
+		@param blocks Numery bloków do alokacji.
+		@return void.
+	*/
+	void FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks) const;
+
+	/**
+		Przeprowadza dealokacje danych pliku, czyli usuwa z pliku indeksy bloków
+		oraz zmienia wartoœci w wektorze bitowym.
+
+		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
+		@return void.
+	*/
+	void FileDeallocate(const std::shared_ptr<File>& file);
+
+	/**
+		Alokuje przestrzeñ na podane bloki. Zmienia wartoœci w wektorze bitowym,
+		aktualizuje wartoœæ zajmowanych bloków przez plik oraz wywo³uje funkcjê
+		FileAddIndexes.
+
+		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
+		@param blocks Numery bloków do alokacji.
+		@return void.
+	*/
+	void FileAllocateBlocks(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks);
+
+	/**
+		Obs³uguje proces zwiêkszania liczby zaalokowanych bloków na dane pliku.
+
+		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
+		@param neededBlocks Liczba bloków do alokacji.
+		@return void.
+	*/
+	void FileAllocationIncrease(std::shared_ptr<File>& file, const u_int& neededBlocks);
+
+	/**
+		Obs³uguje proces zwiêkszania liczby zaalokowanych bloków na dane pliku.
+
+		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
+		@param neededBlocks Liczba bloków do alokacji.
+		@return void.
+	*/
+	void FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks);
+
+	/**
+	Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
+
+	@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
+	@return Zestaw indeksów bloków mo¿liwych do zaalokowania.
+	*/
+	const std::vector<u_int> FindUnallocatedBlocksFragmented(u_int blockNumber);
+
+	/*
+		Znajduje nieu¿ywane bloki do zapisania pliku metod¹ best-fit.
+
+		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
+		@return Zestaw indeksów bloków mo¿liwych do zaalokowania.
+	*/
+	const std::vector<u_int> FindUnallocatedBlocksBestFit(const u_int& blockNumber);
+
+	/*
+		Znajduje nieu¿ywane bloki do zapisania pliku. Najpierw uruchamia funkcjê
+		dzia³aj¹c¹ metod¹ best-fit, jeœli funkcja nie znajdzie dopasowania to
+		uruchamiana jest funkcja znajduj¹c¹ pierwsze jakiekolwiek wolne bloki i
+		wprowadzaj¹ca fragmentacjê danych.
+
+		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
+		@return Zestaw indeksów bloków mo¿liwych do zaalokowania.
+	*/
+	const std::vector<u_int> FindUnallocatedBlocks(const u_int& blockNumber);
+
+
+
+	//----------------------- Metody Inne -----------------------
+
+	/**
+		Zapisuje wektor fragmentów File.data na dysku.
+
+		@param file WskaŸnik na plik którego dane bêd¹ zapisane na dysku.
+		@param data Dane do zapisania na dysku.
+		@return void.
+	*/
+	void FileWriteData(std::shared_ptr<File>& file, const std::string& data);
+
+	/**
+		Wczytuje dane pliku z dysku.
+
+		@param file WskaŸnik na plik którego dane maj¹ byæ wczytane z dysku.
+		@return Dane pliku w postaci string.
+	*/
+	const std::string FileReadData(const std::shared_ptr<File>& file) const;
+
+	/**
+		Usuwa wskazany plik.
+
+		@param file WskaŸnik pliku do usuniêcia.
+		@return void.
+	*/
+	void FileDelete(std::shared_ptr<File>& file);
+
+	/**
+		Usuwa ca³¹ strukturê katalogów.
+
+		@param directory Katalog do usuniêcia.
+		@return Rozmiar podanego katalogu.
+	*/
+	void DirectoryDeleteStructure(std::shared_ptr<Directory>& directory);
+
+	/**
+		Aktualizuje œcie¿ki w ca³ej strukturze katalogów.
+
+		@param directory WskaŸnik na katalog, którego œcie¿ki chcemy zauktualizowaæ.
+		@return Rozmiar podanego katalogu.
+	*/
+	void DirectoryRenameStructure(std::shared_ptr<Directory>& directory);
+
+	/**
+		Wyœwietla rekurencyjnie katalog i jego podkatalogi.
+
+		@param directory Katalog szczytowy do wyœwietlenia.
+		@param level Poziom obecnego katalogu w hierarchii katalogów.
+		@return void.
+	*/
+	void DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level);
+
+	/**
+		Usuwa i-wêze³ z tablicy i-wêz³ów.
+
+		@param inode WskaŸnik na i-wêze³ do usuniêcia.
+		@return void.
+	*/
+	void InodeTableRemove(const std::shared_ptr<Inode>& inode);
+
+	/**
+		Zwraca œcie¿kê podanego katalogu.
+
+		@param directory WskaŸnik na katalog którego œciê¿kê chcemy otrzymaæ.
+		@return Œcie¿ka podanego katalogu.
 	*/
 	const std::string GetPath(const std::shared_ptr<Directory>& directory);
+
+	/**
+		Zwraca œcie¿kê katologu nadrzêdnego wzglêdem obecnego katalogu.
+
+		@return Œcie¿ka katalogu nadrzêdnego.
+	*/
+	const std::string GetCurrentDirectoryParent() const;
 
 	/**
 		Zwraca d³ugoœæ obecnej œcie¿ki.
@@ -497,79 +672,22 @@ private:
 	static const tm GetCurrentTimeAndDate();
 
 	/**
-		Zmienia wartoœæ w wektorze bitowym i zarz¹ pole freeSpace
+		Zmienia wartoœæ w wektorze bitowym i zarz¹dza polem freeSpace
 		w strukturze FileSystem.
 
-		@param block Indeks bloku, którego wartoœæ w wektorze bitowym bêdzie zmieniana.
-		@param value Wartoœæ do przypisania do wskazanego bloku (0 - wolny, 1 - zajêty)
+		@param block Indeks bloku, którego wartoœæ w wektorze bitowym bêdzie zmieniona.
+		@param value Wartoœæ do przypisania do wskazanego bloku ( BLOCK_FREE lub BLOCK_OCCUPIED)
 		@return void.
 	*/
 	void ChangeBitVectorValue(const u_int& block, const bool& value);
 
-
-	/**
-		Zmniejsza plik do podanego rozmiaru. Podany rozmiar
-		musi byæ mniejszy od rozmiaru pliku o conajmniej jedn¹
-		jednostkê alokacji
-
-		@param file WskaŸnik na plik, którego rozmiar chcemy zmieniæ.
-		@param neededBlocks Iloœæ bloków do alokacji.
-		@return void.
-	*/
-	void FileTruncate(std::shared_ptr<File> file, const u_int& neededBlocks);
-
-	/**
-		Zapisuje wektor fragmentów File.data na dysku.
-
-		@param file Plik, którego dane bêd¹ zapisane na dysku.
-		@param data Dane do zapisania na dysku.
-		@return void.
-	*/
-	void FileSaveData(std::shared_ptr<File>& file, const std::string& data);
-
 	/**
 		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
 
-		@param data String do podzielenia na fradmenty.
+		@param data String do podzielenia na fragmenty.
 		@return Wektor fragmentów string.
 	*/
 	const std::vector<std::string> DataToDataFragments(const std::string& data) const;
-
-	/**
-		Oblicza ile bloków zajmie podany string.
-
-		@param dataSize D³ugoœæ danych, których rozmiar na dysku bêdzie obliczany.
-		@return Iloœæ bloków jak¹ zajmie string.
-	*/
-	const u_int CalculateNeededBlocks(const size_t& dataSize) const;
-
-	/**
-		Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
-
-		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
-		@return Wektor indeksów bloków do zaalokowania.
-	*/
-	const std::vector<u_int> FindUnallocatedBlocksFragmented(u_int blockNumber);
-
-	/*
-		Znajduje nieu¿ywane bloki do zapisania pliku metod¹ best-fit.
-
-		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
-		@return Wektor indeksów bloków do zaalokowania.
-	*/
-	const std::vector<u_int> FindUnallocatedBlocksBestFit(const u_int& blockNumber);
-
-	/*
-		Znajduje nieu¿ywane bloki do zapisania pliku. Najpierw uruchamia funkcjê
-		dzia³aj¹c¹ metod¹ best-fit, jeœli funkcja nie znajdzie dopasowania do
-		uruchamia funkcjê znajduj¹c¹ pierwsze jakiekolwiek wolne bloki i wprowadza
-		fragmentacjê danych.
-
-		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
-		@return Wektor indeksów bloków do zaalokowania.
-	*/
-	const std::vector<u_int> FindUnallocatedBlocks(const u_int& blockNumber);
-
 };
 
 static FileManager fileManager;

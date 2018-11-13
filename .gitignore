@@ -7,3 +7,6 @@ CMakeLists.txt
 *.vcxproj/*
 *.filters/*
 *.user/*
+sexyOS.sln
+sexyOS.vcxproj
+sexyOS.vcxproj.filters

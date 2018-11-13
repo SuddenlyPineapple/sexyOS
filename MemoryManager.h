@@ -1,13 +1,15 @@
 // Created by Wojciech Kasperski on 15-Oct-18.
-
-#ifndef SEXYOS_MEMORYMANAGER_H
-#define SEXYOS_MEMORYMANAGER_H
-
+#ifndef SEXYOS_MEMORYMANGER_H
+#define SEXYOS_MEMORYMANGER_H
 #include <list>
 #include <string>
 #include <vector>
 #include <map>
-//#include "Processes.h"
+#include <iostream>
+#include <cmath>
+#include <fstream>
+
+class PCB;
 
 //------------- Tablica stronic procesu-------------
 //Indeks stronic dla każdego procesu, vector tej struktury znajduje się w PCB
@@ -15,6 +17,7 @@ struct PageTableData {
     bool bit;  //Wartość bool'owska sprawdzająca zajętość tablicy w pamięci [Sprawdza, czy ramka znajduje się w pamięci RAM]
     int frame; //Numer ramki w której znajduje się stronica
 
+    PageTableData();
     PageTableData(bool bit, int frame);
 };
 
@@ -70,7 +73,7 @@ class MemoryManager {
          */
         void showMem(int begin, int bytes);
 
-        //Pokazuje zawartść pliku stronicowania
+        //Pokazuje zawartość pliku stronicowania
         void showPageFile();
 
         //Pokazuje zawartość tablicy wymiany processu
@@ -86,12 +89,12 @@ class MemoryManager {
 
 //------------- Funkcje użytkowe MemoryManagera  --------------
 
-        //Tworzy process bezczynności systemu umieszczany w pamięci RAM przy starcie systemu
+        //Tworzy proces bezczynności systemu umieszczany w pamięci RAM przy starcie systemu
         void memoryInit();
 
         //Metoda ładująca program do pamięci - ładuje pierwsza stronicę programu do pamięci RAM
         /* path - ścieżka do programu na dysku twardym
-         * mem - stan licznika rozkazów
+         * mem - potrzebna ilość pamięci
          * PID - ID procesu
          */
         int loadProgram(std::string path, int mem, int PID);
@@ -100,31 +103,25 @@ class MemoryManager {
         void kill(int PID);
 
         //Tworzy wskaźnik do tablicy stronic danego procesu - funkcja wywoływana przy tworzeniu procesu
-        /*  mem - stan licznika rozkazów
+        /*  mem - potrzebna ilość pamięci
          *  PID - ID procesu
          */
         std::vector<PageTableData> *createPageList(int mem, int PID);
 
         //Pobiera rozkaz z danego adresu
-        /* PCB *process - wskaźnik do PCB danego processu
-         * int LR - wartość licznika rozkazów
+        /* PCB *process - wskaźnik do PCB danego procesu
+         * int LADDR - adres logiczny
          */
-        std::string GET(PCB *process, int LR);
+        std::string GET(PCB *process, int LADDR);
 
-        //zapisuje dany fragment do pamięci
+        //Zapisuje dany fragment do pamięci
         /* *process - wskaźnik do PCB danego procesu
-         * adress - stan licznika rozkazów
-         * data - rejestr z danymi
+         * adress - adres logiczny w pamięci
+         * data - dane do zapisania w pamięci
          */
         int Write(PCB *process, int adress, std::string data);
 
-        //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
-        /*  *page_table - wskaźnik na tablicę
-         *  pageID - numer stronicy do zamiany
-         *  PID - ID procesu
-         * @return int zwraca numer podmienionej ramki, do której została wstawiona stronica
-        */
-         int insertPage(std::vector<PageTableData> *pageList, int pageID, int PID);
+
 
          
 
@@ -143,8 +140,15 @@ class MemoryManager {
          *  PID - numer procesu
          *  *pageList - wskaźnik na tablicę stronic procesu
          */
-        int LoadtoMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
+        int loadToMemory(Page page, int pageID, int PID, std::vector<PageTableData> *pageList);
 
+        //Zamienia stronice zgodnie z algorytmem  podanym dla pamięci virtualnej
+        /*  *pageList - wskaźnik na indeks stronic procesu
+         *  pageID - numer stronicy do zamiany
+         *  PID - ID procesu
+         * @return int zwraca numer podmienionej ramki, do której została wstawiona stronica
+        */
+        int insertPage(std::vector<PageTableData> *pageList, int pageID, int PID);
 
     public:
         //------------- Konstruktor  -------------
@@ -152,6 +156,4 @@ class MemoryManager {
         //------------- Destruktor  --------------
         ~MemoryManager();
 };
-
-
 #endif //SEXYOS_MEMORYMANAGER_H
