@@ -1,7 +1,7 @@
 # sexyOS
 sexyOS is prototypical basic C++ terminal operating system made as a final project for Operating System at Poznan University of Technology
 
-
+<pre>
 ,adPPYba,   ,adPPYba,  8b,     ,d8  8b       d8   ,adPPYba,   ,adPPYba,  
 I8[    ""  a8P_____88   `Y8, ,8P'   `8b     d8'  a8"     "8a  I8[    ""  
  `"Y8ba,   8PP"""""""     )888(      `8b   d8'   8b       d8   `"Y8ba,   
@@ -57,4 +57,4 @@ ______?Sexy
 _______Sexy
 _______ Sexy?
 ________SexY
- 
+ </pre>
