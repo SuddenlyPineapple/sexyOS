@@ -1,8 +1,11 @@
 #include <iostream>
 #include "Procesy.h"
 #include "MemoryManager.h"
+#include "Shell.h"
 
 int main() {
+	Shell shell;
+	shell.boot();
     MemoryManager memoryManager;
     memoryManager.memoryInit();
     //memoryManager.showFrames();
