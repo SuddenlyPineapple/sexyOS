@@ -6,14 +6,15 @@
 int main() {
 	Shell shell;
 	shell.boot();
-    MemoryManager memoryManager;
-    memoryManager.memoryInit();
+	
+    //MemoryManager memoryManager;
+    //memoryManager.memoryInit();
     //memoryManager.showFrames();
 
-    auto test = memoryManager.createPageList(16,1);
+    //auto test = memoryManager.createPageList(16,1);
     //memoryManager.showPageTable(test);
 
-    memoryManager.showMem();
+    //memoryManager.showMem();
     //memoryManager.showFrames();
     //memoryManager.showPageFile();
 
@@ -26,5 +27,6 @@ int main() {
     memoryManager.stackUpdate(16);
     memoryManager.showStack();
     */
+	shell.exit();
     return 0;
 }
