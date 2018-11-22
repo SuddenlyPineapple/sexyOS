@@ -1,16 +1,17 @@
-#include "Interpreter.h"
+#include "interpreter.h"
 #include <iostream>
 #include <string>
 #include <fstream>
+#include "FileManager.h"
 
 
-Interpreter::Interpreter() { A = B = C = D = 0; }
+
 
 void Interpreter::stan_rejestrow()
 {
 	std::cout << "\nA: " << A << "\nB: " << B << "\nC: " << C << "\nD: " << D <<"\nilosc rozkazow: "<<counter<< "\n\n";
 }
-
+//JMP I JZ nwm,jednak mam zle chyba, moze to kogos innego
 
 // chyba bede musial zmienic niektore nazwy rozkazow w tych ifach, bo asembler to nie asembler najwyrazniej. bucholc mnie takich rozkazow nauczyl jakie mam teraz, a nie jakies dziwne 2literowe,nie wiadomo skad, no bo w sumie to o co chodzi, po co zmieniac nazwy rozkazow? Jest jeden asembler po co tak konfudowac ludzi? No Bambo to pewnie bedzie chcial te dziwne, bo on sam jest dziwny i w ogole co ja mam dac na tej prezentacji, no bo sory, ale on nie dal mi zadnych materialow. Nie wiem co mam jeszcze napisac, by bylo smiesznie, ze jest taki dlugi komentarz. Na co mam jewszcze narzekac? A niewazne, i tak juz jest chyba wystarczajaco dlugi, nie? no dobra, juz koncze. xoxo
 
@@ -26,7 +27,7 @@ void Interpreter::wykonanie_programu(Rozkazy r)
 	int *rej1;	rej1 = &A;
 	int *rej2;	rej2 = rej1;
 	int liczba=0;
-
+	int adres = 0;
 	//zamiana na rozkaz i rejestr
 	if (rej[1] == ',')
 	{
@@ -41,6 +42,12 @@ void Interpreter::wykonanie_programu(Rozkazy r)
 			rej2 = &C;
 		else if (rej == "D")
 			rej2 = &D;
+		else if (rej[0] == '[')
+		{
+			rej.erase(rej.begin());rej.erase(rej.end());//nie wiem, czy to...
+			adres = std::stoi(rej);
+			std::cout << adres;
+		}
 		else liczba = std::stoi(rej);
 
 
@@ -124,7 +131,7 @@ void Interpreter::wykonanie_programu(Rozkazy r)
 	{
 		i = liczba;
 	}
-	else if (rozkaz == "JZ") //jump if not zero , skok wzarunkowy
+	else if (rozkaz == "JNZ") //jump if not zero , skok wzarunkowy
 	{
 		if (rej1 != 0)
 			i = liczba;
@@ -132,7 +139,7 @@ void Interpreter::wykonanie_programu(Rozkazy r)
 
 
 
-
+	//norberto potoki
 	else if (rozkaz == "SP") {}//stworz potok
 	else if (rozkaz == "UP") {}//usun potok
 
@@ -142,44 +149,50 @@ void Interpreter::wykonanie_programu(Rozkazy r)
 
 
 
-	else if (rozkaz == "CL") { system("cls"); }
+	else if (rozkaz == "CLS") { system("cls"); }
 	
 	
-	else if (rozkaz == "WP") {} //wypisz dysk
+	else if (rozkaz == "DSD") //wypisz dysk
+	{
+		fileManager.DisplayBitVector();
+		fileManager.DisplayDiskContentChar();
+	} 
 
 
 
 	//pliki
+	else if (rozkaz == "CF")// stworzenie pliku
+	{
+		fileManager.FileCreate(rej,rej);//nazwa i dane
+	}
 	else if (rozkaz == "FO")// otwarcie pliku
 	{
-		//jednak wywolanie metody z file manager
-		std::ifstream plik("plik.txt");
-		while(!plik.eof())
-		{ 
-		Rozkazy ro;
-		plik >> ro.rozkaz >> ro.rej;
-		wykonanie_programu(ro);
-		}
+		fileManager.FileOpen(rej);
 	}
-	else if (rozkaz == "FS")//zapisz do pliku
+	else if (rozkaz == "FW")//zapisz do pliku
 	{
-		//jednak metoda z file manager
-		/*std::ofstream plik("plik.txt");
-		for (int j = 0;j<program.size();j++)
-		{
-			plik << program[j].rozkaz<<" "<<program[j].rej<<"\n";
-		} dobra, dam to tomkowi do zrobienia
-		*/
+		fileManager.FileWriteData(rej, rej);//nazwa pliku i caly program w stringu
 	}
+	else if (rozkaz == "FC")//ZAMKNIJ plik
+	{
+		fileManager.FileClose(rej);//nazwa pliku 
+	}
+	else if (rozkaz == "FR")//CZYTANIE Z PLIKU
+	{
+		rej=fileManager.FileReadData(rej);//nazwa pliku 
+		std::cout << rej;
+	}
+
+
+
+	//pamiec
 	else if (rozkaz == "CP") {}//czytaj pamiec
-
-
 	else if (rozkaz == "PP") {} //pamiec
 
 
 
 	//procesy
-	else if (rozkaz == "XW") {}//wyswietlanie drzewa procesow
+	else if (rozkaz == "XW") {}//wyswietlanie drzewa procesow		
 	else if (rozkaz == "XP") {}//tworzenie procesu
 	else if (rozkaz == "DP") {}//zabijanie procesu
 

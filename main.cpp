@@ -1,9 +1,23 @@
 #include <iostream>
+#include "Procesy.h"
 #include "MemoryManager.h"
+#include "Shell.h"
 
 int main() {
-    MemoryManager memoryManager;
-    memoryManager.memoryInit();
+	Shell shell;
+	shell.boot();
+	
+    //MemoryManager memoryManager;
+    //memoryManager.memoryInit();
+    //memoryManager.showFrames();
+
+    //auto test = memoryManager.createPageList(16,1);
+    //memoryManager.showPageTable(test);
+
+    //memoryManager.showMem();
+    //memoryManager.showFrames();
+    //memoryManager.showPageFile();
+
     /*
     memoryManager.showLRUStack();
     memoryManager.stackUpdate(12);
@@ -13,5 +27,6 @@ int main() {
     memoryManager.stackUpdate(16);
     memoryManager.showStack();
     */
+	shell.exit();
     return 0;
 }
