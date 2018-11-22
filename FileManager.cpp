@@ -204,7 +204,6 @@ bool FileManager::file_write(const std::string& name, const std::string& data) {
 			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony.");
 			throw errorDescriptions;
 		}
-		const u_int inodeId = fileIterator->second;
 		Inode* file = &FileSystem.inodeTable[fileIterator->second];
 
 		//Error3
@@ -593,15 +592,12 @@ void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlock
 	if (file->blocksOccupied != 0) {
 		//Jeœli indeksy zapisane s¹ tylko w bloku ideksowym 
 		if (file->blocksOccupied <= BLOCK_INDEX_NUMBER) {
-			for (u_int i = BLOCK_INDEX_NUMBER - BLOCK_INDEX_NUMBER; i >= 0 && index == -1; i--) {
+			for (u_int i = 0; i >= 0 && index == -1; i--) {
 				index = file->directBlocks[i];
 				if (i == 0) { break; } //u_int po obni¿eniu zera przyjmuje wartoœæ wiêksz¹ od zera
 			}
 		}
 		else {
-			for (u_int i = file->directBlocks.size() - 1; i > BLOCK_INDEX_NUMBER && index == -1; i--) {
-				index = file->directBlocks[i];
-			}
 			for (u_int i = 0; i < BLOCK_INDEX_NUMBER && index != -1; i++) {
 				lastBlockIndex = index;
 				index = file->singleIndirectBlocks[i];
@@ -860,14 +856,14 @@ const std::string FileManager::file_read_all(Inode* file) const {
 	size_t indexNumber = 0;
 	u_int index = 0;
 
-	//Dopóki nie natrafimy na koniec pliku
+	//Dopóki nie natrafimy na koniec danych pliku
 	bool indirect = false;
-	while (index != -1 && indexNumber) {
-		if (indexNumber == BLOCK_INDEX_NUMBER) {
+	while (index != -1) {
+		if (indexNumber == BLOCK_INDEX_NUMBER && indirect) { break; }
+		else if (indexNumber == BLOCK_INDEX_NUMBER) {
 			indirect = true;
 			indexNumber = 0;
 		}
-		else if (indexNumber == BLOCK_INDEX_NUMBER && indirect) { break; }
 
 		if (!indirect) {
 			index = file->directBlocks[indexNumber];
@@ -878,7 +874,7 @@ const std::string FileManager::file_read_all(Inode* file) const {
 
 		//Dodaje do danych fragment pliku pod wskazanym indeksem
 		data += DISK.read<std::string>(index * BLOCK_SIZE);
-		//Przypisuje indeksowi kolejny indeks bloku dyskowego
+		//Zwiêksza indeks iteruj¹cy po blokach indeksowych
 		indexNumber++;
 	}
 	return data;
