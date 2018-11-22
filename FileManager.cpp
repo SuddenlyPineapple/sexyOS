@@ -47,12 +47,51 @@ bool operator == (const tm& time1, const tm& time2) {
 
 //--------------------------- Dysk --------------------------
 
-FileManager::Disk::FileSystem::FileSystem()
-{
-	InodeTable[rootDirectory] = std::make_shared<Directory>();
+FileManager::FileSystem::FileSystem() {
+	//Zape³nienie tablicy i-wêz³ów pustymi i-wêz³ami
+	for (u_int i = 0; i < INODE_NUMBER_LIMIT; i++) {
+		inodeTable[i] = Inode();
+	}
+	//Wyzerowanie tablicy 'zajêtoœci' i-wêz³ów
+	inodeBitVector.reset();
 	for (u_int i = 0; i < bitVector.size(); i++) {
 		bitVector[i] = BLOCK_FREE;
 	}
+}
+
+const unsigned FileManager::FileSystem::get_free_inode_id() {
+	for (u_int i = 0; i < inodeBitVector.size(); i++) {
+		if (inodeBitVector[i] == false) { return i; }
+	}
+	return -1;
+}
+
+void FileManager::FileSystem::reset() {
+	//Zape³nienie tablicy i-wêz³ów pustymi i-wêz³ami
+	for (u_int i = 0; i < INODE_NUMBER_LIMIT; i++) {
+		inodeTable[i] = Inode();
+	}
+	//Wyzerowanie tablicy 'zajêtoœci' i-wêz³ów
+	inodeBitVector.reset();
+	for (u_int i = 0; i < bitVector.size(); i++) {
+		bitVector[i] = BLOCK_FREE;
+	}
+}
+
+FileManager::Inode::Inode() : blocksOccupied(0), realSize(0), creationTime(), modificationTime() {
+	//Wype³nienie indeksów bloków dyskowych wartoœci¹ -1 (pusty indeks)
+	directBlocks.fill(-1);
+	for (u_int i = 0; i < BLOCK_INDEX_NUMBER; i++) { singleIndirectBlocks[i] = -1; }
+}
+
+void FileManager::Inode::clear() {
+	blocksOccupied = 0;
+	realSize = 0;
+	directBlocks.fill(-1);
+	singleIndirectBlocks.clear();
+	creationTime = tm();
+	modificationTime = tm();
+	flagOpen = false;
 }
 
 FileManager::Disk::Disk() {
@@ -60,12 +99,16 @@ FileManager::Disk::Disk() {
 	fill(space.begin(), space.end(), NULL);
 }
 
-std::shared_ptr<FileManager::Index>& FileManager::IndexBlock::operator[](const size_t& index) {
-	return this->block[index];
+void FileManager::IndexBlock::clear() {
+	value.fill(-1);
 }
 
-const std::shared_ptr<FileManager::Index>& FileManager::IndexBlock::operator[](const size_t& index) const {
-	return this->block[index];
+u_int& FileManager::IndexBlock::operator[](const size_t& index) {
+	return this->value[index];
+}
+
+const u_int& FileManager::IndexBlock::operator[](const size_t& index) const {
+	return this->value[index];
 }
 
 void FileManager::Disk::write(const u_int& begin, const std::string& data) {
@@ -101,15 +144,13 @@ const T FileManager::Disk::read(const u_int& begin) const {
 
 //----------------------- FileManager -----------------------
 
-FileManager::FileManager() {
-	currentDirectory = DISK.FileSystem.rootDirectory;
-}
+FileManager::FileManager() {}
 
 
 
 //-------------------- Podstawowe Metody --------------------
 
-bool FileManager::FileCreate(const std::string& name) {
+bool FileManager::file_create(const std::string& name) {
 	try {
 		if (name.empty()) { throw "Pusta nazwa!"; }
 		std::vector<std::string> errorDescriptions;
@@ -117,25 +158,25 @@ bool FileManager::FileCreate(const std::string& name) {
 		//Error1
 		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
 		//Error2
-		if (DISK.FileSystem.InodeTable.size() >= INODE_NUMBER_LIMIT) {
+		if (FileSystem.rootDirectory.size() >= INODE_NUMBER_LIMIT) {
 			errorDescriptions.emplace_back(
-				"Osi¹gniêto limit elementów w systemie plików!"); error = true;
+				"Wykorzystano wszystkie i-wêz³y!"); error = true;
 		}
 		//Error3
-		if (CheckIfNameUsed(currentDirectory, name)) { errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true; }
+		if (check_if_name_used(name)) { errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true; }
 		//Error4
-		if (name.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) { errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true; }
+		if (name.size() > MAX_FILENAME_LENGTH) { errorDescriptions.emplace_back("Nazwa za d³uga!"); error = true; }
 		if (error) { throw errorDescriptions; }
 
-		const std::shared_ptr<File> file = std::make_shared<File>();
-		file->flags[1] = true;
-		file->flags[2] = true;
+		const u_int inodeId = FileSystem.get_free_inode_id();
 
-		//Dodanie pliku do obecnego katalogu
-		DISK.FileSystem.InodeTable[GetCurrentPath() + name] = file;
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files[name] = GetCurrentPath() + name;
+		//Dodanie pliku do katalogu g³ównego
+		FileSystem.rootDirectory[name] = inodeId;
+		FileSystem.inodeBitVector[inodeId] = true;
+		FileSystem.inodeTable[inodeId].creationTime = get_current_time_and_date();
+		FileSystem.inodeTable[inodeId].modificationTime = get_current_time_and_date();
 
-		if (messages) { std::cout << "Stworzono plik o nazwie '" << name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n"; }
+		if (messages) { std::cout << "Stworzono plik o nazwie '" << name << ".\n"; }
 		return true;
 	}
 	catch (const std::string& description) {
@@ -148,7 +189,7 @@ bool FileManager::FileCreate(const std::string& name) {
 	}
 }
 
-bool FileManager::FileWriteData(const std::string& name, const std::string& data) {
+bool FileManager::file_write(const std::string& name, const std::string& data) {
 	try {
 		if (name.empty()) { throw "Pusta nazwa!"; }
 		std::vector<std::string> errorDescriptions;
@@ -157,25 +198,23 @@ bool FileManager::FileWriteData(const std::string& name, const std::string& data
 		if (data.size() > MAX_FILE_SIZE) { errorDescriptions.emplace_back("Podane dane przekraczaj¹ maksymalny rozmiar pliku!"); error = true; }
 
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+		const auto fileIterator = FileSystem.rootDirectory.find(name);
 		//Error2
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '"); throw errorDescriptions;
+		if (fileIterator == FileSystem.rootDirectory.end()) {
+			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony.");
+			throw errorDescriptions;
 		}
+		const u_int inodeId = fileIterator->second;
+		Inode* file = &FileSystem.inodeTable[fileIterator->second];
 
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
 		//Error3
-		if (inode->type != "FILE") { errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '"); error = true; }
-
-		std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
-		//Error4
-		if (data.size() > DISK.FileSystem.freeSpace - file->blocksOccupied*BLOCK_SIZE) {
+		if (data.size() > FileSystem.freeSpace - file->blocksOccupied*BLOCK_SIZE) {
 			errorDescriptions.
 				emplace_back("Za ma³o miejsca na dysku!"); error = true;
 		}
 		if (error) { throw errorDescriptions; }
 
-		FileWriteData(file, data);
+		file_write(file, data);
 		if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
 		return true;
 	}
@@ -189,21 +228,19 @@ bool FileManager::FileWriteData(const std::string& name, const std::string& data
 	}
 }
 
-const std::string FileManager::FileReadData(const std::string& name) {
+const std::string FileManager::file_read_all(const std::string& name) {
 	try {
 		if (name.empty()) { throw "Pusta nazwa!"; }
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+		const auto fileIterator = FileSystem.rootDirectory.find(name);
 
 		//Error1
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+		if (fileIterator == FileSystem.rootDirectory.end()) {
+			throw("Plik o nazwie '" + name + "' nie znaleziony!");
 		}
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
-		//Error2
-		if (inode->type != "FILE") { throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!"); }
+		Inode* inode = &FileSystem.inodeTable[fileIterator->second];
 
-		return FileReadData(std::dynamic_pointer_cast<File>(inode));
+		return file_read_all(inode);
 	}
 	catch (const std::string& description) {
 		std::cout << description << '\n';
@@ -211,26 +248,25 @@ const std::string FileManager::FileReadData(const std::string& name) {
 	}
 }
 
-bool FileManager::FileDelete(const std::string& name) {
+bool FileManager::file_delete(const std::string& name) {
 	try {
 		if (name.empty()) { throw "Pusta nazwa!"; }
-		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+		//Iterator zwracany podczas przeszukiwania katalogu g³ównego za plikiem o podanej nazwie
+		const auto fileIterator = FileSystem.rootDirectory.find(name);
 		//Error1
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+		if (fileIterator == FileSystem.rootDirectory.end()) {
+			throw("Plik o nazwie '" + name + "' nie znaleziony!");
 		}
 
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
-		//Error2
-		if (inode->type != "FILE") { throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!"); }
+		Inode* inode = &FileSystem.inodeTable[fileIterator->second];
 
-		std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
-		FileDelete(file);
+		file_deallocate(inode);
+		FileSystem.inodeTable[fileIterator->second].clear();
+
 		//Usuñ wpis o pliku z obecnego katalogu
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.erase(fileIterator);
+		FileSystem.rootDirectory.erase(fileIterator);
 
-		if (messages) { std::cout << "Usuniêto plik o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n"; }
+		if (messages) { std::cout << "Usuniêto plik o nazwie '" << name << "'.\n"; }
 		return true;
 	}
 	catch (const std::string& description) {
@@ -239,28 +275,25 @@ bool FileManager::FileDelete(const std::string& name) {
 	}
 }
 
-bool FileManager::FileOpen(const std::string & name) {
+bool FileManager::file_open(const std::string & name) {
 	try {
 		//Error1
 		if (name.empty()) { throw "Pusta nazwa!"; }
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+		const auto fileIterator = FileSystem.rootDirectory.find(name);
 		//Error2
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+		if (fileIterator == FileSystem.rootDirectory.end()) {
+			throw("Plik o nazwie '" + name + "' nie znaleziony!");
 		}
 
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
+		Inode* inode = &FileSystem.inodeTable[fileIterator->second];
+
 		//Error3
-		if (inode->type != "FILE") { throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!"); }
+		if (inode->flagOpen == true) { throw ("Plik o nazwie '" + name + "' jest ju¿ otwarty!"); }
 
-		std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
-		//Error4
-		if (file->flags[0] == true) { throw ("Plik o œcie¿ce '" + GetCurrentPath() + name + "' jest ju¿ otwarty!"); }
+		inode->flagOpen = true; //Ustawia flagê plik otwarty
 
-		file->flags[0] = true; //Ustawia flagê plik otwarty
-
-		if (messages) { std::cout << "Otwarto plik o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n"; }
+		if (messages) { std::cout << "Otwarto plik o nazwie '" << name << "'.\n"; }
 		return true;
 	}
 	catch (const std::string& description) {
@@ -269,191 +302,19 @@ bool FileManager::FileOpen(const std::string & name) {
 	}
 }
 
-bool FileManager::FileClose(const std::string & path) {
-	try {
-		//Error1
-		if (path.empty()) { throw "Pusta nazwa!"; }
-
-		const auto fileIterator = DISK.FileSystem.InodeTable.find(path);
-		//Error2
-		if (fileIterator == DISK.FileSystem.InodeTable.end()) { throw("Plik o œcie¿ce '" + path + "' nie znaleziony!"); }
-
-		std::dynamic_pointer_cast<File>(DISK.FileSystem.InodeTable[path])->flags[0] = false; //Zeruje flagê plik otwarty
-		usedFiles.erase(path);
-
-		if (messages) { std::cout << "Zamkniêto plik o œcie¿ce '" << path << "'.\n"; }
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-bool FileManager::FileSetFlags(const std::string& name, const std::string& user, const bool& read, const bool& write) {
+bool FileManager::file_close(const std::string & name) {
 	try {
 		//Error1
 		if (name.empty()) { throw "Pusta nazwa!"; }
+
+		const auto fileIterator = FileSystem.rootDirectory.find(name);
 		//Error2
-		if (name.empty()) { throw "Pusty u¿ytkownik!"; }
-		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+		if (fileIterator == FileSystem.rootDirectory.end()) { throw("Plik o nazwie '" + name + "' nie znaleziony!"); }
 
-		//Error3
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
-		//Error4
-		if (inode->type != "FILE") { throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!"); }
+		FileSystem.inodeTable[fileIterator->second].flagOpen = false; //Zeruje flagê plik otwarty
+		usedFiles.erase(name);
 
-		std::dynamic_pointer_cast<File>(inode)->flags[1] = read;
-		std::dynamic_pointer_cast<File>(inode)->flags[2] = write;
-
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return "";
-	}
-}
-
-bool FileManager::DirectoryCreate(std::string name) {
-	try {
-		std::vector<std::string> errorDescriptions;
-		bool error = false;
-		//Error1
-		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
-
-		if (*(name.end() - 1) != '/') { name += '/'; }
-		//Error2
-		if (DISK.FileSystem.InodeTable.size() >= INODE_NUMBER_LIMIT) {
-			errorDescriptions.emplace_back(
-				"Osi¹gniêto limit elementów w systemie plików!"); error = true;
-		}
-
-		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-		//Error3
-		if (directoryIterator != std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
-		}
-
-		//Error4
-		if (name.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) { errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true; }
-		if (error) { throw errorDescriptions; }
-
-		//Do iWêz³ów w obecnym katalogu dodaj nowy podkatalog
-		DISK.FileSystem.InodeTable[GetCurrentPath() + name] = std::make_shared<Directory>();
-
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files[name] = GetCurrentPath() + name;
-		if (messages) { std::cout << "Stworzono katalog o nazwie '" << name << "' w œcie¿ce '" << GetCurrentPath() << "'.\n"; }
-
-		return true;
-	}
-	catch (const std::vector<std::string>& descriptions) {
-		std::cout << descriptions;
-		return false;
-	}
-}
-
-bool FileManager::DirectoryDelete(std::string name) {
-	try {
-		//Error1
-		if (name.empty()) { throw "Pusta nazwa!"; }
-		if (*(name.end() - 1) != '/') { name += '/'; }
-		//Iterator zwracany podczas przeszukiwania obecnego katalogu za katalogiem o podanej nazwie
-		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-
-		//Error2
-		if (directoryIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
-
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[directoryIterator->second];
-		//Error3
-		if (inode->type != "DIRECTORY") {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
-
-		//Wywo³aj funkcjê usuwania katalogu wraz z jego zawartoœci¹
-		DISK.FileSystem.InodeTable.erase(name);
-		std::shared_ptr<Directory> directory = std::dynamic_pointer_cast<Directory>(inode);
-		DirectoryDeleteStructure(directory);
-
-		//Usuñ wpis o katalogu z obecnego katalogu
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.erase(directoryIterator);
-		DISK.FileSystem.InodeTable.erase(GetCurrentPath() + name);
-
-		if (messages) { std::cout << "Usuniêto katalog o nazwie '" << name << "' znajduj¹cy siê w œcie¿ce '" + GetCurrentPath() + "'.\n"; }
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-bool FileManager::DirectoryChange(std::string path) {
-	try {
-		if (path.empty()) { throw "Pusta œcie¿ka!"; }
-		if (*(path.end() - 1) != '/') { path += '/'; }
-		const auto inodeTableIterator = DISK.FileSystem.InodeTable.find(path);
-
-		//Error1
-		if (inodeTableIterator != DISK.FileSystem.InodeTable.end()) {
-			throw("Katalog o œcie¿ce '" + path + "' nie znaleziony!");
-		}
-		//Error2
-		if (inodeTableIterator->second->type == "DIRECTORY") {
-			throw("Katalog o œcie¿ce '" + path + "' nie znaleziony!");
-		}
-
-		//Przejœcie do katalogu o wskazanej nazwie
-		currentDirectory = inodeTableIterator->first;
-		if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-bool FileManager::DirectoryUp() {
-	try {
-		if (GetCurrentDirectoryParent().empty()) { throw std::string("Jesteœ w katalogu g³ównym!"); }
-		//Przejœcie do katalogu nadrzêdnego
-		else { currentDirectory = GetCurrentDirectoryParent(); }
-		if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-bool FileManager::DirectoryDown(std::string name) {
-	try {
-		if (*(name.end() - 1) != '/') { name += '/'; }
-
-		//Iterator zwracany podczas przeszukiwania obecnego katalogu za katalogiem o podanej nazwie
-		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-
-		//Error1
-		if (directoryIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
-
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[directoryIterator->second];
-		//Error2
-		if (inode->type != "DIRECTORY") {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
-
-		//Przejœcie do katalogu o wskazanej nazwie
-		currentDirectory = GetCurrentPath() + directoryIterator->first;
-		if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
+		if (messages) { std::cout << "Zamkniêto plik o œcie¿ce '" << name << "'.\n"; }
 		return true;
 	}
 	catch (const std::string& description) {
@@ -465,17 +326,11 @@ bool FileManager::DirectoryDown(std::string name) {
 
 
 //--------------------- Dodatkowe metody --------------------
-bool FileManager::DiskFormat() {
+bool FileManager::disk_format() {
 	try {
 		if (!usedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
 
-		currentDirectory = DISK.FileSystem.rootDirectory;
-
-		DISK.FileSystem.InodeTable.clear();
-		DISK.FileSystem.InodeTable[DISK.FileSystem.rootDirectory] = std::make_shared<Directory>();
-		for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
-			DISK.FileSystem.bitVector[i] = BLOCK_FREE;
-		}
+		FileSystem.reset();
 
 		if (messages) { std::cout << "Sformatowano dysk!\n"; }
 		return true;
@@ -486,108 +341,13 @@ bool FileManager::DiskFormat() {
 	}
 }
 
-bool FileManager::FileCreate(const std::string& name, const std::string& data) {
-	try {
-		std::vector<std::string> errorDescriptions;
-		bool error = false;
-		//Error1
-		if (data.size() > MAX_FILE_SIZE) {
-			errorDescriptions.emplace_back(
-				"Podane dane przekraczaj¹ maksymalny rozmiar pliku!"); error = true;
-		}
-		//Error2
-		if (!CheckIfEnoughSpace(CalculateNeededBlocks(data.size())*BLOCK_SIZE)) {
-			errorDescriptions.
-				emplace_back("Za ma³o miejsca na dysku!"); error = true;
-		}
-		if (error) { throw errorDescriptions; }
-
-		if (!FileCreate(name)) { throw errorDescriptions; };
-		const std::shared_ptr<File> file = std::make_shared<File>();
-
-		//Dodanie pliku do obecnego katalogu
-		DISK.FileSystem.InodeTable[GetCurrentPath() + name] = file;
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files[name] = GetCurrentPath() + name;
-
-		//Zapisanie danych pliku na dysku
-		FileWriteData(name, data);
-
-		return true;
-	}
-	catch (const std::vector<std::string>& descriptions)
-	{
-		std::cout << descriptions;
-		return false;
-	}
+bool FileManager::file_create(const std::string& name, const std::string& data) {
+	if (!file_create(name)) { return false; }
+	//Zapisanie danych pliku na dysku
+	return file_write(name, data);
 }
 
-bool FileManager::FilePIDSet(const std::string& path, const u_int& pid) {
-	try {
-		//Error1
-		if (path.empty()) { throw "Pusta nazwa!"; }
-
-		//Error2
-		if (std::dynamic_pointer_cast<File>(DISK.FileSystem.InodeTable[path])->flags[0] == false) {
-			throw "Plik o œcie¿ce '" + path + "' nie jest otwarty!";
-		}
-
-		const auto fileIterator = usedFiles.find(path);
-		//Error3
-		if (fileIterator != usedFiles.end()) { throw("Plik o œcie¿ce '" + path + "' znaleziony wœród u¿ywanych plików!"); }
-
-		usedFiles[path] = pid;
-		if (detailedMessages) { std::cout << "Przypisano PID '" << pid << "' do pliku o œcie¿ce '" << GetCurrentPath() + path << "'.\n"; }
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-u_int FileManager::FilePIDGet(const std::string& path) {
-	try {
-		//Error1
-		if (path.empty()) { throw "Pusta nazwa!"; }
-
-		const auto fileIterator = usedFiles.find(path);
-		//Error2
-		if (fileIterator == usedFiles.end()) { throw("Plik o œcie¿ce '" + path + "' nie znaleziony wœród u¿ywanych plików!"); }
-
-		return usedFiles[path];
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return u_int(-1);
-	}
-}
-
-bool FileManager::FilePIDRemove(const std::string& path) {
-	try {
-		//Error1
-		if (path.empty()) { throw "Pusta nazwa!"; }
-
-		//Error2
-		if (std::dynamic_pointer_cast<File>(DISK.FileSystem.InodeTable[path])->flags[0] == false) {
-			throw "Plik o œcie¿ce '" + path + "' nie jest otwarty!";
-		}
-
-		const auto fileIterator = usedFiles.find(path);
-		//Error3
-		if (fileIterator == usedFiles.end()) { throw("Plik o œcie¿ce '" + path + "' nie znaleziony wœród u¿ywanych plików!"); }
-
-		usedFiles.erase(path);
-
-		if (detailedMessages) { std::cout << "Pliku o œcie¿ce '" << GetCurrentPath() + path << "' nie jest ju¿ u¿ywany.\n"; }
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-bool FileManager::FileRename(const std::string& name, const std::string& changeName) {
+bool FileManager::file_rename(const std::string& name, const std::string& changeName) {
 	try {
 		std::vector<std::string> errorDescriptions;
 		bool error = false;
@@ -597,39 +357,29 @@ bool FileManager::FileRename(const std::string& name, const std::string& changeN
 		//Error2
 		if (changeName.empty()) { errorDescriptions.emplace_back("Pusta nowa nazwa!"); throw errorDescriptions; }
 		//Error3
-		if (CheckIfNameUsed(currentDirectory, changeName)) {
+		if (check_if_name_used(changeName)) {
 			errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
 		}
 		//Error4
-		if (changeName.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) {
-			errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true;
+		if (changeName.size() > MAX_FILENAME_LENGTH) {
+			errorDescriptions.emplace_back("Nowa nazwa za d³uga!"); error = true;
 		}
 
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
+		const auto fileIterator = FileSystem.rootDirectory.find(name);
 		//Error5
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+		if (fileIterator == FileSystem.rootDirectory.end()) {
+			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony!");
 			throw errorDescriptions;
-		}
-
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
-		//Error6
-		if (inode->type != "FILE") {
-			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-			error = true;
 		}
 		if (error) { throw errorDescriptions; }
 
+		Inode* file = &FileSystem.inodeTable[fileIterator->second];
 
-		const std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
+		//Lokowanie nowego klucza w tablicy hashowej katalogu g³ównego i przypisanie do niego id i-wêz³a
+		FileSystem.rootDirectory[changeName] = fileIterator->second;
 
-		//Lokowanie nowego klucza w tablicy hashowej i przypisanie do niego pliku
-		DISK.FileSystem.InodeTable[currentDirectory + changeName] = file;
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files[changeName] = GetCurrentPath() + changeName;
-
-		//Usuniêcie starego klucza
-		DISK.FileSystem.InodeTable.erase(currentDirectory + name);
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.erase(fileIterator);
+		//Usuniêcie starego klucza z katalogu g³ównego
+		FileSystem.rootDirectory.erase(fileIterator);
 
 		if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << changeName << "'.\n"; }
 
@@ -641,150 +391,67 @@ bool FileManager::FileRename(const std::string& name, const std::string& changeN
 	}
 }
 
-bool FileManager::DirectoryRename(std::string name, std::string changeName) {
-	try {
-		std::vector<std::string> errorDescriptions;
-		bool error = false;
-
-		//Error1
-		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
-		//Error2
-		if (changeName.empty()) { errorDescriptions.emplace_back("Pusta nowa nazwa!"); throw errorDescriptions; }
-
-		if (*(changeName.end() - 1) != '/') { changeName += '/'; }
-		if (*(name.end() - 1) != '/') { name += '/'; }
-		//Error3
-		if (CheckIfNameUsed(currentDirectory, changeName)) {
-			errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
-		}
-		//Error4
-		if (changeName.size() + GetCurrentPathLength() > MAX_PATH_LENGTH) {
-			errorDescriptions.emplace_back("Œcie¿ka za d³uga!"); error = true;
-		}
-
-		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-		//Error5
-		if (directoryIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			errorDescriptions.push_back("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-			throw errorDescriptions;
-		}
-
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[directoryIterator->second];
-		//Error6
-		if (inode->type != "DIRECTORY") {
-			errorDescriptions.push_back("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-			error = true;
-		}
-		if (error) { throw errorDescriptions; }
-
-		//Lokowanie nowego klucza w tablicy hashowej i przypisanie do niego pliku
-		std::shared_ptr<Directory> directory = std::dynamic_pointer_cast<Directory>(inode);
-		InodeTableRemove(inode);
-		DISK.FileSystem.InodeTable[currentDirectory + changeName] = std::dynamic_pointer_cast<Directory>(inode);
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files[changeName] = GetCurrentPath() + changeName;
-
-		//Usuniêcie starego klucza
-		std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.erase(directoryIterator);
-		DirectoryRenameStructure(directory);
-
-		if (messages) { std::cout << "Zmieniono nazwê katalogu '" << name << "' na '" << changeName << "'.\n"; }
-
-		return true;
-	}
-	catch (const std::vector<std::string>& descriptions) {
-		std::cout << descriptions;
-		return false;
-	}
-}
-
-void FileManager::DirectoryRoot() {
-	currentDirectory = DISK.FileSystem.rootDirectory;
-	if (messages) { std::cout << "Obecna œcie¿ka to '" << GetCurrentPath() << "'.\n"; }
-}
-
-void FileManager::Messages(const bool& onOff) {
+void FileManager::set_messages(const bool& onOff) {
 	messages = onOff;
 }
 
-void FileManager::DetailedMessages(const bool&  onOff) {
+void FileManager::set_detailed_messages(const bool&  onOff) {
 	detailedMessages = onOff;
 }
-
-const std::string FileManager::GetCurrentPath() const {
-	return currentDirectory;
-}
-
 
 
 //------------------ Metody do wyœwietlania -----------------
 
-void FileManager::DisplayFileSystemParams() const {
+void FileManager::display_file_system_params() const {
 	std::cout << "Disk capacity: " << DISK_CAPACITY << " Bytes\n";
 	std::cout << "Block size: " << BLOCK_SIZE << " Bytes\n";
 	std::cout << "Max file size: " << MAX_FILE_SIZE << " Bytes\n";
-	std::cout << "Max indexes in block: " << BLOCK_INDEX_NUMBER << " Indexes\n";
-	std::cout << "Max direct indexes in file: " << BLOCK_DIRECT_INDEX_NUMBER << " Indexes\n";
+	std::cout << "Max indexes in indirect index block: " << BLOCK_INDEX_NUMBER << " Indexes\n";
+	std::cout << "Max direct indexes in file: " << BLOCK_INDEX_NUMBER << " Indexes\n";
 	std::cout << "Max file number: " << INODE_NUMBER_LIMIT << " Files\n";
-	std::cout << "Max path length: " << MAX_PATH_LENGTH << " Characters\n";
-	std::cout << "Number of files: " << DISK.FileSystem.InodeTable.size() << " Files\n";
+	std::cout << "Max filename length: " << MAX_FILENAME_LENGTH << " Characters\n";
 }
 
-bool FileManager::DisplayDirectoryInfo(std::string name) {
-	try {
-		if (*(name.end() - 1) != '/') { name += '/'; }
-		const auto directoryIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-
-		//Error1
-		if (directoryIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
-
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[directoryIterator->second];
-		//Error2
-		if (inode->type != "DIRECTORY") {
-			throw("Katalog o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
-
-		const std::shared_ptr<Directory> directory = std::dynamic_pointer_cast<Directory>(inode);
-		std::cout << "Name: " << name << '\n';
-		std::cout << "Size: " << CalculateDirectorySize(directory) << " Bytes\n";
-		std::cout << "Size on disk: " << CalculateDirectorySizeOnDisk(directory) << " Bytes\n";
-		std::cout << "Contains: " << CalculateDirectoryFileNumber(directory) << " Files, " << CalculateDirectoryFolderNumber(directory) << " Folders\n";
-		std::cout << "Created: " << directory->creationTime << '\n';
-
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-
+void FileManager::display_root_directory_info() {
+	std::cout << "Name: " << "root" << '\n';
+	std::cout << "Size: " << calculate_directory_size() << " Bytes\n";
+	std::cout << "Size on disk: " << calculate_directory_size_on_disk() << " Bytes\n";
+	std::cout << "Contains: " << FileSystem.rootDirectory.size() << " Files\n";
 }
 
-bool FileManager::DisplayFileInfo(const std::string& name) {
+bool FileManager::display_file_info(const std::string& name) {
 	try {
-		const auto fileIterator = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.find(name);
-
+		const auto fileIterator = FileSystem.rootDirectory.find(name);
 
 		//Error1
-		if (fileIterator == std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[currentDirectory])->files.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
+		if (fileIterator == FileSystem.rootDirectory.end()) {
+			throw("Plik o nazwie '" + name + "' nie znaleziony!");
 		}
 
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[fileIterator->second];
-		//Error2
-		if (inode->type != "FILE") {
-			throw("Plik o nazwie '" + name + "' nie znaleziony w œcie¿ce '" + GetCurrentPath() + "'!");
-		}
+		const auto file = &FileSystem.inodeTable[fileIterator->second];
 
-		const std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
 		std::cout << "Name: " << name << '\n';
-		std::cout << "Size: " << file->blocksOccupied*BLOCK_SIZE << " Bytes\n";
-		std::cout << "Size on disk: " << file->sizeOnDisk << " Bytes\n";
+		std::cout << "Size: " << file->realSize << " Bytes\n";
+		std::cout << "Size on disk: " << file->blocksOccupied*BLOCK_SIZE << " Bytes\n";
 		std::cout << "Created: " << file->creationTime << '\n';
 		std::cout << "Modified: " << file->modificationTime << '\n';
-		std::cout << "Saved data: " << FileReadData(file) << '\n';
-
+		std::cout << "Saved data: " << file_read_all(file) << '\n';
+		std::cout << "Direct block indexes: ";
+		for (const auto& elem : file->directBlocks) {
+			if(elem != -1){
+				std::cout << elem << ' ';
+			}
+			else { std::cout << -1 << ' '; }
+		}
+		std::cout << '\n';
+		std::cout << "Indirect block indexes: ";
+		for (u_int i = 0; i < BLOCK_INDEX_NUMBER; i++) {
+			if (file->singleIndirectBlocks[i] != -1) {
+				std::cout << file->singleIndirectBlocks[i] << ' ';
+			}
+			else { std::cout << -1 << ' '; }
+		}
+		std::cout << '\n';
 		return true;
 	}
 	catch (const std::string& description) {
@@ -793,13 +460,15 @@ bool FileManager::DisplayFileInfo(const std::string& name) {
 	}
 }
 
-void FileManager::DisplayDirectoryStructure() {
-	const u_int level = 0;
-	std::cout << std::string(level + 1, ' ') << DISK.FileSystem.rootDirectory << "\n";
-	DisplayDirectory(std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[DISK.FileSystem.rootDirectory]), 0);
+void FileManager::display_root_directory() {
+	std::cout << std::string(1, ' ') << "root/" << "\n";
+
+	for (auto i = FileSystem.rootDirectory.begin(); i != FileSystem.rootDirectory.end(); ++i) {
+		std::cout << std::string(2, ' ') << "- " << i->first << '\n';
+	}
 }
 
-void FileManager::DisplayDiskContentBinary() {
+void FileManager::display_disk_content_binary() {
 	u_int index = 0;
 	for (const char& c : DISK.space) {
 		std::cout << std::bitset<8>(c) << (index % BLOCK_SIZE == BLOCK_SIZE - 1 ? " , " : "") << (index % 16 == 15 ? " \n" : " ");
@@ -808,7 +477,7 @@ void FileManager::DisplayDiskContentBinary() {
 	std::cout << '\n';
 }
 
-void FileManager::DisplayDiskContentChar() {
+void FileManager::display_disk_content_char() {
 	u_int index = 0;
 	for (const char& c : DISK.space) {
 		if (c == ' ') { std::cout << ' '; }
@@ -820,11 +489,11 @@ void FileManager::DisplayDiskContentChar() {
 	std::cout << '\n';
 }
 
-void FileManager::DisplayBitVector() {
+void FileManager::display_bit_vector() {
 	u_int index = 0;
-	for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
+	for (u_int i = 0; i < FileSystem.bitVector.size(); i++) {
 		if (i % 8 == 0) { std::cout << std::setfill('0') << std::setw(2) << (index / 8) + 1 << ". "; }
-		std::cout << DISK.FileSystem.bitVector[i] << (index % 8 == 7 ? "\n" : " ");
+		std::cout << FileSystem.bitVector[i] << (index % 8 == 7 ? "\n" : " ");
 		index++;
 	}
 	std::cout << '\n';
@@ -834,18 +503,16 @@ void FileManager::DisplayBitVector() {
 
 //------------------- Metody Sprawdzaj¹ce -------------------
 
-const bool FileManager::CheckIfNameUsed(const std::string& directory, const std::string& name) {
+const bool FileManager::check_if_name_used(const std::string& name) {
 	//Przeszukuje podany katalog za plikiem o tej samej nazwie
-	std::shared_ptr<Directory> dir = std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[directory]);
-	for (auto i = dir->files.begin(); i != dir->files.end(); ++i) {
-		//Jeœli nazwa ta sama
-		if (i->first == name) { return true; }
+	if (FileSystem.rootDirectory.find(name) != FileSystem.rootDirectory.end()) {
+		return true;
 	}
-	return false;
+	else { return false; }
 }
 
-const bool FileManager::CheckIfEnoughSpace(const u_int& dataSize) const {
-	if (dataSize <= DISK.FileSystem.freeSpace) { return true; }
+const bool FileManager::check_if_enough_space(const u_int& dataSize) const {
+	if (dataSize <= FileSystem.freeSpace) { return true; }
 	return false;
 }
 
@@ -853,7 +520,7 @@ const bool FileManager::CheckIfEnoughSpace(const u_int& dataSize) const {
 
 //-------------------- Metody Obliczaj¹ce -------------------
 
-const u_int FileManager::CalculateNeededBlocks(const size_t& dataSize) const {
+const u_int FileManager::calculate_needed_blocks(const size_t& dataSize) const {
 	/*
 	Przybli¿enie w górê rozmiaru pliku przez rozmiar bloku.
 	Jest tak, poniewa¿, jeœli zape³nia chocia¿ o jeden bajt
@@ -862,168 +529,87 @@ const u_int FileManager::CalculateNeededBlocks(const size_t& dataSize) const {
 	return int(ceil(double(dataSize) / double(BLOCK_SIZE)));
 }
 
-const size_t FileManager::CalculateDirectorySize(const std::shared_ptr<Directory>& directory) {
-	if (directory != nullptr) {
-		//Rozmiar katalogu
-		size_t size = 0;
+const size_t FileManager::calculate_directory_size_on_disk() {
+	//Rozmiar katalogu
+	size_t size = 0;
 
-		//Dodaje rozmiar plików w katalogu do rozmiaru katalogu
-		for (const auto& element : directory->files) {
-			const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[element.second];
-			if (inode->type == "FILE") {
-				size += std::dynamic_pointer_cast<File>(inode)->blocksOccupied*BLOCK_SIZE;
-			}
-		}
-		//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do rozmiaru
-		for (const auto& element : directory->files) {
-			const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[element.second];
-			if (inode->type == "DIRECTORY") {
-				size += CalculateDirectorySize(std::dynamic_pointer_cast<Directory>(inode));
-			}
-		}
-		return size;
+	//Dodaje rozmiar plików w katalogu do rozmiaru katalogu
+	for (const auto& element : FileSystem.rootDirectory) {
+		size += FileSystem.inodeTable[element.second].blocksOccupied*BLOCK_SIZE;
 	}
-	else { return 0; }
+	return size;
 }
 
-const size_t FileManager::CalculateDirectorySizeOnDisk(const std::shared_ptr<Directory>& directory)
-{
-	if (directory != nullptr) {
-		//Rzeczywisty rozmiar katalogu
-		size_t sizeOnDisk = 9;
+const size_t FileManager::calculate_directory_size() {
+	//Rzeczywisty rozmiar katalogu
+	size_t realSize = 9;
 
-		//Dodaje rzeczywisty rozmiar plików w katalogu do rozmiaru katalogu
-		for (const auto& element : directory->files) {
-			const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[element.second];
-			if (inode->type == "FILE") {
-				sizeOnDisk += std::dynamic_pointer_cast<File>(inode)->sizeOnDisk;
-			}
-		}
-		//Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do rozmiaru
-		for (const auto& element : directory->files) {
-			const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[element.second];
-			if (inode->type == "DIRECTORY") {
-				sizeOnDisk += CalculateDirectorySize(std::dynamic_pointer_cast<Directory>(inode));
-			}
-		}
-		return sizeOnDisk;
+	//Dodaje rzeczywisty rozmiar plików w katalogu do rozmiaru katalogu
+	for (const auto& element : FileSystem.rootDirectory) {
+		realSize += FileSystem.inodeTable[element.second].realSize;
 	}
-	else { return 0; }
-}
-
-const u_int FileManager::CalculateDirectoryFolderNumber(const std::shared_ptr<Directory>& directory) {
-	if (directory != nullptr) {
-		//Iloœæ folderów w danym katalogu
-		u_int folderNumber = 0;
-
-		/**
-		 Dodaje iloœæ folderów w tym katalogu do zwracanej zmiennej
-		 Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do iloœci
-		 */
-		for (const auto& element : directory->files) {
-			const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[element.second];
-			if (inode->type == "DIRECTORY") {
-				folderNumber += CalculateDirectoryFolderNumber(std::dynamic_pointer_cast<Directory>(inode));
-				folderNumber += 1;
-			}
-		}
-		return folderNumber;
-	}
-	else { return 0; }
-}
-
-const u_int FileManager::CalculateDirectoryFileNumber(const std::shared_ptr<Directory>& directory) {
-	if (directory != nullptr) {
-		//Iloœæ folderów w danym katalogu
-		u_int fileNumber = 0;
-
-		/**
-		 Dodaje iloœæ plików w tym katalogu do zwracanej zmiennej
-		 Przegl¹da katalogi i wywo³uje na nich obecn¹ funkcjê i dodaje zwrócon¹ wartoœæ do iloœci
-		 */
-		for (const auto& element : directory->files) {
-			const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[element.second];
-			if (inode->type == "FILE") {
-				fileNumber += CalculateDirectoryFileNumber(std::dynamic_pointer_cast<Directory>(inode));
-				fileNumber += 1;
-			}
-		}
-		return fileNumber;
-	}
-	else { return 0; }
+	return realSize;
 }
 
 
 
 //--------------------- Metody Alokacji ---------------------
 
-void FileManager::FileTruncate(std::shared_ptr<File> file, const u_int& neededBlocks) {
+void FileManager::file_truncate(Inode* file, const u_int& neededBlocks) {
 	if (neededBlocks != file->blocksOccupied) {
 		//Jeœli nale¿y zmniejszyæ plik
-		if (neededBlocks < file->blocksOccupied) { FileAllocationDecrease(file, neededBlocks); }
+		if (neededBlocks < file->blocksOccupied) { file_allocation_decrease(file, neededBlocks); }
 		//Jeœli nale¿y zwiêkszyæ plik
-		else if (neededBlocks > file->blocksOccupied) { FileAllocationIncrease(file, neededBlocks); }
+		else if (neededBlocks > file->blocksOccupied) { file_allocation_increase(file, neededBlocks); }
 	}
 }
 
-void FileManager::FileAddIndexes(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks) const {
+void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks) const {
 	if (file != nullptr) {
 		if (blocks.size() != size_t(0) && file->blocksOccupied * BLOCK_SIZE <= MAX_FILE_SIZE) {
 
 			u_int blocksIndex = 0;
 			//Wpisanie bloków do bezpoœredniego bloku indeksowego
-			for (size_t i = 0; i < BLOCK_DIRECT_INDEX_NUMBER && i < blocks.size(); i++) {
-				if (file->directBlocks[i] == nullptr) {
-					file->directBlocks[i] = std::make_shared<Index>(blocks[blocksIndex]);
-					blocksIndex++;
-				}
+			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && i < blocks.size(); i++) {
+				file->directBlocks[i] = blocks[blocksIndex];
+				blocksIndex++;
 			}
 
 			//Wpisanie bloków do 1-poziomowego bloku indeksowego
-			if (blocksIndex < blocks.size()) {
-				for (size_t i = BLOCK_DIRECT_INDEX_NUMBER; i < BLOCK_INDEX_NUMBER; i++) {
-					if (file->directBlocks[i] == nullptr) {
-						file->directBlocks[i] = std::make_shared<IndexBlock>();
-					}
-					for (size_t j = 0; j < BLOCK_INDEX_NUMBER && blocksIndex < blocks.size(); j++) {
-						if ((*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[i]))[j] == nullptr) {
-							(*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[i]))[j] = std::make_shared<Index>(blocks[blocksIndex]);
-							blocksIndex++;
-						}
-					}
-				}
+			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && blocksIndex < blocks.size(); i++) {
+				file->singleIndirectBlocks[i] = blocks[blocksIndex];
+				blocksIndex++;
 			}
 		}
 	}
 }
 
-void FileManager::FileAllocationIncrease(std::shared_ptr<File>& file, const u_int& neededBlocks) {
+void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlocks) {
 	const u_int increaseBlocksNumber = abs(int(neededBlocks - file->blocksOccupied));
 	bool fitsAfterLastIndex = true;
-	std::shared_ptr<Index> tempIndex;
-	const std::shared_ptr<IndexBlock> tempIndexBlock = std::dynamic_pointer_cast<IndexBlock>(tempIndex);
+	u_int index = 0;
 	u_int lastBlockIndex = 0;
 
 	if (file->blocksOccupied != 0) {
 		//Jeœli indeksy zapisane s¹ tylko w bloku ideksowym 
 		if (file->blocksOccupied <= BLOCK_INDEX_NUMBER) {
-			for (u_int i = BLOCK_INDEX_NUMBER - BLOCK_DIRECT_INDEX_NUMBER; i >= 0 && tempIndex == nullptr; i--) {
-				tempIndex = file->directBlocks[i];
+			for (u_int i = BLOCK_INDEX_NUMBER - BLOCK_INDEX_NUMBER; i >= 0 && index == -1; i--) {
+				index = file->directBlocks[i];
 				if (i == 0) { break; } //u_int po obni¿eniu zera przyjmuje wartoœæ wiêksz¹ od zera
 			}
 		}
 		else {
-			for (u_int i = file->directBlocks.size() - 1; i > BLOCK_DIRECT_INDEX_NUMBER && tempIndex == nullptr; i--) {
-				tempIndex = file->directBlocks[i];
+			for (u_int i = file->directBlocks.size() - 1; i > BLOCK_INDEX_NUMBER && index == -1; i--) {
+				index = file->directBlocks[i];
 			}
-			for (u_int i = 0; i < BLOCK_INDEX_NUMBER && tempIndex != nullptr; i++) {
-				lastBlockIndex = tempIndex->value;
-				tempIndex = (*tempIndexBlock)[i];
+			for (u_int i = 0; i < BLOCK_INDEX_NUMBER && index != -1; i++) {
+				lastBlockIndex = index;
+				index = file->singleIndirectBlocks[i];
 			}
 		}
 
 		for (u_int i = lastBlockIndex + 1; i < lastBlockIndex + increaseBlocksNumber + 1; i++) {
-			if (DISK.FileSystem.bitVector[i] == BLOCK_OCCUPIED) { fitsAfterLastIndex = false; break; }
+			if (FileSystem.bitVector[i] == BLOCK_OCCUPIED) { fitsAfterLastIndex = false; break; }
 			else if (i == increaseBlocksNumber) { break; }
 		}
 		lastBlockIndex++;
@@ -1037,102 +623,110 @@ void FileManager::FileAllocationIncrease(std::shared_ptr<File>& file, const u_in
 		for (u_int i = lastBlockIndex; i < lastBlockIndex + increaseBlocksNumber; i++) {
 			blocks.push_back(i);
 		}
-		FileAllocateBlocks(file, blocks);
+		file_allocate_blocks(file, blocks);
 	}
 	else {
-		if (file->blocksOccupied > 0) { FileDeallocate(file); };
-		FileAllocateBlocks(file, FindUnallocatedBlocks(neededBlocks));
+		if (file->blocksOccupied > 0) { file_deallocate(file); };
+		file_allocate_blocks(file, find_unallocated_blocks(neededBlocks));
 	}
 	if (detailedMessages) { std::cout << "Zwiêkszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
 }
 
-void FileManager::FileAllocationDecrease(const std::shared_ptr<File>& file, const u_int& neededBlocks) {
+void FileManager::file_allocation_decrease(Inode* file, const u_int& neededBlocks) {
 	const u_int sizeToStart = neededBlocks * BLOCK_SIZE;
 	//Zmienna do analizowania, czy ju¿ mo¿na usuwaæ/dodawaæ bloki do pliku
 	u_int currentSize = 0;
 
 	u_int indexNumber = 0;
-	std::shared_ptr<Index> index = file->directBlocks[indexNumber];
+	u_int index = file->directBlocks[indexNumber];
 
 	//Dopóki indeks na coœ wskazuje
-	while (index != nullptr) {
+	bool indirect = false;
+	while (index != -1) {
 		currentSize += BLOCK_SIZE;
-		if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
+		//Sprawdzenie czy mamy doczynienia z niebezpoœrednim blokiem indeksowym
+		if (indexNumber == BLOCK_INDEX_NUMBER) {
+			indirect = true;
+			indexNumber = 0;
+		}
+		if (!indirect) {
 			index = file->directBlocks[indexNumber];
 		}
-		else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
-			index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER];
+		else if (indirect) {
+			index = file->singleIndirectBlocks[indexNumber];
 		}
-		else { index = nullptr; }
 		//Spisz kolejny indeks
 		indexNumber++;
 
 		//Jeœli obecny rozmiar przewy¿sza rozmiar potrzebny do rozpoczêcia usuwania
 		//zacznij usuwaæ bloki
-		if (currentSize > sizeToStart && index != nullptr) {
+		if (currentSize > sizeToStart && index != -1) {
 			//Zmniejszenie rozmiaru pliku
 			file->blocksOccupied--;
 			//Po uciêciu rozmiar i rozmiar rzeczywisty bêd¹ takie same
-			file->sizeOnDisk = file->blocksOccupied*BLOCK_SIZE;
+			file->realSize = file->blocksOccupied*BLOCK_SIZE;
 			//Oznacz obecny indeks jako wolny
-			ChangeBitVectorValue(index->value, BLOCK_FREE);
+			change_bit_vector_value(index, BLOCK_FREE);
 			//Obecny indeks w tablicy FileSystem wskazuje na nic
-			if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
-				file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
+			if (!indirect) {
+				file->directBlocks[index] = -1;
 			}
-			else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
-				(*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
+			else if (indirect) {
+				file->singleIndirectBlocks[index] = -1;
 			}
 		}
-	}
-	if (file->blocksOccupied == BLOCK_INDEX_NUMBER) {
-		file->blocksOccupied--;
-		file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
 	}
 	if (detailedMessages) { std::cout << "Zmniejszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
 }
 
-void FileManager::FileDeallocate(const std::shared_ptr<File>& file) {
+void FileManager::file_deallocate(Inode* file) {
 	std::vector<u_int>freedBlocks; //Zmienna u¿yta do wyœwietlenia komunikatu
 
-	if (file->directBlocks[0] != nullptr) {
-		std::shared_ptr<Index> index = std::make_shared<Index>();
+	if (file->directBlocks[0] != -1) {
+		u_int index = 0;
 		u_int indexNumber = 0;
-		while (indexNumber < BLOCK_INDEX_NUMBER && index != nullptr && indexNumber < MAX_FILE_SIZE / BLOCK_SIZE) {
-			if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
-				index = file->directBlocks[indexNumber];
-				file->directBlocks[indexNumber] = nullptr;
-			}
-			else if (file->directBlocks[indexNumber] != nullptr) {
-				index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER];
-				(*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[indexNumber - BLOCK_DIRECT_INDEX_NUMBER] = nullptr;
-			}
-			else { index = nullptr; }
+		bool indirect = false;
 
-			if (index != nullptr) {
-				freedBlocks.push_back(index->value);
-				ChangeBitVectorValue(index->value, BLOCK_FREE);
+		while (index != -1 && indexNumber < MAX_FILE_SIZE / BLOCK_SIZE) {
+			if (indexNumber == BLOCK_INDEX_NUMBER) {
+				indirect = true;
+				indexNumber = 0;
+			}
+			if (!indirect) {
+				index = file->directBlocks[indexNumber];
+				file->directBlocks[indexNumber] = -1;
+			}
+			else if (indirect) {
+				index = file->singleIndirectBlocks[indexNumber];
+				file->singleIndirectBlocks[indexNumber] = -1;
+			}
+			else { index = -1; }
+
+			if (index != -1) {
+				freedBlocks.push_back(index);
+				change_bit_vector_value(index, BLOCK_FREE);
 				indexNumber++;
 			}
 		}
-		file->directBlocks.clear();
+		file->directBlocks.fill(-1);
 		file->blocksOccupied = 0;
 	}
 	if (detailedMessages) {
 		std::sort(freedBlocks.begin(), freedBlocks.end());
 		std::cout << "Zwolniono bloki: ";
-		for (u_int i = 0; i < freedBlocks.size(); i++) { std::cout << freedBlocks[i] << (i < freedBlocks.size() - 1 ? ", " : ".\n"); }
+		for (u_int i = 0; i < freedBlocks.size(); i++) { std::cout << freedBlocks[i] << (i < freedBlocks.size() - 1 ? ", " : ""); }
+		std::cout << '\n';
 	}
 }
 
-void FileManager::FileAllocateBlocks(const std::shared_ptr<File>& file, const std::vector<u_int>& blocks) {
+void FileManager::file_allocate_blocks(Inode* file, const std::vector<u_int>& blocks) {
 
 	for (const auto& i : blocks) {
-		ChangeBitVectorValue(i, BLOCK_OCCUPIED);
+		change_bit_vector_value(i, BLOCK_OCCUPIED);
 	}
 	file->blocksOccupied += blocks.size();
 
-	FileAddIndexes(file, blocks);
+	file_add_indexes(file, blocks);
 
 	if (detailedMessages) {
 		std::cout << "Zaalokowano bloki: ";
@@ -1140,14 +734,14 @@ void FileManager::FileAllocateBlocks(const std::shared_ptr<File>& file, const st
 	}
 }
 
-const std::vector<u_int> FileManager::FindUnallocatedBlocksFragmented(u_int blockNumber) {
+const std::vector<u_int> FileManager::find_unallocated_blocks_fragmented(u_int blockNumber) {
 	//Lista wolnych bloków
 	std::vector<u_int> blockList;
 
 	//Szuka wolnych bloków
-	for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
+	for (u_int i = 0; i < FileSystem.bitVector.size(); i++) {
 		//Jeœli blok wolny
-		if (DISK.FileSystem.bitVector[i] == BLOCK_FREE) {
+		if (FileSystem.bitVector[i] == BLOCK_FREE) {
 			//Dodaje indeks bloku
 			blockList.push_back(i);
 			//Potrzeba teraz jeden blok mniej
@@ -1159,15 +753,15 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksFragmented(u_int bloc
 	return blockList;
 }
 
-const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int& blockNumber) {
+const std::vector<u_int> FileManager::find_unallocated_blocks_best_fit(const u_int& blockNumber) {
 	//Lista indeksów bloków (dopasowanie)
 	std::vector<u_int> blockList;
 	//Najlepsze dopasowanie
-	std::vector<u_int> bestBlockList(DISK.FileSystem.bitVector.size() + 1);
+	std::vector<u_int> bestBlockList(FileSystem.bitVector.size() + 1);
 
 	//Szukanie wolnych bloków spe³niaj¹cych minimum miejsca
-	for (u_int i = 0; i < DISK.FileSystem.bitVector.size(); i++) {
-		if (DISK.FileSystem.bitVector[i] == BLOCK_FREE) {
+	for (u_int i = 0; i < FileSystem.bitVector.size(); i++) {
+		if (FileSystem.bitVector[i] == BLOCK_FREE) {
 			//Dodaj indeks bloku do listy bloków
 			blockList.push_back(i);
 		}
@@ -1199,7 +793,7 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int& 
 	}
 
 	//Jeœli znalezione najlepsze dopasowanie
-	if (bestBlockList.size() < DISK.FileSystem.bitVector.size()) {
+	if (bestBlockList.size() < FileSystem.bitVector.size()) {
 		//Odetnij nadmiarowe indeksy z dopasowania (jeœli wiêksze ni¿ potrzeba)
 		bestBlockList.resize(blockNumber);
 	}
@@ -1208,14 +802,14 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocksBestFit(const u_int& 
 	return bestBlockList;
 }
 
-const std::vector<u_int> FileManager::FindUnallocatedBlocks(const u_int& blockNumber) {
+const std::vector<u_int> FileManager::find_unallocated_blocks(const u_int& blockNumber) {
 	//Szuka bloków funkcj¹ z metod¹ best-fit
-	std::vector<u_int> blockList = FindUnallocatedBlocksBestFit(blockNumber);
+	std::vector<u_int> blockList = find_unallocated_blocks_best_fit(blockNumber);
 
 	//Jeœli funkcja z metod¹ best-fit nie znajdzie dopasowañ
 	if (blockList.empty()) {
 		//Szuka niezaalokowanych bloków, wybieraj¹c pierwsze wolne
-		blockList = FindUnallocatedBlocksFragmented(blockNumber);
+		blockList = find_unallocated_blocks_fragmented(blockNumber);
 	}
 
 	return blockList;
@@ -1225,180 +819,72 @@ const std::vector<u_int> FileManager::FindUnallocatedBlocks(const u_int& blockNu
 
 //----------------------- Metody Inne -----------------------
 
-void FileManager::FileWriteData(std::shared_ptr<File>& file, const std::string& data) {
-	file->modificationTime = GetCurrentTimeAndDate();
+void FileManager::file_write(Inode* file, const std::string& data) {
+	file->modificationTime = get_current_time_and_date();
 
 	//Uzyskuje dane podzielone na fragmenty
-	const std::vector<std::string>fileFragments = DataToDataFragments(data);
+	const std::vector<std::string>fileFragments = data_to_data_fragments(data);
 
 	//Alokowanie bloków dla pliku
-	FileTruncate(file, fileFragments.size());
+	file_truncate(file, fileFragments.size());
 
-	file->sizeOnDisk = data.size();
+	file->realSize = data.size();
 
-	//Index pod którym maj¹ zapisywane byæ dane
+	//Indeks pod którym maj¹ zapisywane byæ dane
 	u_int indexNumber = 0;
-	std::shared_ptr<Index> index = file->directBlocks[indexNumber];
+	u_int index = file->directBlocks[0];
+	bool indirect = false;
 
 	//Zapisuje wszystkie dane na dysku
 	for (const auto& fileFragment : fileFragments) {
 		//Zapisuje fragment na dysku
-		DISK.write(index->value * BLOCK_SIZE, fileFragment);
+		DISK.write(index * BLOCK_SIZE, fileFragment);
 		//Przypisuje do indeksu numer kolejnego bloku
 		indexNumber++;
-		if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
+		if (indexNumber == BLOCK_INDEX_NUMBER) {
+			indirect = true;
+			indexNumber = 0;
+		}
+		if (!indirect) {
 			index = file->directBlocks[indexNumber];
 		}
-		else if (file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER] != nullptr) {
-			index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[(indexNumber - BLOCK_DIRECT_INDEX_NUMBER) % BLOCK_INDEX_NUMBER];
+		else if (indirect) {
+			index = file->singleIndirectBlocks[indexNumber];
 		}
 	}
 }
 
-const std::string FileManager::FileReadData(const std::shared_ptr<File>& file) const {
+const std::string FileManager::file_read_all(Inode* file) const {
 	std::string data;
 	//Indeks do wczytywania danych z dysku
 	size_t indexNumber = 0;
-	size_t indexInBlockNumber = 0;
-	std::shared_ptr<Index> index = std::make_shared<Index>();
+	u_int index = 0;
 
 	//Dopóki nie natrafimy na koniec pliku
-	while (index != nullptr && indexNumber) {
-		if (indexNumber < BLOCK_DIRECT_INDEX_NUMBER) {
+	bool indirect = false;
+	while (index != -1 && indexNumber) {
+		if (indexNumber == BLOCK_INDEX_NUMBER) {
+			indirect = true;
+			indexNumber = 0;
+		}
+		else if (indexNumber == BLOCK_INDEX_NUMBER && indirect) { break; }
+
+		if (!indirect) {
 			index = file->directBlocks[indexNumber];
 		}
-		else if (file->directBlocks[indexNumber] != nullptr) {
-			index = (*std::dynamic_pointer_cast<IndexBlock>(file->directBlocks[BLOCK_DIRECT_INDEX_NUMBER]))[(indexInBlockNumber) % BLOCK_INDEX_NUMBER];
-			indexInBlockNumber++;
+		else if (indirect) {
+			index = file->singleIndirectBlocks[indexNumber];
 		}
-		else { index = nullptr; }
 
 		//Dodaje do danych fragment pliku pod wskazanym indeksem
-		data += DISK.read<std::string>(index->value * BLOCK_SIZE);
+		data += DISK.read<std::string>(index * BLOCK_SIZE);
 		//Przypisuje indeksowi kolejny indeks bloku dyskowego
-		if (indexInBlockNumber % BLOCK_INDEX_NUMBER == 0) { indexNumber++; }
+		indexNumber++;
 	}
 	return data;
 }
 
-void FileManager::FileDelete(std::shared_ptr<File>& file) {
-	if (file != nullptr) {
-		FileDeallocate(file);
-		for (auto it = DISK.FileSystem.InodeTable.begin(); it != DISK.FileSystem.InodeTable.end(); ++it) {
-			if (it->second == file) { DISK.FileSystem.InodeTable.erase(it); break; }
-		}
-	}
-}
-
-void FileManager::DirectoryDeleteStructure(std::shared_ptr<Directory>& directory) {
-	//Usuwa wszystkie pliki z katalogu
-	for (auto it = directory->files.begin(); it != directory->files.end(); ++it) {
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[it->second];
-		if (inode->type == "FILE") {
-			std::shared_ptr<File> file = std::dynamic_pointer_cast<File>(inode);
-			FileDelete(file);
-			if (messages) { std::cout << "Usuniêto plik o nazwie '" << it->first << "' znajduj¹cy siê w œcie¿ce '" + GetPath(directory) + "'.\n"; }
-		}
-	}
-
-	//Usuwa wszystkie katalogi w katalogu
-	for (auto it = directory->files.begin(); it != directory->files.end(); ++it) {
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[it->second];
-		if (inode != nullptr) {
-			if (inode->type == "DIRECTORY") {
-				//Wywo³anie funkcji na podrzêdnym katalogu
-				std::shared_ptr<Directory> dir = std::dynamic_pointer_cast<Directory>(inode);
-				DirectoryDeleteStructure(dir);
-				DISK.FileSystem.InodeTable.erase(GetPath(directory) + it->first + "/");
-				if (messages) { std::cout << "Usuniêto katalog o nazwie '" << it->first << "' znajduj¹cy siê w œcie¿ce '" << GetPath(directory) << "'.\n"; }
-			}
-		}
-	}
-	//Czyœci listê iWêz³ów w katalogu
-	directory->files.clear();
-}
-
-void FileManager::DirectoryRenameStructure(std::shared_ptr<Directory>& directory) {
-	//Usuwa wszystkie pliki z katalogu
-	for (auto it = directory->files.begin(); it != directory->files.end(); ++it) {
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[it->second];
-		if (inode->type == "FILE") {
-			it->second = GetPath(directory) + it->first;
-			InodeTableRemove(inode);
-			DISK.FileSystem.InodeTable[GetPath(directory) + it->first] = inode;
-			if (messages) { std::cout << "Zmieniono œcie¿kê pliku o nazwie '" << it->first << "' na '" + GetPath(directory) + "'.\n"; }
-		}
-	}
-
-	//Usuwa wszystkie katalogi w katalogu
-	for (auto it = directory->files.begin(); it != directory->files.end(); ++it) {
-		const std::shared_ptr<Inode> inode = DISK.FileSystem.InodeTable[it->second];
-		if (inode != nullptr) {
-			if (inode->type == "DIRECTORY") {
-				//Wywo³anie funkcji na podrzêdnym katalogu
-				std::shared_ptr<Directory> dir = std::dynamic_pointer_cast<Directory>(inode);
-				it->second = GetPath(directory) + it->first;
-				InodeTableRemove(inode);
-				DISK.FileSystem.InodeTable.erase(GetPath(directory) + it->first + "/");
-				DISK.FileSystem.InodeTable[GetPath(directory) + it->first] = inode;
-				DirectoryRenameStructure(dir);
-
-				if (messages) { std::cout << "Zmieniono œcie¿kê katalogu o nazwie '" << it->first << "' na '" << GetPath(directory) << "'.\n"; }
-			}
-		}
-	}
-}
-
-void FileManager::DisplayDirectory(const std::shared_ptr<Directory>& directory, u_int level) {
-	if (directory != nullptr) {
-		for (auto i = directory->files.begin(); i != directory->files.end(); ++i) {
-			if (DISK.FileSystem.InodeTable[i->second]->type == "FILE") {
-				std::cout << std::string(level + 2, ' ') << "- " << i->first << '\n';
-			}
-		}
-		level++;
-		for (auto i = directory->files.begin(); i != directory->files.end(); ++i) {
-			if (DISK.FileSystem.InodeTable[i->second]->type == "DIRECTORY") {
-				std::cout << std::string(level + 1, ' ') << i->first << "\n";
-				DisplayDirectory(std::dynamic_pointer_cast<Directory>(DISK.FileSystem.InodeTable[i->second]), level);
-			}
-		}
-	}
-}
-
-void FileManager::InodeTableRemove(const std::shared_ptr<Inode>& inode) {
-	for (auto it = DISK.FileSystem.InodeTable.begin(); it != DISK.FileSystem.InodeTable.end(); ++it) {
-		if (it->second == inode) { DISK.FileSystem.InodeTable.erase(it); break; }
-	}
-}
-
-const std::string FileManager::GetPath(const std::shared_ptr<Directory>& directory) {
-	for (auto it = DISK.FileSystem.InodeTable.begin(); it != DISK.FileSystem.InodeTable.end(); ++it) {
-		if (it->second->type == "DIRECTORY") {
-			if (std::dynamic_pointer_cast<Directory>(it->second) == directory) { return it->first; }
-		}
-	}
-	return "";
-}
-
-const std::string FileManager::GetCurrentDirectoryParent() const {
-	std::string result = currentDirectory;
-	result.pop_back();
-	for (u_int i = result.size() - 1; i >= 0; i--) {
-		if (i == 0) { result = ""; break; }
-		else if (result[i] == '/') { break; }
-		else { result.pop_back(); }
-	}
-	return result;
-}
-
-const size_t FileManager::GetCurrentPathLength() const {
-	std::string tempDir = currentDirectory;
-	tempDir.erase(std::remove(tempDir.begin(), tempDir.end(), '/'));
-	return tempDir.size();
-}
-
-const tm FileManager::GetCurrentTimeAndDate() {
+const tm FileManager::get_current_time_and_date() {
 	time_t tt;
 	time(&tt);
 	tm timeAndDate = *localtime(&tt);
@@ -1407,21 +893,21 @@ const tm FileManager::GetCurrentTimeAndDate() {
 	return timeAndDate;
 }
 
-void FileManager::ChangeBitVectorValue(const u_int& block, const bool& value) {
+void FileManager::change_bit_vector_value(const u_int& block, const bool& value) {
 	//Jeœli wartoœæ zajêty to wolne miejsce - BLOCK_SIZE
-	if (value == 1) { DISK.FileSystem.freeSpace -= BLOCK_SIZE; }
+	if (value == 1) { FileSystem.freeSpace -= BLOCK_SIZE; }
 	//Jeœli wartoœæ wolny to wolne miejsce + BLOCK_SIZE
-	else if (value == 0) { DISK.FileSystem.freeSpace += BLOCK_SIZE; }
+	else if (value == 0) { FileSystem.freeSpace += BLOCK_SIZE; }
 	//Przypisanie blokowi podanej wartoœci
-	DISK.FileSystem.bitVector[block] = value;
+	FileSystem.bitVector[block] = value;
 }
 
-const std::vector<std::string> FileManager::DataToDataFragments(const std::string& data) const {
+const std::vector<std::string> FileManager::data_to_data_fragments(const std::string& data) const {
 	//Tablica fragmentów podanych danych
 	std::vector<std::string>fileFragments;
 
 	//Przetworzenie ca³ych danych
-	for (u_int i = 0; i < CalculateNeededBlocks(data.size()); i++) {
+	for (u_int i = 0; i < calculate_needed_blocks(data.size()); i++) {
 		//Oblicza pocz¹tek kolejnej czêœci fragmentu danych.
 		const u_int substrBegin = i * BLOCK_SIZE;
 		//Dodaje do tablicy fragmentów kolejny fragment o d³ugoœci BLOCK_SIZE
