@@ -148,7 +148,7 @@ void Shell::ls(/*HDD hdd*/) //Listowanie katalogu
 {
 	if (parsed.size() == 1) 
 	{
-		hdd.display_catalog();
+		FileManager.display_directory();
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }
@@ -157,7 +157,7 @@ void Shell::cf/*HDD hdd*/() //Utworzenie pliku
 {
 	if (parsed.size() == 2)
 	{
-		hdd.create_file(parsed[1]);
+		FileManager.file_create(parsed[1]);
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }
@@ -166,7 +166,7 @@ void Shell::df(/*HDD hdd*/) //Usunięcie pliku
 {
 	if (parsed.size() == 2) 
 	{
-		hdd.delete_file(parsed[1]);
+		FileManager.file_delete(parsed[1]);
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }
@@ -175,7 +175,7 @@ void Shell::ld(/*HDD hdd*/) //Listowanie zawartości wskazanego bloku dyskowego
 {
 	if (parsed.size() == 2)
 	{
-		hdd.display_block(parsed[1]);
+		FileManager.display_block(parsed[1]);
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }
