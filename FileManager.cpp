@@ -437,7 +437,7 @@ bool FileManager::display_file_info(const std::string& name) {
 		std::cout << "Saved data: " << file_read_all(file) << '\n';
 		std::cout << "Direct block indexes: ";
 		for (const auto& elem : file->directBlocks) {
-			if(elem != -1){
+			if (elem != -1) {
 				std::cout << elem << ' ';
 			}
 			else { std::cout << -1 << ' '; }

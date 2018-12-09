@@ -21,8 +21,10 @@
 
 /*
 	To-do:
-	- przerobiæ zapisywanie i odczytywanie z nazw na œcie¿ki plików
+	- przerobiæ zapisywanie i odczytywanie z œcie¿ek na nazwy
 	- dodaæ zabezpieczenie do zapisywania i odczytywania danych tylko dla plików otwartych
+	- dodaæ semafory
+	- dodaæ odczyt i zapis sekwencyjny
 */
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
@@ -35,9 +37,11 @@ private:
 	static const size_t DISK_CAPACITY = 1024;       //Pojemnoœæ dysku (bajty)
 	static const u_int BLOCK_INDEX_NUMBER = 3;	    //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
 	static const u_int INODE_NUMBER_LIMIT = 32;     //Maksymalna iloœæ elementów w katalogu
-	static const u_int MAX_FILENAME_LENGTH = 7;        //Maksymalna d³ugoœæ œcie¿ki
+	static const u_int MAX_FILENAME_LENGTH = 7;     //Maksymalna d³ugoœæ œcie¿ki
+
 	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
+
 	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
 	static const size_t MAX_FILE_SIZE = (BLOCK_INDEX_NUMBER * 2) * BLOCK_SIZE;
 
@@ -78,9 +82,6 @@ private:
 
 		Inode();
 
-		/**
-			Konstruktor domyœlny.
-		*/
 		explicit Inode(std::string type_) : directBlocks() {}
 
 		virtual ~Inode() = default;
@@ -96,27 +97,11 @@ private:
 		std::array<char, DISK_CAPACITY> space;
 
 		//----------------------- Konstruktor -----------------------
-		/**
-			Konstruktor domyœlny. Wykonuje zape³nienie przestrzeni dyskowej wartoœci¹ NULL.
-		*/
 		Disk();
 
 		//-------------------------- Metody -------------------------
-		/**
-			Zapisuje dane (string) na dysku od indeksu 'begin' do indeksu 'end' w³¹cznie.
-
-			@param begin Indeks od którego dane maj¹ byæ zapisywane.
-			@param data Dane typu string.
-			@return void.
-		*/
 		void write(const u_int& begin, const std::string& data);
 
-		/**
-			Odczytuje dane zadanego typu (jeœli jest on zaimplementowany) w wskazanym przedziale.
-
-			@param begin Indeks od którego dane maj¹ byæ odczytywane.
-			@return zmienna zadanego typu.
-		*/
 		template<typename T>
 		const T read(const u_int& begin) const;
 	} DISK;
@@ -134,9 +119,6 @@ private:
 		std::bitset<INODE_NUMBER_LIMIT> inodeBitVector;
 		std::unordered_map<std::string, u_int> rootDirectory;
 
-		/**
-			Konstruktor domyœlny. Wpisuje katalog g³ówny do tablicy iWêz³ów.
-		*/
 		FileSystem();
 
 		const u_int get_free_inode_id();
@@ -305,179 +287,54 @@ public:
 private:
 	//------------------- Metody Sprawdzaj¹ce -------------------
 
-	/**
-		Sprawdza czy nazwa pliku jest u¿ywana w katalogu g³ównym.
-
-		@param name Nazwa pliku
-		@return Prawda, jeœli nazwa u¿ywana, inaczej fa³sz.
-	*/
 	const bool check_if_name_used(const std::string& name);
 
-	/**
-		Sprawdza czy jest miejsce na dane o zadaniej wielkoœci.
-
-		@param dataSize Rozmiar danych, dla których bêdziemy sprawdzac miejsce.
-		@return void.
-	*/
 	const bool check_if_enough_space(const u_int& dataSize) const;
 
 
 
 	//-------------------- Metody Obliczaj¹ce -------------------
 
-	/**
-		Oblicza ile bloków zajmie podany string.
-
-		@param dataSize D³ugoœæ danych, których rozmiar na dysku bêdzie obliczany.
-		@return Iloœæ bloków jak¹ zajmie string.
-	*/
 	const u_int calculate_needed_blocks(const size_t& dataSize) const;
 
-	/**
-		Zwraca rozmiar podanego katalogu.
-
-		@return Rozmiar podanego katalogu.
-	*/
 	const size_t calculate_directory_size();
 
-	/**
-		Zwraca rzeczywisty rozmiar podanego katalogu.
-
-		@return Rzeczywisty rozmiar podanego katalogu.
-	*/
 	const size_t calculate_directory_size_on_disk();
 
 
 
 	//--------------------- Metody Alokacji ---------------------
 
-	/**
-		Zmniejsza lub zwiêksza plik do podanego rozmiaru.
-
-		@param file WskaŸnik na plik, którego rozmiar chcemy zmieniæ.
-		@param neededBlocks Iloœæ bloków do alokacji.
-		@return void.
-	*/
 	void file_truncate(Inode* file, const u_int& neededBlocks);
 
-	/**
-		Dodaje do pliku podane indeksy bloków.
-
-		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
-		@param blocks Numery bloków do alokacji.
-		@return void.
-	*/
 	void file_add_indexes(Inode* file, const std::vector<u_int>& blocks) const;
 
-	/**
-		Przeprowadza dealokacje danych pliku, czyli usuwa z pliku indeksy bloków
-		oraz zmienia wartoœci w wektorze bitowym.
-
-		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
-		@return void.
-	*/
 	void file_deallocate(Inode* file);
 
-	/**
-		Alokuje przestrzeñ na podane bloki. Zmienia wartoœci w wektorze bitowym,
-		aktualizuje wartoœæ zajmowanych bloków przez plik oraz wywo³uje funkcjê
-		file_add_indexes.
-
-		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
-		@param blocks Numery bloków do alokacji.
-		@return void.
-	*/
 	void file_allocate_blocks(Inode* file, const std::vector<u_int>& blocks);
 
-	/**
-		Obs³uguje proces zwiêkszania liczby zaalokowanych bloków na dane pliku.
-
-		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
-		@param neededBlocks Liczba bloków do alokacji.
-		@return void.
-	*/
 	void file_allocation_increase(Inode* file, const u_int& neededBlocks);
 
-	/**
-		Obs³uguje proces zwiêkszania liczby zaalokowanych bloków na dane pliku.
-
-		@param file WskaŸnik na plik, do którego chcemy dodaæ indeksy.
-		@param neededBlocks Liczba bloków do alokacji.
-		@return void.
-	*/
 	void file_allocation_decrease(Inode* file, const u_int& neededBlocks);
 
-	/**
-	Znajduje nieu¿ywane bloki do zapisania pliku bez dopasowania do luk w blokach
-
-	@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
-	@return Zestaw indeksów bloków mo¿liwych do zaalokowania.
-	*/
 	const std::vector<u_int> find_unallocated_blocks_fragmented(u_int blockNumber);
 
-	/*
-		Znajduje nieu¿ywane bloki do zapisania pliku metod¹ best-fit.
-
-		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
-		@return Zestaw indeksów bloków mo¿liwych do zaalokowania.
-	*/
 	const std::vector<u_int> find_unallocated_blocks_best_fit(const u_int& blockNumber);
 
-	/*
-		Znajduje nieu¿ywane bloki do zapisania pliku. Najpierw uruchamia funkcjê
-		dzia³aj¹c¹ metod¹ best-fit, jeœli funkcja nie znajdzie dopasowania to
-		uruchamiana jest funkcja znajduj¹c¹ pierwsze jakiekolwiek wolne bloki i
-		wprowadzaj¹ca fragmentacjê danych.
-
-		@param blockNumber Liczba bloków na jak¹ szukamy miejsca do alokacji.
-		@return Zestaw indeksów bloków mo¿liwych do zaalokowania.
-	*/
 	const std::vector<u_int> find_unallocated_blocks(const u_int& blockNumber);
 
 
 
 	//----------------------- Metody Inne -----------------------
 
-	/**
-		Zapisuje wektor fragmentów File.data na dysku.
-
-		@param file WskaŸnik na plik którego dane bêd¹ zapisane na dysku.
-		@param data Dane do zapisania na dysku.
-		@return void.
-	*/
 	void file_write(Inode* file, const std::string& data);
 
-	/**
-		Wczytuje dane pliku z dysku.
-
-		@param file WskaŸnik na plik którego dane maj¹ byæ wczytane z dysku.
-		@return Dane pliku w postaci string.
-	*/
 	const std::string file_read_all(Inode* file) const;
 
-	/**
-		Zwraca aktualny czas i datê.
-
-		@return Czas i data.
-	*/
 	static const tm get_current_time_and_date();
 
-	/**
-		Zmienia wartoœæ w wektorze bitowym i zarz¹dza polem freeSpace
-		w strukturze FileSystem.
-
-		@param block Indeks bloku, którego wartoœæ w wektorze bitowym bêdzie zmieniona.
-		@param value Wartoœæ do przypisania do wskazanego bloku ( BLOCK_FREE lub BLOCK_OCCUPIED)
-		@return void.
-	*/
 	void change_bit_vector_value(const u_int& block, const bool& value);
 
-	/**
-		Dzieli string na fragmenty o rozmiarze BLOCK_SIZE.
-
-		@param data String do podzielenia na fragmenty.
-		@return Wektor fragmentów string.
-	*/
 	const std::vector<std::string> data_to_data_fragments(const std::string& data) const;
 };
 
