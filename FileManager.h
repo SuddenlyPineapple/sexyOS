@@ -21,8 +21,7 @@
 
 /*
 	To-do:
-	- przerobiæ zapisywanie i odczytywanie z œcie¿ek na nazwy
-	- dodaæ zabezpieczenie do zapisywania i odczytywania danych tylko dla plików otwartych
+	- dodaæ zapisywanie bloków indeksowych na dysku
 	- dodaæ semafory
 	- dodaæ odczyt i zapis sekwencyjny
 */
@@ -31,48 +30,34 @@
 class FileManager {
 private:
 	using u_int = unsigned int;
+	using u_short_int = unsigned short int;
+	using u_char = unsigned char;
 
 	//--------------- Definicje sta³ych statycznych -------------
-	static const size_t BLOCK_SIZE = 32;	   	    //Rozmiar bloku (bajty)
-	static const size_t DISK_CAPACITY = 1024;       //Pojemnoœæ dysku (bajty)
-	static const u_int BLOCK_INDEX_NUMBER = 3;	    //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
-	static const u_int INODE_NUMBER_LIMIT = 32;     //Maksymalna iloœæ elementów w katalogu
-	static const u_int MAX_FILENAME_LENGTH = 7;     //Maksymalna d³ugoœæ œcie¿ki
+	static const u_char BLOCK_SIZE = 32;	   	    //Rozmiar bloku (bajty)
+	static const u_short_int DISK_CAPACITY = 1024;  //Pojemnoœæ dysku (bajty)
+	static const u_char BLOCK_INDEX_NUMBER = 3;	    //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
+	static const u_char INODE_NUMBER_LIMIT = 32;    //Maksymalna iloœæ elementów w katalogu
+	static const u_char MAX_FILENAME_LENGTH = 7;    //Maksymalna d³ugoœæ œcie¿ki
 
 	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
 
 	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
-	static const size_t MAX_FILE_SIZE = (BLOCK_INDEX_NUMBER * 2) * BLOCK_SIZE;
+	static const u_short_int MAX_FILE_SIZE = (BLOCK_INDEX_NUMBER * 2) * BLOCK_SIZE;
 
 
 
 	//---------------- Definicje struktur i klas ----------------
 
-	//Klasa bloku indeksowego - przechowuje tablicê indeksów.
-	class IndexBlock {
-	private:
-		//Tablica indeksów/bloków indeksowych
-		std::array<u_int, BLOCK_INDEX_NUMBER> value;
-	public:
-		IndexBlock() = default;
-		virtual ~IndexBlock() = default;
-
-		const u_int size() const { return value.size(); }
-		void clear();
-
-		u_int& operator [] (const size_t& index);
-		const u_int& operator [] (const size_t& index) const;
-	};
-
 	//Klasa i-wêz³a - zawiera podstawowe informacje o pliku
 	class Inode {
 	public:
 		//Podstawowe informacje
-		size_t blocksOccupied = 0;   //Iloœæ zajmowanych bloków
-		size_t realSize = 0;         //Rzeczywisty ozmiar pliku
-		std::array<u_int, BLOCK_INDEX_NUMBER> directBlocks; //Bezpoœrednie bloki
-		IndexBlock singleIndirectBlocks; //Niebespoœredni blok indeksowy, zpisywany na dysku
+		u_char blocksOccupied = 0; //Iloœæ zajmowanych bloków (dane)
+		u_short_int realSize = 0;  //Rzeczywisty rozmiar pliku
+		std::array<u_int, BLOCK_INDEX_NUMBER> directBlocks;         //Bezpoœrednie bloki
+		u_int singleIndirectBlocks; //Niebespoœredni blok indeksowy, zpisywany na dysku
 
 		//Dodatkowe informacje
 		tm creationTime = tm();	 //Czas i data utworzenia
@@ -82,17 +67,14 @@ private:
 
 		Inode();
 
-		explicit Inode(std::string type_) : directBlocks() {}
-
 		virtual ~Inode() = default;
 
 		void clear();
+		const std::string indirect_to_string();
 	};
 
-
-	//Prosta klasa dysku (imitacja fizycznego) - przechowuje dane + system plików
-	class Disk {
-	public:
+	//Prosta klasa dysku (imitacja fizycznego)
+	struct Disk {
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
 		std::array<char, DISK_CAPACITY> space;
 
@@ -101,9 +83,10 @@ private:
 
 		//-------------------------- Metody -------------------------
 		void write(const u_int& begin, const std::string& data);
+		void write(const u_int& begin, const std::array<u_int, BLOCK_INDEX_NUMBER>& data);
 
-		template<typename T>
-		const T read(const u_int& begin) const;
+		const std::string read_str(const u_int& begin) const;
+		const std::array<u_int,BLOCK_INDEX_NUMBER> read_arr(const u_int& begin) const;
 	} DISK;
 	struct FileSystem {
 		u_int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
@@ -179,7 +162,7 @@ public:
 
 	bool file_open(const std::string& name);
 
-	bool file_close(const std::string& path);
+	bool file_close(const std::string& name);
 
 
 
@@ -238,7 +221,7 @@ public:
 
 		@return void.
 	*/
-	void display_file_system_params() const;
+	static void display_file_system_params();
 
 	/**
 		Wyœwietla informacje o wybranym katalogu.
@@ -260,13 +243,6 @@ public:
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	void display_root_directory();
-
-	/**
-		Wyœwietla zawartoœæ dysku w formie binarnej.
-
-		@return void.
-	*/
-	void display_disk_content_binary();
 
 	/**
 		Wyœwietla zawartoœæ dysku jako znaki.
@@ -307,7 +283,7 @@ private:
 
 	void file_truncate(Inode* file, const u_int& neededBlocks);
 
-	void file_add_indexes(Inode* file, const std::vector<u_int>& blocks) const;
+	void file_add_indexes(Inode* file, const std::vector<u_int>& blocks);
 
 	void file_deallocate(Inode* file);
 
@@ -326,6 +302,8 @@ private:
 
 
 	//----------------------- Metody Inne -----------------------
+
+	const std::array<u_char, BLOCK_INDEX_NUMBER> read_index_block(Inode* file);
 
 	void file_write(Inode* file, const std::string& data);
 

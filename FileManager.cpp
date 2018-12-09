@@ -15,6 +15,7 @@
 
 //--------------------------- Aliasy ------------------------
 using u_int = unsigned int;
+using u_char = unsigned char;
 
 //------------------------- Operatory -----------------------
 std::ostream& operator << (std::ostream& os, const std::vector<std::string>& strVec) {
@@ -78,20 +79,36 @@ void FileManager::FileSystem::reset() {
 	}
 }
 
-FileManager::Inode::Inode() : blocksOccupied(0), realSize(0), creationTime(), modificationTime() {
+FileManager::Inode::Inode() : creationTime(), modificationTime() {
 	//Wype³nienie indeksów bloków dyskowych wartoœci¹ -1 (pusty indeks)
 	directBlocks.fill(-1);
-	for (u_int i = 0; i < BLOCK_INDEX_NUMBER; i++) { singleIndirectBlocks[i] = -1; }
+	singleIndirectBlocks = -1;
 }
 
 void FileManager::Inode::clear() {
 	blocksOccupied = 0;
 	realSize = 0;
 	directBlocks.fill(-1);
-	singleIndirectBlocks.clear();
+	singleIndirectBlocks = -1;
 	creationTime = tm();
 	modificationTime = tm();
 	flagOpen = false;
+}
+
+const std::string FileManager::Inode::indirect_to_string() {
+	std::string result;
+	if (singleIndirectBlocks != -1) {
+		std::array<u_int, BLOCK_INDEX_NUMBER>indirectBlocks;
+		for (size_t i = 0; i < BLOCK_INDEX_NUMBER; i++) {
+			std::string temp;
+			if (indirectBlocks[i] <= 9) {
+				temp = "0" + std::to_string(indirectBlocks[i]);
+			}
+			else { temp = std::to_string(indirectBlocks[i]); }
+			result += temp;
+		}
+	}
+	return result;
 }
 
 FileManager::Disk::Disk() {
@@ -99,20 +116,8 @@ FileManager::Disk::Disk() {
 	fill(space.begin(), space.end(), NULL);
 }
 
-void FileManager::IndexBlock::clear() {
-	value.fill(-1);
-}
-
-u_int& FileManager::IndexBlock::operator[](const size_t& index) {
-	return this->value[index];
-}
-
-const u_int& FileManager::IndexBlock::operator[](const size_t& index) const {
-	return this->value[index];
-}
-
 void FileManager::Disk::write(const u_int& begin, const std::string& data) {
-	const u_int end = begin + FileManager::BLOCK_SIZE - 1;
+	const u_int end = begin + BLOCK_SIZE - 1;
 	//Indeks który bêdzie s³u¿y³ do wskazywania na komórki pamiêci
 	u_int index = begin;
 	//Iterowanie po danych typu string i zapisywanie znaków na dysku
@@ -126,25 +131,65 @@ void FileManager::Disk::write(const u_int& begin, const std::string& data) {
 	}
 }
 
-template<typename T>
-const T FileManager::Disk::read(const u_int& begin) const {
-	const u_int end = begin + FileManager::BLOCK_SIZE;
-	T data;
-	if (typeid(T) == typeid(std::string)) {
-		//Odczytaj przestrzeñ dyskow¹ od indeksu begin do indeksu end
-		for (u_int index = begin; index <= end; index++) {
-			//Dodaj znak zapisany na dysku do danych
-			data += space[index];
+void FileManager::Disk::write(const u_int& begin, const std::array<u_int, BLOCK_INDEX_NUMBER>& data) {
+	std::string result;
+	for (size_t i = 0; i < BLOCK_INDEX_NUMBER; i++) {
+		std::string temp;
+		if (data[i] != -1) {
+			if (data[i] <= 9) {
+				temp = "0" + std::to_string(data[i]);
+			}
+			else { temp = std::to_string(data[i]); }
+			result += temp;
 		}
+		else { result += "-1"; }
+	}
+	write(begin, result);
+}
+
+const std::string FileManager::Disk::read_str(const u_int& begin) const {
+	std::string data;
+	const u_int end = begin + BLOCK_SIZE;
+	//Odczytaj przestrzeñ dyskow¹ od indeksu begin do indeksu end
+	for (u_int index = begin; index < end; index++) {
+		//Dodaj znak zapisany na dysku do danych
+		if (space[index] != NULL) { data += space[index]; }
 	}
 	return data;
+}
+
+const std::array<u_int, FileManager::BLOCK_INDEX_NUMBER> FileManager::Disk::read_arr(const u_int& begin) const {
+	const u_int end = begin + BLOCK_SIZE;
+	std::string data;
+	std::array<u_int, BLOCK_INDEX_NUMBER> result;
+	result.fill(-1);
+
+	//Odczytaj przestrzeñ dyskow¹ od indeksu begin do indeksu end
+	for (u_int index = begin; index < end; index++) {
+		//Dodaj znak zapisany na dysku do danych
+		if (space[index] != NULL) { data += space[index]; }
+	}
+
+	std::string num;
+	u_int arrIndex = 0;
+	for (const char& c : data) {
+		if (c == NULL) { break; }
+		num += c;
+		if (num.length() == 2) {
+			result[arrIndex] = std::stoi(num);
+			num.clear();
+			arrIndex++;
+		}
+		if (arrIndex == BLOCK_INDEX_NUMBER) { break; }
+	}
+	return result;
 }
 
 
 
 //----------------------- FileManager -----------------------
 
-FileManager::FileManager() {}
+FileManager::FileManager() = default;
 
 
 
@@ -195,18 +240,24 @@ bool FileManager::file_write(const std::string& name, const std::string& data) {
 		std::vector<std::string> errorDescriptions;
 		bool error = false;
 		//Error1
+		if (data.size() > FileSystem.freeSpace) { errorDescriptions.emplace_back("Brak miejsca na dysku!"); error = true; }
+		//Error2
 		if (data.size() > MAX_FILE_SIZE) { errorDescriptions.emplace_back("Podane dane przekraczaj¹ maksymalny rozmiar pliku!"); error = true; }
+		//Error3
+		if (data.size() > BLOCK_INDEX_NUMBER * BLOCK_SIZE && FileSystem.freeSpace < calculate_needed_blocks(data.size())*BLOCK_SIZE + BLOCK_SIZE) {
+			errorDescriptions.emplace_back("Brakuje bloków do zapisania podanych danych!"); error = true;
+		}
 
 		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
 		const auto fileIterator = FileSystem.rootDirectory.find(name);
-		//Error2
+		//Error3
 		if (fileIterator == FileSystem.rootDirectory.end()) {
 			errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony.");
 			throw errorDescriptions;
 		}
 		Inode* file = &FileSystem.inodeTable[fileIterator->second];
 
-		//Error3
+		//Error4
 		if (data.size() > FileSystem.freeSpace - file->blocksOccupied*BLOCK_SIZE) {
 			errorDescriptions.
 				emplace_back("Za ma³o miejsca na dysku!"); error = true;
@@ -217,10 +268,7 @@ bool FileManager::file_write(const std::string& name, const std::string& data) {
 		if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
 		return true;
 	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
+	catch (const std::string& description) { std::cout << description << '\n'; return false; }
 	catch (const std::vector<std::string>& descriptions) {
 		std::cout << descriptions;
 		return false;
@@ -324,7 +372,7 @@ bool FileManager::file_close(const std::string & name) {
 
 
 
-//--------------------- Dodatkowe metody --------------------
+//--------------------- Dodatkowe Metody --------------------
 bool FileManager::disk_format() {
 	try {
 		if (!usedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
@@ -341,9 +389,15 @@ bool FileManager::disk_format() {
 }
 
 bool FileManager::file_create(const std::string& name, const std::string& data) {
-	if (!file_create(name)) { return false; }
-	//Zapisanie danych pliku na dysku
-	return file_write(name, data);
+	if (!file_create(name)) {
+		return false;
+	}
+	//Zapisanie danych na dysku
+	if (!file_write(name, data)) {
+		file_delete(name);
+		return false;
+	}
+	else { return true; }
 }
 
 bool FileManager::file_rename(const std::string& name, const std::string& changeName) {
@@ -372,8 +426,6 @@ bool FileManager::file_rename(const std::string& name, const std::string& change
 		}
 		if (error) { throw errorDescriptions; }
 
-		Inode* file = &FileSystem.inodeTable[fileIterator->second];
-
 		//Lokowanie nowego klucza w tablicy hashowej katalogu g³ównego i przypisanie do niego id i-wêz³a
 		FileSystem.rootDirectory[changeName] = fileIterator->second;
 
@@ -401,14 +453,14 @@ void FileManager::set_detailed_messages(const bool&  onOff) {
 
 //------------------ Metody do wyœwietlania -----------------
 
-void FileManager::display_file_system_params() const {
+void FileManager::display_file_system_params() {
 	std::cout << "Disk capacity: " << DISK_CAPACITY << " Bytes\n";
-	std::cout << "Block size: " << BLOCK_SIZE << " Bytes\n";
+	std::cout << "Block size: " << static_cast<int>(BLOCK_SIZE) << " Bytes\n";
 	std::cout << "Max file size: " << MAX_FILE_SIZE << " Bytes\n";
-	std::cout << "Max indexes in indirect index block: " << BLOCK_INDEX_NUMBER << " Indexes\n";
-	std::cout << "Max direct indexes in file: " << BLOCK_INDEX_NUMBER << " Indexes\n";
-	std::cout << "Max file number: " << INODE_NUMBER_LIMIT << " Files\n";
-	std::cout << "Max filename length: " << MAX_FILENAME_LENGTH << " Characters\n";
+	std::cout << "Max indexes in indirect index block: " << static_cast<int>(BLOCK_INDEX_NUMBER) << " Indexes\n";
+	std::cout << "Max direct indexes in file: " << static_cast<int>(BLOCK_INDEX_NUMBER) << " Indexes\n";
+	std::cout << "Max file number: " << static_cast<int>(INODE_NUMBER_LIMIT) << " Files\n";
+	std::cout << "Max filename length: " << static_cast<int>(MAX_FILENAME_LENGTH) << " Characters\n";
 }
 
 void FileManager::display_root_directory_info() {
@@ -434,23 +486,30 @@ bool FileManager::display_file_info(const std::string& name) {
 		std::cout << "Size on disk: " << file->blocksOccupied*BLOCK_SIZE << " Bytes\n";
 		std::cout << "Created: " << file->creationTime << '\n';
 		std::cout << "Modified: " << file->modificationTime << '\n';
-		std::cout << "Saved data: " << file_read_all(file) << '\n';
 		std::cout << "Direct block indexes: ";
 		for (const auto& elem : file->directBlocks) {
-			if (elem != -1) {
-				std::cout << elem << ' ';
-			}
+			if (elem != -1) { std::cout << elem << ' '; }
 			else { std::cout << -1 << ' '; }
 		}
 		std::cout << '\n';
+
+		std::cout << "Indirect block index: ";
+		if (file->singleIndirectBlocks != -1) { std::cout << file->singleIndirectBlocks << ' '; }
+		else { std::cout << -1 << ' '; }
+		std::cout << '\n';
+
 		std::cout << "Indirect block indexes: ";
-		for (u_int i = 0; i < BLOCK_INDEX_NUMBER; i++) {
-			if (file->singleIndirectBlocks[i] != -1) {
-				std::cout << file->singleIndirectBlocks[i] << ' ';
+		std::array<u_int, BLOCK_INDEX_NUMBER>blocks;
+		blocks.fill(-1);
+		blocks = DISK.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+		for (const u_int& block : blocks) {
+			if (block != -1) {
+				std::cout << block << ' ';
 			}
 			else { std::cout << -1 << ' '; }
 		}
 		std::cout << '\n';
+		std::cout << "Saved data: " << file_read_all(file) << '\n';
 		return true;
 	}
 	catch (const std::string& description) {
@@ -467,23 +526,14 @@ void FileManager::display_root_directory() {
 	}
 }
 
-void FileManager::display_disk_content_binary() {
-	u_int index = 0;
-	for (const char& c : DISK.space) {
-		std::cout << std::bitset<8>(c) << (index % BLOCK_SIZE == BLOCK_SIZE - 1 ? " , " : "") << (index % 16 == 15 ? " \n" : " ");
-		index++;
-	}
-	std::cout << '\n';
-}
-
 void FileManager::display_disk_content_char() {
-	u_int index = 0;
-	for (const char& c : DISK.space) {
-		if (c == ' ') { std::cout << ' '; }
-		else if (c >= 0 && c <= 32) std::cout << ".";
-		else std::cout << c;
-		std::cout << (index % BLOCK_SIZE == BLOCK_SIZE - 1 ? " , " : "") << (index % 32 == 31 ? " \n" : " ");
-		index++;
+	for (u_int i = 0; i < DISK_CAPACITY / BLOCK_SIZE; i++) {
+		std::cout << std::setfill('0') << std::setw(2) << i << ".  ";
+		for (u_int j = 0; j < BLOCK_SIZE; j++) {
+			if (DISK.space[i*BLOCK_SIZE + j] >= 0 && DISK.space[i*BLOCK_SIZE + j] <= 32) { std::cout << "."; }
+			else { std::cout << DISK.space[i*BLOCK_SIZE + j]; }
+		}
+		std::cout << '\n';
 	}
 	std::cout << '\n';
 }
@@ -563,21 +613,37 @@ void FileManager::file_truncate(Inode* file, const u_int& neededBlocks) {
 	}
 }
 
-void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks) const {
+void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks) {
 	if (file != nullptr) {
 		if (blocks.size() != size_t(0) && file->blocksOccupied * BLOCK_SIZE <= MAX_FILE_SIZE) {
 
 			u_int blocksIndex = 0;
 			//Wpisanie bloków do bezpoœredniego bloku indeksowego
-			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && i < blocks.size(); i++) {
+			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && blocksIndex < blocks.size(); i++) {
 				file->directBlocks[i] = blocks[blocksIndex];
+				std::cout << "Dodano indeks: " << blocks[blocksIndex] << '\n';
 				blocksIndex++;
 			}
 
 			//Wpisanie bloków do 1-poziomowego bloku indeksowego
-			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && blocksIndex < blocks.size(); i++) {
-				file->singleIndirectBlocks[i] = blocks[blocksIndex];
-				blocksIndex++;
+			if (blocks.size() > BLOCK_INDEX_NUMBER) {
+				const u_int index = find_unallocated_blocks(1)[0];
+
+				file->blocksOccupied++;
+				file->singleIndirectBlocks = index;
+
+				std::array<u_int, BLOCK_INDEX_NUMBER> indirectBlocks;
+				indirectBlocks.fill(-1);
+
+				for (size_t i = 0; i < BLOCK_INDEX_NUMBER && blocksIndex < blocks.size(); i++) {
+					std::cout << "Dodano " << blocks[blocksIndex] << " do bloku indeksowego.\n";
+					indirectBlocks[i] = blocks[blocksIndex];
+					blocksIndex++;
+				}
+				DISK.write(index * 32, indirectBlocks);
+				FileSystem.bitVector[index] = BLOCK_OCCUPIED;
+				FileSystem.freeSpace -= BLOCK_SIZE;
+				if (detailedMessages) { std::cout << "Stworzono blok indeksowy pod indeksem: " << index << '\n'; }
 			}
 		}
 	}
@@ -590,17 +656,22 @@ void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlock
 	u_int lastBlockIndex = 0;
 
 	if (file->blocksOccupied != 0) {
-		//Jeœli indeksy zapisane s¹ tylko w bloku ideksowym 
+		//Jeœli indeksy zapisane s¹ tylko w bezpoœrednim bloku indeksowym 
 		if (file->blocksOccupied <= BLOCK_INDEX_NUMBER) {
 			for (u_int i = 0; i >= 0 && index == -1; i--) {
+				lastBlockIndex = index;
 				index = file->directBlocks[i];
 				if (i == 0) { break; } //u_int po obni¿eniu zera przyjmuje wartoœæ wiêksz¹ od zera
 			}
 		}
 		else {
-			for (u_int i = 0; i < BLOCK_INDEX_NUMBER && index != -1; i++) {
+			std::array<u_int, BLOCK_INDEX_NUMBER>indirectBlocks;
+			indirectBlocks.fill(-1);
+			indirectBlocks = DISK.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+
+			for (u_int i = 0; i >= 0 && index == -1; i--) {
 				lastBlockIndex = index;
-				index = file->singleIndirectBlocks[i];
+				index = indirectBlocks[i];
 			}
 		}
 
@@ -636,6 +707,12 @@ void FileManager::file_allocation_decrease(Inode* file, const u_int& neededBlock
 	u_int indexNumber = 0;
 	u_int index = file->directBlocks[indexNumber];
 
+	std::array<u_int, BLOCK_INDEX_NUMBER>indirectBlocks;
+	indirectBlocks.fill(-1);
+	if (file->blocksOccupied > BLOCK_INDEX_NUMBER) {
+		indirectBlocks = DISK.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+	}
+
 	//Dopóki indeks na coœ wskazuje
 	bool indirect = false;
 	while (index != -1) {
@@ -649,7 +726,7 @@ void FileManager::file_allocation_decrease(Inode* file, const u_int& neededBlock
 			index = file->directBlocks[indexNumber];
 		}
 		else if (indirect) {
-			index = file->singleIndirectBlocks[indexNumber];
+			index = indirectBlocks[indexNumber];
 		}
 		//Spisz kolejny indeks
 		indexNumber++;
@@ -659,19 +736,23 @@ void FileManager::file_allocation_decrease(Inode* file, const u_int& neededBlock
 		if (currentSize > sizeToStart && index != -1) {
 			//Zmniejszenie rozmiaru pliku
 			file->blocksOccupied--;
+
 			//Po uciêciu rozmiar i rozmiar rzeczywisty bêd¹ takie same
 			file->realSize = file->blocksOccupied*BLOCK_SIZE;
+
 			//Oznacz obecny indeks jako wolny
 			change_bit_vector_value(index, BLOCK_FREE);
-			//Obecny indeks w tablicy FileSystem wskazuje na nic
+
+			//Obecny indeks w pliku wskazuje na nic
 			if (!indirect) {
 				file->directBlocks[index] = -1;
 			}
 			else if (indirect) {
-				file->singleIndirectBlocks[index] = -1;
+				indirectBlocks[index] = -1;
 			}
 		}
 	}
+
 	if (detailedMessages) { std::cout << "Zmniejszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
 }
 
@@ -683,6 +764,12 @@ void FileManager::file_deallocate(Inode* file) {
 		u_int indexNumber = 0;
 		bool indirect = false;
 
+		std::array<u_int, BLOCK_INDEX_NUMBER>indirectBlocks;
+		indirectBlocks.fill(-1);
+		if (file->singleIndirectBlocks != -1) {
+			indirectBlocks = DISK.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+		}
+
 		while (index != -1 && indexNumber < MAX_FILE_SIZE / BLOCK_SIZE) {
 			if (indexNumber == BLOCK_INDEX_NUMBER) {
 				indirect = true;
@@ -693,8 +780,7 @@ void FileManager::file_deallocate(Inode* file) {
 				file->directBlocks[indexNumber] = -1;
 			}
 			else if (indirect) {
-				index = file->singleIndirectBlocks[indexNumber];
-				file->singleIndirectBlocks[indexNumber] = -1;
+				index = indirectBlocks[indexNumber];
 			}
 			else { index = -1; }
 
@@ -720,7 +806,7 @@ void FileManager::file_allocate_blocks(Inode* file, const std::vector<u_int>& bl
 	for (const auto& i : blocks) {
 		change_bit_vector_value(i, BLOCK_OCCUPIED);
 	}
-	file->blocksOccupied += blocks.size();
+	file->blocksOccupied += static_cast<u_char>(blocks.size());
 
 	file_add_indexes(file, blocks);
 
@@ -824,15 +910,22 @@ void FileManager::file_write(Inode* file, const std::string& data) {
 	//Alokowanie bloków dla pliku
 	file_truncate(file, fileFragments.size());
 
-	file->realSize = data.size();
+	file->realSize = static_cast<char>(data.size());
 
 	//Indeks pod którym maj¹ zapisywane byæ dane
 	u_int indexNumber = 0;
 	u_int index = file->directBlocks[0];
 	bool indirect = false;
 
+	std::array<u_int, BLOCK_INDEX_NUMBER>indirectBlocks;
+	indirectBlocks.fill(-1);
+	if (file->singleIndirectBlocks != -1) {
+		indirectBlocks = DISK.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+	}
+
 	//Zapisuje wszystkie dane na dysku
 	for (const auto& fileFragment : fileFragments) {
+		if (index == -1) { break; }
 		//Zapisuje fragment na dysku
 		DISK.write(index * BLOCK_SIZE, fileFragment);
 		//Przypisuje do indeksu numer kolejnego bloku
@@ -845,38 +938,28 @@ void FileManager::file_write(Inode* file, const std::string& data) {
 			index = file->directBlocks[indexNumber];
 		}
 		else if (indirect) {
-			index = file->singleIndirectBlocks[indexNumber];
+			index = indirectBlocks[indexNumber];
 		}
 	}
 }
 
 const std::string FileManager::file_read_all(Inode* file) const {
 	std::string data;
-	//Indeks do wczytywania danych z dysku
-	size_t indexNumber = 0;
-	u_int index = 0;
 
-	//Dopóki nie natrafimy na koniec danych pliku
-	bool indirect = false;
-	while (index != -1) {
-		if (indexNumber == BLOCK_INDEX_NUMBER && indirect) { break; }
-		else if (indexNumber == BLOCK_INDEX_NUMBER) {
-			indirect = true;
-			indexNumber = 0;
-		}
-
-		if (!indirect) {
-			index = file->directBlocks[indexNumber];
-		}
-		else if (indirect) {
-			index = file->singleIndirectBlocks[indexNumber];
-		}
-
-		//Dodaje do danych fragment pliku pod wskazanym indeksem
-		data += DISK.read<std::string>(index * BLOCK_SIZE);
-		//Zwiêksza indeks iteruj¹cy po blokach indeksowych
-		indexNumber++;
+	for (size_t i = 0; i < BLOCK_INDEX_NUMBER && file->directBlocks[i] != -1; i++) {
+		data += DISK.read_str(file->directBlocks[i] * BLOCK_SIZE);
 	}
+
+	std::array<u_int, BLOCK_INDEX_NUMBER>indirectBlocks;
+	indirectBlocks.fill(-1);
+	if (file->singleIndirectBlocks != -1) {
+		indirectBlocks = DISK.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+	}
+
+	for (size_t i = 0; i < BLOCK_INDEX_NUMBER && indirectBlocks[i] != -1; i++) {
+		data += DISK.read_str(indirectBlocks[i] * BLOCK_SIZE);
+	}
+
 	return data;
 }
 
