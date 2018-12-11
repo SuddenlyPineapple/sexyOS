@@ -109,7 +109,8 @@ void MemoryManager::stackUpdate(int frameID) {
         }
     }
 
-    Stack.push_front(frameID);
+    //Stack.push_front(frameID);
+	Stack.push_back(frameID);
 }
 
 std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
@@ -140,6 +141,7 @@ void MemoryManager::kill(int PID) {
         if(Frames[i].PID == PID) {
             for(int j = i * 16; j < i * 16 + 16; j++)
                 RAM[j] = ' ';
+			stackUpdate(i);
             Frames[i].isFree = true;
             Frames[i].pageID = -1;
             Frames[i].PID = -1;
@@ -253,7 +255,9 @@ std::string MemoryManager::GET(PCB *process, int LADDR) {
 
         if(process->pageList->at(PageID).bit){
             Frame = process->pageList->at(PageID).frame;//Bieżąco używana ramka
-            stackUpdate(Frame);//Ramka została użyta, więc trzeba zaktualizować stos
+
+            //stackUpdate(Frame);//Ramka została użyta, więc trzeba zaktualizować stos
+
             if(RAM[Frame * 16 + LADDR - (16 * PageID)] == ' ') //Odczytywanie do napotkania spacji
                 reading = false;
             else
@@ -279,7 +283,8 @@ int MemoryManager::Write(PCB *process, int adress, std::string data) {
         if(!process->pageList->at(pageID).bit)
             loadToMemory(PageFile[process->PID][pageID], pageID, process->PID, process->pageList);
         RAM[process->pageList->at(pageID).frame * 16 + adress + i - (16 * pageID)] = data[i];
-        stackUpdate(process->pageList->at(pageID).frame);
+        
+		//stackUpdate(process->pageList->at(pageID).frame);
     }
     return 1;
 }
@@ -287,7 +292,8 @@ int MemoryManager::Write(PCB *process, int adress, std::string data) {
 //TODO: ZROBIC FIFIO
 int MemoryManager::insertPage(std::vector<PageTableData> *pageList, int pageID, int PID) {
     //*it numer ramki ktora jest ofiara
-    auto it = Stack.end(); it--;
+	auto it = Stack.begin();
+   // auto it = Stack.end(); it--;
     int Frame = *it;
     // Przepisuje zawartosc z ramki ofiary do Pliku wymiany
     for (int i = Frame * 16; i < Frame * 16 + 16; i++) {
