@@ -1,10 +1,10 @@
 /**
 	SexyOS
 	FileManager.h
-	Przeznaczenie: Zawiera klasy Disk i FileManager oraz deklaracje metod i konstruktorów
+	Przeznaczenie: Zawiera klasê FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 02/11/18
+	@version 12/12/18
 */
 
 #ifndef SEXYOS_FILEMANAGER_H
@@ -19,32 +19,46 @@
 #include <vector>
 #include <unordered_map>
 
+class PCB;
+
 /*
-	To-do:
-	- dodaæ zapisywanie bloków indeksowych na dysku
+	TODO:
 	- dodaæ semafory
 	- dodaæ odczyt i zapis sekwencyjny
+	- dorobiæ stuff z ³adowaniem do pliku wymiany
+	- i z zapisywaniem z pliku wymiany do dysku
 */
+
+#define OPEN_R_MODE  std::bitset<2>{ 0,1 }
+#define OPEN_W_MODE  std::bitset<2>{ 1,0 }
+#define OPEN_RW_MODE std::bitset<2>{ 1,1 }
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
 private:
+	//--------------------------- Aliasy ------------------------
 	using u_int = unsigned int;
 	using u_short_int = unsigned short int;
 	using u_char = unsigned char;
 
+
+
 	//--------------- Definicje sta³ych statycznych -------------
-	static const u_char BLOCK_SIZE = 32;	   	    //Rozmiar bloku (bajty)
-	static const u_short_int DISK_CAPACITY = 1024;  //Pojemnoœæ dysku (bajty)
-	static const u_char BLOCK_INDEX_NUMBER = 3;	    //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
-	static const u_char INODE_NUMBER_LIMIT = 32;    //Maksymalna iloœæ elementów w katalogu
-	static const u_char MAX_FILENAME_LENGTH = 7;    //Maksymalna d³ugoœæ œcie¿ki
+
+	static const u_char BLOCK_SIZE = 32;	   	   //Rozmiar bloku (bajty)
+	static const u_short_int DISK_CAPACITY = 1024; //Pojemnoœæ dysku (bajty)
+	static const u_char BLOCK_INDEX_NUMBER = 3;	   //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
+	static const u_char INODE_NUMBER_LIMIT = 32;   //Maksymalna iloœæ elementów w katalogu
+	static const u_char MAX_FILENAME_LENGTH = 16;  //Maksymalna d³ugoœæ œcie¿ki
 
 	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
 
-	/**Maksymalny rozmiar pliku obliczony na podstawie maksymalnej iloœci indeksów*/
-	static const u_short_int MAX_FILE_SIZE = (BLOCK_INDEX_NUMBER * 2) * BLOCK_SIZE;
+	//Maksymalny rozmiar danych
+	static const u_short_int MAX_DATA_SIZE = (BLOCK_INDEX_NUMBER + BLOCK_SIZE / 2)*BLOCK_SIZE;
+
+	//Maksymalny rozmiar pliku (wliczony blok indeksowy)
+	static const u_short_int MAX_FILE_SIZE = MAX_DATA_SIZE + BLOCK_SIZE;
 
 
 
@@ -70,24 +84,22 @@ private:
 		virtual ~Inode() = default;
 
 		void clear();
-		const std::string indirect_to_string();
 	};
 
-	//Prosta klasa dysku (imitacja fizycznego)
 	struct Disk {
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
-		std::array<char, DISK_CAPACITY> space;
+		std::array<u_char, DISK_CAPACITY> space;
 
 		//----------------------- Konstruktor -----------------------
 		Disk();
 
 		//-------------------------- Metody -------------------------
-		void write(const u_int& begin, const std::string& data);
-		void write(const u_int& begin, const std::array<u_int, BLOCK_INDEX_NUMBER>& data);
+		void write(const u_short_int& begin, const std::string& data);
+		void write(const u_short_int& begin, const std::array<u_int, BLOCK_SIZE / 2>& data);
 
 		const std::string read_str(const u_int& begin) const;
-		const std::array<u_int,BLOCK_INDEX_NUMBER> read_arr(const u_int& begin) const;
-	} DISK;
+		const std::array<u_int, BLOCK_SIZE / 2> read_arr(const u_int& begin) const;
+	} disk; //Struktura dysku
 	struct FileSystem {
 		u_int freeSpace{ DISK_CAPACITY }; //Zawiera informacje o iloœci wolnego miejsca na dysku (bajty)
 
@@ -107,7 +119,23 @@ private:
 		const u_int get_free_inode_id();
 
 		void reset();
-	} FileSystem; //System plików FileSystem
+	} fileSystem; //System plików fileSystem
+
+	class FileReader {
+	private:
+		std::string buffer;
+		u_short_int posPointer = 0;
+		Disk* disk;
+		Inode* file;
+
+	public:
+		FileReader(Disk* disk, Inode* inode) : disk(disk), file(inode) {}
+
+		void read(const u_short_int& byteNumber);
+
+		void resetPosPointer() { posPointer = 0; }
+	};
+
 
 
 	//------------------- Definicje zmiennych -------------------
@@ -121,13 +149,14 @@ public:
 	/**
 		Konstruktor domyœlny. Przypisuje do obecnego katalogu katalog g³ówny.
 	*/
-	FileManager();
+	explicit FileManager() = default;
 
 
 
 	//-------------------- Podstawowe Metody --------------------
 	/**
-		Tworzy plik o podanej nazwie w obecnym katalogu.
+		Tworzy plik o podanej nazwie w obecnym katalogu. Po
+		stworzeniu plik jest otwarty w trybie do zapisu.
 
 		@param name Nazwa pliku.
 		@return True, jeœli operacja siê uda³a i false, jeœli operacja nie powiod³a siê.
@@ -143,8 +172,10 @@ public:
 	*/
 	bool file_write(const std::string& name, const std::string& data);
 
+	const bool file_read(const std::string& name, const u_short_int& memoryAddress, const u_short_int& byteNumber);
+
 	/**
-		Odczytuje dane z podanego pliku.
+		Odczytuje wszystkie dane z podanego pliku.
 
 		@param name Nazwa pliku.
 		@return Wczytane dane.
@@ -303,8 +334,6 @@ private:
 
 	//----------------------- Metody Inne -----------------------
 
-	const std::array<u_char, BLOCK_INDEX_NUMBER> read_index_block(Inode* file);
-
 	void file_write(Inode* file, const std::string& data);
 
 	const std::string file_read_all(Inode* file) const;
@@ -315,7 +344,5 @@ private:
 
 	const std::vector<std::string> data_to_data_fragments(const std::string& data) const;
 };
-
-static FileManager fileManager;
 
 #endif //SEXYOS_FILEMANAGER_H
