@@ -213,7 +213,7 @@ int MemoryManager::loadToMemory(MemoryManager::Page page, int pageID, int PID, s
     return frame;
 }
 
-std::string MemoryManager::GET(PCB *process, int LADDR) {
+std::string MemoryManager::get(PCB *process, int LADDR) {
     std::string response;
     bool reading = true;
     int Frame = -1;
@@ -254,7 +254,7 @@ std::string MemoryManager::GET(PCB *process, int LADDR) {
     return response;
 }
 
-int MemoryManager::Write(PCB *process, int adress, std::string data) {
+int MemoryManager::write(PCB *process, int adress, std::string data) {
     if(data.size() == 0) return 1;
 
     if(adress + data.size() - 1 > process->pageList->size() * 16 - 1 || adress < 0){

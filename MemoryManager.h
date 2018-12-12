@@ -112,14 +112,14 @@ class MemoryManager {
         /* PCB *process - wskaźnik do PCB danego procesu
          * int LADDR - adres logiczny
          */
-        std::string GET(PCB *process, int LADDR);
+        std::string get(PCB *process, int LADDR);
 
         //Zapisuje dany fragment do pamięci
         /* *process - wskaźnik do PCB danego procesu
          * adress - adres logiczny w pamięci
          * data - dane do zapisania w pamięci
          */
-        int Write(PCB *process, int adress, std::string data);
+        int write(PCB *process, int adress, std::string data);
 
 
 
