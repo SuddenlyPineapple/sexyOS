@@ -150,25 +150,10 @@ void MemoryManager::kill(int PID) {
     }
 }
 
-int MemoryManager::loadProgram(std::string path, int mem, int PID) {
+int MemoryManager::loadProgram(const std::string& program, int mem, int PID) {
     double pagesAmount = ceil((double)mem/16);
-    std::fstream file(path); //Plik na dysku
     std::string scrap; //Zmienna pomocnicza
-    std::string program; //Program w jednej linii
     std::vector<Page> pageVector; //Wektor stronic do dodania
-
-    if(!file.is_open()){
-        std::cout << "Error: Can't open file! \n";
-        return -1;
-    }
-
-    while(std::getline(file, scrap)){
-        //Dodanie spacji zamiast końca linii
-        if(!file.eof())
-            scrap+= " ";
-        program += scrap;
-    }
-    scrap.clear();
 
     //Dzielenie programu na stronice
     for (char i : program) {

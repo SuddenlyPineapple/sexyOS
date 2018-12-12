@@ -97,7 +97,7 @@ class MemoryManager {
          * mem - potrzebna ilość pamięci
          * PID - ID procesu
          */
-        int loadProgram(std::string path, int mem, int PID);
+        int loadProgram(const std::string& program, int mem, int PID);
 
         //Usuwa z pamięci dane wybranego procesu
         void kill(int PID);
@@ -156,4 +156,6 @@ class MemoryManager {
         //------------- Destruktor  --------------
         ~MemoryManager();
 };
+
+static MemoryManager memoryManager;
 #endif //SEXYOS_MEMORYMANAGER_H
