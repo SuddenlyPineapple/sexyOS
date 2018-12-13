@@ -4,8 +4,13 @@
 	Przeznaczenie: Zawiera definicje metod i konstruktorów dla klas z FileManager.h
 
 	@author Tomasz Kiljañczyk
-	@version 12/12/18
+	@version 13/12/18
 */
+
+/*
+ * Aby ³atwiej nawigowaæ po moim kodzie polecam z³o¿yæ wszystko
+ * Skrót: CTRL + M + A
+ */
 
 #include "FileManager.h"
 #include "Procesy.h"
@@ -15,7 +20,7 @@
 #include <iostream>
 #include <utility>
 
-//--------------------------- Aliasy ------------------------
+ //--------------------------- Aliasy ------------------------
 using u_int = unsigned int;
 using u_short_int = unsigned short int;
 using u_char = unsigned char;
@@ -182,32 +187,38 @@ const std::array<u_int, FileManager::BLOCK_SIZE / 2> FileManager::Disk::read_arr
 
 bool FileManager::file_create(const std::string& name) {
 	try {
-		if (name.empty()) { throw "Pusta nazwa!"; }
-		std::vector<std::string> errorDescriptions;
-		bool error = false;
-		//Error1
-		if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
-		//Error2
-		if (fileSystem.rootDirectory.size() >= INODE_NUMBER_LIMIT) {
-			errorDescriptions.emplace_back(
-				"Wykorzystano wszystkie i-wêz³y!"); error = true;
+		//Czêœæ sprawdzaj¹ca
+		{
+			//Error1
+			if (name.empty()) { throw "Pusta nazwa!"; }
+			std::vector<std::string> errorDescriptions{"B³¹d tworzenia pliku '"+name+"\'!"};
+			bool error = false;
+			//Error2
+			if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
+			//Error3
+			if (fileSystem.rootDirectory.size() >= INODE_NUMBER_LIMIT) {
+				errorDescriptions.emplace_back(
+					"Wykorzystano wszystkie i-wêz³y!"); error = true;
+			}
+			//Error4
+			if (check_if_name_used(name)) { errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true; }
+			//Error5
+			if (name.size() > MAX_FILENAME_LENGTH) { errorDescriptions.emplace_back("Nazwa za d³uga!"); error = true; }
+			if (error) { throw errorDescriptions; }
 		}
-		//Error3
-		if (check_if_name_used(name)) { errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true; }
-		//Error4
-		if (name.size() > MAX_FILENAME_LENGTH) { errorDescriptions.emplace_back("Nazwa za d³uga!"); error = true; }
-		if (error) { throw errorDescriptions; }
 
-		const u_int inodeId = fileSystem.get_free_inode_id();
+		//Czêœæ dzia³aj¹ca
+		{
+			const u_int inodeId = fileSystem.get_free_inode_id();
+			//Dodanie pliku do katalogu g³ównego
+			fileSystem.rootDirectory[name] = inodeId;
+			fileSystem.inodeBitVector[inodeId] = true;
+			fileSystem.inodeTable[inodeId].creationTime = get_current_time_and_date();
+			fileSystem.inodeTable[inodeId].modificationTime = get_current_time_and_date();
 
-		//Dodanie pliku do katalogu g³ównego
-		fileSystem.rootDirectory[name] = inodeId;
-		fileSystem.inodeBitVector[inodeId] = true;
-		fileSystem.inodeTable[inodeId].creationTime = get_current_time_and_date();
-		fileSystem.inodeTable[inodeId].modificationTime = get_current_time_and_date();
-
-		if (messages) { std::cout << "Stworzono plik o nazwie '" << name << ".\n"; }
-		return true;
+			if (messages) { std::cout << "Stworzono plik o nazwie '" << name << ".\n"; }
+			return true;
+		}
 	}
 	catch (const std::string& description) {
 		std::cout << description << '\n';
@@ -225,7 +236,7 @@ bool FileManager::file_write(const std::string& name, const std::string& data) {
 		//Czêœæ sprawdzaj¹ca
 		{
 			if (name.empty()) { throw "Pusta nazwa!"; }
-			std::vector<std::string> errorDescriptions;
+			std::vector<std::string> errorDescriptions {"B³¹d zapisywania do pliku '" + name + "\'!"};
 			bool error = false;
 
 			//Error1
@@ -565,7 +576,8 @@ void FileManager::display_disk_content_char() {
 			if (disk.space[i*BLOCK_SIZE + j] >= 0 && disk.space[i*BLOCK_SIZE + j] <= 32) { std::cout << "."; }
 			else { std::cout << disk.space[i*BLOCK_SIZE + j]; }
 		}
-		std::cout << '\n';
+		if (i % 2 == 1) { std::cout << '\n'; }
+		else { std::cout << "  "; }
 	}
 	std::cout << '\n';
 }
@@ -653,7 +665,6 @@ void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks
 			//Wpisanie bloków do bezpoœredniego bloku indeksowego
 			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && blocksIndex < blocks.size(); i++) {
 				file->directBlocks[i] = blocks[blocksIndex];
-				std::cout << "Dodano indeks: " << blocks[blocksIndex] << '\n';
 				blocksIndex++;
 			}
 
@@ -668,7 +679,6 @@ void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks
 				indirectBlocks.fill(-1);
 
 				for (size_t i = 0; i < BLOCK_SIZE / 2 && blocksIndex < blocks.size(); i++) {
-					std::cout << "Dodano " << blocks[blocksIndex] << " do bloku indeksowego.\n";
 					indirectBlocks[i] = blocks[blocksIndex];
 					blocksIndex++;
 				}

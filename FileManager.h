@@ -4,8 +4,13 @@
 	Przeznaczenie: Zawiera klasê FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 12/12/18
+	@version 13/12/18
 */
+
+/*
+ * Aby ³atwiej nawigowaæ po moim kodzie polecam z³o¿yæ wszystko
+ * Skrót: CTRL + M + A
+ */
 
 #ifndef SEXYOS_FILEMANAGER_H
 #define SEXYOS_FILEMANAGER_H
@@ -23,10 +28,10 @@ class PCB;
 
 /*
 	TODO:
-	- dodaæ semafory
-	- dodaæ odczyt i zapis sekwencyjny
-	- dorobiæ stuff z ³adowaniem do pliku wymiany
-	- i z zapisywaniem z pliku wymiany do dysku
+	- dodaæ semafory (x)
+	- dodaæ odczyt i zapis sekwencyjny (x)
+	- dorobiæ stuff z ³adowaniem do pliku wymiany (x)
+	- i z zapisywaniem z pliku wymiany do dysku (x)
 */
 
 #define OPEN_R_MODE  std::bitset<2>{ 0,1 }
