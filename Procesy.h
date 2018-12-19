@@ -2,9 +2,11 @@
 #define SEXYOS_PROCESY_H
 #include <string>
 #include <vector>
+#include <array>
 #include <iostream>
 
 struct PageTableData;
+class MemoryManager;
 
 enum Process_state {
     NEW, READY, RUNNING, WAITING, TERMINATED, ZOMBIE, ORPHAN
@@ -18,6 +20,7 @@ public:
     PCB *parent_proc;//wskaznik na ojca procesu
     std::vector<PCB *> child_vector;//vector dzieci
     std::vector<PageTableData> *pageList;//wska?nik wektora stronic
+	std::array<int, 2>  FD;//dla krzysia deskryptor
     unsigned int proces_size;//rozmiar procesu w stronicach(chyba).
     int A, B, C, D;//Rejestry dla interpretera
     std::vector<std::string> open_files;//otwarte plik
@@ -25,6 +28,8 @@ public:
     int priority;//priorytet tu mo¿e byæ jeszcze wirtualny ale nwm czy nasza grupa musi go mieæ(wirtualny priorytet)
 
     PCB() {//kontruktor dla systemd
+		this->FD[0] = -1;
+		this->FD[1] = -1;
         this->state = NEW;
         this->process_name = "systemd";
         this->PID = 1;
@@ -56,7 +61,8 @@ public:
 class proc_tree {//klasa pomocniczna inicjujemy j¹ na poczatku konstruktorem domyslny i zawiera systemd czyli g³owny proces (proc_tree Drzewo = proc_tree();)
 public:
     PCB proc;
-
+	void fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar);//tu fork tworz¹cy z jakiegos pliku do zrobienia jeszce bo nie ogrniam kodu kasperskiego
+	void fork(PCB *proc,const std::string name,MemoryManager mm,int rozmiar); // tu jest funckja tworzaca proces z memory managera takze marcin uzywaj go
     void fork(PCB *proc,
               const std::string name/*,tutaj memory mangment z przydzielaniem pamieci */ );//dodaje kopieprocesu(dzieciaka) procesu do drzewa
     void fork(PCB *proc, const std::string name/*,tutaj memory mangment z przydzielaniem pamieci */,
