@@ -4,7 +4,7 @@
 	Przeznaczenie: Zawiera klasê FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 13/12/18
+	@version 30/12/18
 */
 
 /*
@@ -24,19 +24,18 @@
 #include <vector>
 #include <unordered_map>
 
-class PCB;
-
 /*
 	TODO:
-	- dodaæ semafory (x)
-	- dodaæ odczyt i zapis sekwencyjny (x)
-	- dorobiæ stuff z ³adowaniem do pliku wymiany (x)
-	- i z zapisywaniem z pliku wymiany do dysku (x)
+	- dodaæ semafory (czekam na semafory)
+	- dodaæ odczyt i zapis sekwencyjny
+	- dorobiæ stuff z ³adowaniem do pliku wymiany (opcjonalne)
+	- i z zapisywaniem z pliku wymiany do dysku (opcjonalne)
 */
 
-#define OPEN_R_MODE  std::bitset<2>{ 0,1 }
-#define OPEN_W_MODE  std::bitset<2>{ 1,0 }
-#define OPEN_RW_MODE std::bitset<2>{ 1,1 }
+//Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
+#define OPEN_R_MODE  std::bitset<2>{ "10" }
+#define OPEN_W_MODE  std::bitset<2>{ "01" }
+#define OPEN_RW_MODE std::bitset<2>{ "11" }
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
@@ -44,17 +43,16 @@ private:
 	//--------------------------- Aliasy ------------------------
 	using u_int = unsigned int;
 	using u_short_int = unsigned short int;
-	using u_char = unsigned char;
 
 
 
 	//--------------- Definicje sta³ych statycznych -------------
 
-	static const u_char BLOCK_SIZE = 32;	   	   //Rozmiar bloku (bajty)
+	static const uint8_t BLOCK_SIZE = 32;	   	   //Rozmiar bloku (bajty)
 	static const u_short_int DISK_CAPACITY = 1024; //Pojemnoœæ dysku (bajty)
-	static const u_char BLOCK_INDEX_NUMBER = 3;	   //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect i bloków niebezpoœrednich
-	static const u_char INODE_NUMBER_LIMIT = 32;   //Maksymalna iloœæ elementów w katalogu
-	static const u_char MAX_FILENAME_LENGTH = 16;  //Maksymalna d³ugoœæ œcie¿ki
+	static const uint8_t BLOCK_INDEX_NUMBER = 3;   //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect
+	static const uint8_t INODE_NUMBER_LIMIT = 32;  //Maksymalna iloœæ elementów w katalogu
+	static const uint8_t MAX_FILENAME_LENGTH = 16; //Maksymalna d³ugoœæ œcie¿ki
 
 	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
@@ -70,19 +68,16 @@ private:
 	//---------------- Definicje struktur i klas ----------------
 
 	//Klasa i-wêz³a - zawiera podstawowe informacje o pliku
-	class Inode {
-	public:
+	struct Inode {
 		//Podstawowe informacje
-		u_char blocksOccupied = 0; //Iloœæ zajmowanych bloków (dane)
-		u_short_int realSize = 0;  //Rzeczywisty rozmiar pliku
-		std::array<u_int, BLOCK_INDEX_NUMBER> directBlocks;         //Bezpoœrednie bloki
-		u_int singleIndirectBlocks; //Niebespoœredni blok indeksowy, zpisywany na dysku
+		uint8_t blocksOccupied = 0;  //Iloœæ zajmowanych bloków
+		u_short_int realSize = 0;    //Rzeczywisty rozmiar pliku (rozmiar danych)
+		std::array<u_int, BLOCK_INDEX_NUMBER> directBlocks;	//Bezpoœrednie indeksy
+		u_int singleIndirectBlocks; //Indeks bloku indeksowego, zpisywanego na dysku
 
 		//Dodatkowe informacje
-		tm creationTime = tm();	 //Czas i data utworzenia
+		tm creationTime = tm();		//Czas i data utworzenia
 		tm modificationTime = tm(); //Czas i data ostatniej modyfikacji pliku
-
-		bool flagOpen = false; //Flaga otwarcia (true - plik otwarty, false - plik zamkniêty)
 
 		Inode();
 
@@ -93,7 +88,7 @@ private:
 
 	struct Disk {
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
-		std::array<u_char, DISK_CAPACITY> space;
+		std::array<char, DISK_CAPACITY> space;
 
 		//----------------------- Konstruktor -----------------------
 		Disk();
@@ -124,21 +119,32 @@ private:
 		const u_int get_free_inode_id();
 
 		void reset();
-	} fileSystem; //System plików fileSystem
+	} fileSystem; //System plików
 
-	class FileReader {
+	class FileIO {
 	private:
 		std::string buffer;
-		u_short_int posPointer = 0;
+		u_short_int readPos = 0;
 		Disk* disk;
 		Inode* file;
 
+		bool readFlag;
+		bool writeFlag;
+
 	public:
-		FileReader(Disk* disk, Inode* inode) : disk(disk), file(inode) {}
+		FileIO() : disk(nullptr), file(nullptr), readFlag(false), writeFlag(false) {}
+		FileIO(Disk* disk, Inode* inode, const std::bitset<2>& mode) : disk(disk), file(inode),
+			readFlag(mode[1]), writeFlag(mode[0]) {}
 
-		void read(const u_short_int& byteNumber);
+		void buffer_update(const int8_t& blockNumber);
 
-		void resetPosPointer() { posPointer = 0; }
+		std::string read(const u_short_int& byteNumber);
+		std::string read_all();
+		void reset_read_pos() { readPos = 0; }
+
+		void write(const std::vector<std::string>& dataFragments, const int8_t& startIndex) const;
+
+		const std::bitset<2> get_flags() const;
 	};
 
 
@@ -146,7 +152,8 @@ private:
 	//------------------- Definicje zmiennych -------------------
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania szczegó³owych powiadomieñ
-	std::unordered_map<std::string, u_int> usedFiles;
+	//std::unordered_map<std::string, u_int> usedFiles;
+	std::unordered_map<std::string, FileIO> accessedFiles;
 
 
 public:
@@ -160,8 +167,8 @@ public:
 
 	//-------------------- Podstawowe Metody --------------------
 	/**
-		Tworzy plik o podanej nazwie w obecnym katalogu. Po
-		stworzeniu plik jest otwarty w trybie do zapisu.
+		Tworzy plik o podanej nazwie w obecnym katalogu.\n
+		Po stworzeniu plik jest otwarty w trybie do zapisu.
 
 		@param name Nazwa pliku.
 		@return True, jeœli operacja siê uda³a i false, jeœli operacja nie powiod³a siê.
@@ -169,7 +176,7 @@ public:
 	bool file_create(const std::string& name);
 
 	/**
-		Zapisuje podane dane w danym pliku.
+		Zapisuje podane dane w danym pliku usuwaj¹c poprzedni¹ zawartoœæ.
 
 		@param name Nazwa pliku.
 		@param data Dane do zapisu.
@@ -177,27 +184,60 @@ public:
 	*/
 	bool file_write(const std::string& name, const std::string& data);
 
-	const bool file_read(const std::string& name, const u_short_int& memoryAddress, const u_short_int& byteNumber);
-
 	/**
-		Odczytuje wszystkie dane z podanego pliku.
+		Dopisuje podane dane na koniec pliku.
 
 		@param name Nazwa pliku.
-		@return Wczytane dane.
+		@param data Dane do zapisu.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool file_append(const std::string& name, const std::string& data);
+
+	/**
+		Odczytuje podan¹ liczbê bajtów z pliku. Po odczycie przesuwa siê wskaŸnik odczytu.\n
+		Aby zresetowaæ wskaŸnik odczytu nale¿y ponownie otworzyæ plik.
+
+		@param name Nazwa pliku.
+		@param byteNumber Iloœæ bajtów do odczytu.
+		@return Odczytane dane.
+	*/
+	std::string file_read(const std::string& name, const u_short_int& byteNumber);
+
+	/**
+		Odczytuje ca³e dane z pliku.
+
+		@param name Nazwa pliku.
+		@return Odczytane dane.
 	*/
 	const std::string file_read_all(const std::string& name);
 
 	/**
-		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.
-		Plik jest wymazywany z tablicy i-wêz³ów oraz wektora bitowego.
+		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.\n
+		Plik jest wymazywany z katalogu g³ównego oraz wektora bitowego.
 
 		@param name Nazwa pliku.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
 	bool file_delete(const std::string& name);
 
-	bool file_open(const std::string& name);
+	/**
+		Otwiera plik z podanym trybem dostêpu:
+		- R (read) - do odczytu
+		- W (write) - do zapisu
+		- RW (read/write) - do odczytu i zapisu
 
+		@param name Nazwa pliku.
+		@param mode Tryb dostêpu do pliku.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
+	bool file_open(const std::string& name, const std::bitset<2>& mode);
+
+	/**
+		Zamyka plik o podanej nazwie.
+
+		@param name Nazwa pliku.
+		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+	*/
 	bool file_close(const std::string& name);
 
 
@@ -214,6 +254,7 @@ public:
 
 	/**
 		Tworzy plik o podanej nazwie w obecnym katalogu i zapisuje w nim podane dane.
+		Po stworzeniu plik jest otwarty w trybie do zapisu.
 
 		@param name Nazwa pliku.
 		@param data Dane typu string.
@@ -222,13 +263,13 @@ public:
 	bool file_create(const std::string& name, const std::string& data);
 
 	/**
-		Zmienia nazwê katalogu (w obecnej œcie¿ce) o podanej nazwie.
+		Zmienia nazwê pliku o podanej nazwie.
 
 		@param name Obecna nazwa pliku.
-		@param changeName Zmieniona nazwa pliku.
+		@param newName Zmieniona nazwa pliku.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_rename(const std::string& name, const std::string& changeName);
+	bool file_rename(const std::string& name, const std::string& newName);
 
 	/**
 		Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.
@@ -307,7 +348,7 @@ private:
 
 	//-------------------- Metody Obliczaj¹ce -------------------
 
-	const u_int calculate_needed_blocks(const size_t& dataSize) const;
+	static const u_int calculate_needed_blocks(const size_t& dataSize);
 
 	const size_t calculate_directory_size();
 
@@ -327,8 +368,6 @@ private:
 
 	void file_allocation_increase(Inode* file, const u_int& neededBlocks);
 
-	void file_allocation_decrease(Inode* file, const u_int& neededBlocks);
-
 	const std::vector<u_int> find_unallocated_blocks_fragmented(u_int blockNumber);
 
 	const std::vector<u_int> find_unallocated_blocks_best_fit(const u_int& blockNumber);
@@ -339,15 +378,17 @@ private:
 
 	//----------------------- Metody Inne -----------------------
 
-	void file_write(Inode* file, const std::string& data);
+	std::string get_file_data_block(Inode* file, const int8_t& indexNumber) const;
 
-	const std::string file_read_all(Inode* file) const;
+	void file_write(Inode* file, FileIO* IO, const std::string& data);
+
+	void file_append(Inode* file, FileIO* IO, const std::string& data);
 
 	static const tm get_current_time_and_date();
 
 	void change_bit_vector_value(const u_int& block, const bool& value);
 
-	const std::vector<std::string> data_to_data_fragments(const std::string& data) const;
+	static const std::vector<std::string> fragmentate_data(const std::string& data);
 };
 
 #endif //SEXYOS_FILEMANAGER_H

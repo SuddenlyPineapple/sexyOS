@@ -4,7 +4,7 @@
 	Przeznaczenie: Zawiera definicje metod i konstruktorów dla klas z FileManager.h
 
 	@author Tomasz Kiljañczyk
-	@version 13/12/18
+	@version 30/12/18
 */
 
 /*
@@ -13,12 +13,10 @@
  */
 
 #include "FileManager.h"
-#include "Procesy.h"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
-#include <utility>
 
  //--------------------------- Aliasy ------------------------
 using u_int = unsigned int;
@@ -48,15 +46,16 @@ bool operator == (const tm& time1, const tm& time2) {
 		time1.tm_sec == time2.tm_sec   &&
 		time1.tm_wday == time2.tm_wday  &&
 		time1.tm_yday == time2.tm_yday  &&
-		time1.tm_year == time2.tm_year) {
+		time1.tm_year == time2.tm_year)
+	{
 		return true;
 	}
-	else { return false; };
+	else { return false; }
 }
 
 
 
-//--------------------------- Dysk --------------------------
+//----------------------- System Plików ---------------------
 
 FileManager::FileSystem::FileSystem() {
 	//Zape³nienie tablicy i-wêz³ów pustymi i-wêz³ami
@@ -89,6 +88,10 @@ void FileManager::FileSystem::reset() {
 	}
 }
 
+
+
+//-------------------------- I-wêzê³ ------------------------
+
 FileManager::Inode::Inode() : creationTime(), modificationTime() {
 	//Wype³nienie indeksów bloków dyskowych wartoœci¹ -1 (pusty indeks)
 	directBlocks.fill(-1);
@@ -102,8 +105,12 @@ void FileManager::Inode::clear() {
 	singleIndirectBlocks = -1;
 	creationTime = tm();
 	modificationTime = tm();
-	flagOpen = false;
+	//flagOpen = false;
 }
+
+
+
+//--------------------------- Dysk --------------------------
 
 FileManager::Disk::Disk() {
 	//Zape³nanie naszego dysku zerowymi bajtami (symbolizuje pusty dysk)
@@ -122,9 +129,9 @@ void FileManager::Disk::write(const u_short_int& begin, const std::string& data)
 		index++;
 	}
 	//Zapisywanie NULL, jeœli dane nie wype³ni³y ostatniego bloku
-	for (; index <= end; index++) {
-		space[index] = NULL;
-	}
+	//for (; index <= end; index++) {
+	//	space[index] = NULL;
+	//}
 }
 
 void FileManager::Disk::write(const u_short_int& begin, const std::array<u_int, BLOCK_SIZE / 2>& data) {
@@ -155,9 +162,10 @@ const std::string FileManager::Disk::read_str(const u_int& begin) const {
 }
 
 const std::array<u_int, FileManager::BLOCK_SIZE / 2> FileManager::Disk::read_arr(const u_int& begin) const {
-	const u_int end = begin + BLOCK_SIZE;
+	const u_int end = begin + BLOCK_SIZE;		//Odczytywany jest jeden blok
+	std::array<u_int, BLOCK_SIZE / 2> result;	//Jedna liczba zajmuje 2 bajty
 	std::string data;
-	std::array<u_int, BLOCK_SIZE / 2> result;
+
 	result.fill(-1);
 
 	//Odczytaj przestrzeñ dyskow¹ od indeksu begin do indeksu end
@@ -183,6 +191,111 @@ const std::array<u_int, FileManager::BLOCK_SIZE / 2> FileManager::Disk::read_arr
 
 
 
+//------------------------- File IO -------------------------
+
+//Wczytujemy do ramu (opcjonalne) (RF)
+//Wskazaæ miejsce ramu gdzie chcemy przeczytaæ/zapisaæ (dodatkowy argument, opcjonalne)
+//Przy sprawdzaniu pliki raczej bêd¹ mniejsze od rozmiaru RAMu
+//Stronnica nie zawarta w ramie, wtedy trzeba œci¹gn¹æ do RAMu przed wczytaniem (opcjonalne)
+
+//Zapis od pocz¹tku wyczyœciæ plik (WF)
+//lub append - dopisywanie na koniec (AF)
+
+//Jeœli u¿ytkownik poda za du¿o bajt to czytamy do koñca i nie wiêcej
+//Rozmiar bajtowy oznacza koniec plików (EOF)
+
+#define READ_FLAG 0
+#define WRITE_FLAG 1
+
+void FileManager::FileIO::buffer_update(const int8_t& blockNumber) {
+	if (blockNumber < BLOCK_INDEX_NUMBER) {
+		buffer = disk->read_str(file->directBlocks[blockNumber] * BLOCK_SIZE);
+	}
+	else if (file->singleIndirectBlocks != -1) {
+		std::array<u_int, BLOCK_SIZE / 2>blocks;
+		blocks.fill(-1);
+		blocks = disk->read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+
+		buffer = disk->read_str(blocks[blockNumber - BLOCK_INDEX_NUMBER] * BLOCK_SIZE);
+	}
+	else { buffer = '\0'; }
+}
+
+std::string FileManager::FileIO::read(const u_short_int& byteNumber) {
+	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
+
+	indirectBlocks.fill(-1);
+
+	auto blockIndex = static_cast<uint8_t>(floor(readPos / BLOCK_SIZE));
+	if (blockIndex > BLOCK_INDEX_NUMBER + BLOCK_SIZE / 2) { return ""; }
+
+	std::string data;
+	u_short_int bytesRead = 0; //Zmienna zliczaj¹ca odczytane bajty
+	uint8_t blockIndexPrev = -1; //Zmienna u¿ywana do sprawdzenia czy nale¿y zaktualizowaæ bufor
+
+	while (bytesRead < byteNumber) {
+		if (readPos >= file->realSize) { break; }
+		if (blockIndex != blockIndexPrev) {
+			this->buffer_update(blockIndex);
+			blockIndexPrev = blockIndex;
+		}
+
+		data += this->buffer[readPos%BLOCK_SIZE];
+
+		readPos++;
+		bytesRead++;
+		blockIndex = static_cast<int8_t>(floor(readPos / BLOCK_SIZE));
+	}
+
+	return data;
+}
+
+std::string FileManager::FileIO::read_all() {
+	this->reset_read_pos();
+	return read(file->realSize);
+}
+
+void FileManager::FileIO::write(const std::vector<std::string>& dataFragments, const int8_t& startIndex) const {
+	u_int indexNumber = startIndex;
+	u_int index;
+
+	bool indirect = false;
+
+	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
+	indirectBlocks.fill(-1);
+	if (file->singleIndirectBlocks != -1) {
+		indirectBlocks = disk->read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+	}
+
+	if (startIndex < BLOCK_INDEX_NUMBER) { index = file->directBlocks[startIndex]; }
+	else { index = indirectBlocks[startIndex - BLOCK_INDEX_NUMBER]; }
+
+	//Zapisuje wszystkie dane na dysku
+	for (const auto& fileFragment : dataFragments) {
+		if (index == -1) { break; }
+
+		//Zapisuje fragment na dysku
+		disk->write(index * BLOCK_SIZE, fileFragment);
+
+		//Przypisuje do indeksu numer kolejnego bloku
+		indexNumber++;
+		if (indexNumber == BLOCK_INDEX_NUMBER && !indirect) {
+			indirect = true;
+			indexNumber = 0;
+		}
+		if (!indirect) { index = file->directBlocks[indexNumber]; }
+		else if (indirect) { index = indirectBlocks[indexNumber]; }
+	}
+}
+
+const std::bitset<2> FileManager::FileIO::get_flags() const {
+	std::bitset<2> flags;
+	flags[READ_FLAG] = readFlag; flags[WRITE_FLAG] = writeFlag;
+	return flags;
+}
+
+
+
 //-------------------- Podstawowe Metody --------------------
 
 bool FileManager::file_create(const std::string& name) {
@@ -191,7 +304,7 @@ bool FileManager::file_create(const std::string& name) {
 		{
 			//Error1
 			if (name.empty()) { throw "Pusta nazwa!"; }
-			std::vector<std::string> errorDescriptions{"B³¹d tworzenia pliku '"+name+"\'!"};
+			std::vector<std::string> errorDescriptions{ "Blad tworzenia pliku '" + name + "\'!" };
 			bool error = false;
 			//Error2
 			if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
@@ -217,6 +330,8 @@ bool FileManager::file_create(const std::string& name) {
 			fileSystem.inodeTable[inodeId].modificationTime = get_current_time_and_date();
 
 			if (messages) { std::cout << "Stworzono plik o nazwie '" << name << ".\n"; }
+			file_open(name, OPEN_W_MODE);
+
 			return true;
 		}
 	}
@@ -233,16 +348,73 @@ bool FileManager::file_create(const std::string& name) {
 bool FileManager::file_write(const std::string& name, const std::string& data) {
 	try {
 		Inode* inode;
+
 		//Czêœæ sprawdzaj¹ca
 		{
+			//Error1
 			if (name.empty()) { throw "Pusta nazwa!"; }
-			std::vector<std::string> errorDescriptions {"B³¹d zapisywania do pliku '" + name + "\'!"};
+			std::vector<std::string> errorDescriptions{ "Blad zapisywania do pliku '" + name + "\'!" };
 			bool error = false;
 
-			//Error1
+			//Error2
 			if (data.size() > MAX_DATA_SIZE) {
 				errorDescriptions.emplace_back("Podane dane przekraczaj¹ maksymalny rozmiar!"); error = true;
 			}
+
+			//Error3
+			if (data.size() > BLOCK_INDEX_NUMBER * BLOCK_SIZE && fileSystem.freeSpace < calculate_needed_blocks(data.size())*BLOCK_SIZE + BLOCK_SIZE) {
+				errorDescriptions.emplace_back("Brakuje bloków do zapisania podanych danych!"); error = true;
+			}
+
+			//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+			const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+			//Error4
+			if (fileIterator == fileSystem.rootDirectory.end()) {
+				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony.");
+				throw errorDescriptions;
+			}
+			inode = &fileSystem.inodeTable[fileIterator->second];
+
+			//Error5
+			if (accessedFiles.find(name) == accessedFiles.end()) {
+				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest otwarty.");
+				throw errorDescriptions;
+			}
+
+			//Error6
+			if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) {
+				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest ustawiony do zapisu.");
+				throw errorDescriptions;
+			}
+
+			//Error7
+			if (data.size() > fileSystem.freeSpace - inode->blocksOccupied*BLOCK_SIZE) {
+				errorDescriptions.emplace_back("Za ma³o miejsca na dysku!"); error = true;
+			}
+			if (error) { throw errorDescriptions; }
+		}
+
+		//Czêœæ dzia³aj¹ca
+		file_deallocate(inode);
+		file_write(inode, &accessedFiles[name], data);
+		if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
+		return true;
+	}
+	catch (const std::string& description) { std::cout << description << '\n'; return false; }
+	catch (const std::vector<std::string>& descriptions) { std::cout << descriptions; return false; }
+}
+
+bool FileManager::file_append(const std::string& name, const std::string& data) {
+	try {
+		Inode* inode;
+
+		//Czêœæ sprawdzaj¹ca
+		{
+			//Error1
+			if (name.empty()) { throw "Pusta nazwa!"; }
+			std::vector<std::string> errorDescriptions{ "Blad zapisywania do pliku '" + name + "\'!" };
+			bool error = false;
 
 			//Error2
 			if (data.size() > BLOCK_INDEX_NUMBER * BLOCK_SIZE && fileSystem.freeSpace < calculate_needed_blocks(data.size())*BLOCK_SIZE + BLOCK_SIZE) {
@@ -260,21 +432,39 @@ bool FileManager::file_write(const std::string& name, const std::string& data) {
 			inode = &fileSystem.inodeTable[fileIterator->second];
 
 			//Error4
-			if (data.size() > fileSystem.freeSpace - inode->blocksOccupied*BLOCK_SIZE) {
+			if (accessedFiles.find(name) == accessedFiles.end()) {
+				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest otwarty.");
+				throw errorDescriptions;
+			}
+
+			//Error5
+			if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) {
+				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest ustawiony do zapisu.");
+				throw errorDescriptions;
+			}
+
+			//Error6
+			if (inode->realSize + data.size() > MAX_DATA_SIZE) {
+				errorDescriptions.emplace_back("Podane dane przekraczaj¹ maksymalny rozmiar!"); error = true;
+			}
+
+			//Error7
+			if (data.size() > fileSystem.freeSpace) {
 				errorDescriptions.emplace_back("Za ma³o miejsca na dysku!"); error = true;
 			}
 			if (error) { throw errorDescriptions; }
 		}
 
-		file_write(inode, data);
-		if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
+		//Czêœæ dzia³aj¹ca
+		file_append(inode, &accessedFiles[name], data);
+		if (messages) { std::cout << "Wpisano dane do pliku o nazwie '" << name << "'.\n"; }
 		return true;
 	}
 	catch (const std::string& description) { std::cout << description << '\n'; return false; }
 	catch (const std::vector<std::string>& descriptions) { std::cout << descriptions; return false; }
 }
 
-const bool FileManager::file_read(const std::string& name, const u_short_int& memoryAddress, const u_short_int& byteNumber) {
+std::string FileManager::file_read(const std::string& name, const u_short_int& byteNumber) {
 	try {
 		//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
 		const auto fileIterator = fileSystem.rootDirectory.find(name);
@@ -288,75 +478,80 @@ const bool FileManager::file_read(const std::string& name, const u_short_int& me
 			if (fileIterator == fileSystem.rootDirectory.end()) {
 				throw("Plik o nazwie '" + name + "' nie znaleziony!");
 			}
+
+			//Error4
+			if (accessedFiles.find(name) == accessedFiles.end()) {
+				throw "Plik o nazwie '" + name + "' nie jest otwarty.";
+			}
+
+			//Error5
+			if (accessedFiles[name].get_flags()[READ_FLAG] != true) {
+				throw "Plik o nazwie '" + name + "' nie jest ustawiony do odczytu.";
+			}
 		}
 
 		//Czêœæ dzia³aj¹ca ----------------------
-		{
-			Inode* inode = &fileSystem.inodeTable[fileIterator->second];
-			bool finish = false; //Oznacza czy nale¿y zakoñczyæ odczyt
-			std::string data;
-
-			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && inode->directBlocks[i] != -1 && !finish; i++) {
-				data += disk.read_str(inode->directBlocks[i] * BLOCK_SIZE);
-				if (data.size() == byteNumber) { finish = true; }
-			}
-
-			//Odczytywanie z dysku bloku indeksowego
-			std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
-			{
-				indirectBlocks.fill(-1);
-				if (inode->singleIndirectBlocks != -1) {
-					indirectBlocks = disk.read_arr(inode->singleIndirectBlocks*BLOCK_SIZE);
-				}
-			}
-
-			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && indirectBlocks[i] != -1 && !finish; i++) {
-				data += disk.read_str(indirectBlocks[i] * BLOCK_SIZE);
-				if (data.size() == byteNumber) { finish = true; }
-			}
-		}
-		return true;
+		return accessedFiles[name].read(byteNumber);
 	}
-	catch (const std::string& description) { std::cout << description << '\n'; return false; }
+	catch (const std::string& description) { std::cout << description << '\n'; return ""; }
 }
 
 const std::string FileManager::file_read_all(const std::string& name) {
 	try {
-		if (name.empty()) { throw "Pusta nazwa!"; }
-		//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
 		const auto fileIterator = fileSystem.rootDirectory.find(name);
 
-		//Error1
-		if (fileIterator == fileSystem.rootDirectory.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony!");
-		}
-		Inode* inode = &fileSystem.inodeTable[fileIterator->second];
+		//Czêœæ sprawdzaj¹ca
+		{
+			//Error1
+			if (name.empty()) { throw "Pusta nazwa!"; }
+			//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
 
-		return file_read_all(inode);
+			//Error2
+			if (fileIterator == fileSystem.rootDirectory.end()) {
+				throw("Plik o nazwie '" + name + "' nie znaleziony!");
+			}
+		}
+
+		//Czêœæ dzia³aj¹ca
+		return file_read(name, fileSystem.inodeTable[fileSystem.rootDirectory[name]].realSize);
 	}
 	catch (const std::string& description) { std::cout << description << '\n'; return ""; }
 }
 
 bool FileManager::file_delete(const std::string& name) {
 	try {
-		if (name.empty()) { throw "Pusta nazwa!"; }
-		//Iterator zwracany podczas przeszukiwania katalogu g³ównego za plikiem o podanej nazwie
 		const auto fileIterator = fileSystem.rootDirectory.find(name);
-		//Error1
-		if (fileIterator == fileSystem.rootDirectory.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony!");
+
+		//Czêœæ sprawdzaj¹ca
+		{
+			//Error1
+			if (name.empty()) { throw "Pusta nazwa!"; }
+
+			//Error2
+			if (fileIterator == fileSystem.rootDirectory.end()) {
+				throw("Plik o nazwie '" + name + "' nie znaleziony!");
+			}
+
+			//Error3
+			if (accessedFiles.find(name) != accessedFiles.end()) {
+				throw("Plik o nazwie '" + name + "' jest otwarty!");
+			}
 		}
 
-		Inode* inode = &fileSystem.inodeTable[fileIterator->second];
+		//Czêœæ dzia³aj¹ca
+		{
+			Inode* inode = &fileSystem.inodeTable[fileIterator->second];
 
-		file_deallocate(inode);
-		fileSystem.inodeTable[fileIterator->second].clear();
+			file_deallocate(inode);
+			fileSystem.inodeTable[fileIterator->second].clear();
 
-		//Usuñ wpis o pliku z obecnego katalogu
-		fileSystem.rootDirectory.erase(fileIterator);
+			//Usuñ wpis o pliku z obecnego katalogu
+			fileSystem.rootDirectory.erase(fileIterator);
+			accessedFiles.erase(name);
 
-		if (messages) { std::cout << "Usuniêto plik o nazwie '" << name << "'.\n"; }
-		return true;
+			if (messages) { std::cout << "Usunieto plik o nazwie '" << name << "'.\n"; }
+			return true;
+		}
 	}
 	catch (const std::string& description) {
 		std::cout << description << '\n';
@@ -364,26 +559,34 @@ bool FileManager::file_delete(const std::string& name) {
 	}
 }
 
-bool FileManager::file_open(const std::string & name) {
+bool FileManager::file_open(const std::string& name, const std::bitset<2>& mode) {
 	try {
-		//Error1
-		if (name.empty()) { throw "Pusta nazwa!"; }
-		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-		const auto fileIterator = fileSystem.rootDirectory.find(name);
-		//Error2
-		if (fileIterator == fileSystem.rootDirectory.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony!");
+		Inode* inode;
+
+		//Czêœæ sprawdzaj¹ca
+		{
+			//Error1
+			if (name.empty()) { throw "Pusta nazwa!"; }
+			//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+			const auto fileIterator = fileSystem.rootDirectory.find(name);
+			//Error2
+			if (fileIterator == fileSystem.rootDirectory.end()) {
+				throw("Plik o nazwie '" + name + "' nie znaleziony!");
+			}
+
+			inode = &fileSystem.inodeTable[fileIterator->second];
 		}
 
-		Inode* inode = &fileSystem.inodeTable[fileIterator->second];
+		//Czêœæ dzia³aj¹ca
+		{
+			accessedFiles[name] = FileIO(&disk, inode, mode);
 
-		//Error3
-		if (inode->flagOpen == true) { throw ("Plik o nazwie '" + name + "' jest ju¿ otwarty!"); }
-
-		inode->flagOpen = true; //Ustawia flagê plik otwarty
-
-		if (messages) { std::cout << "Otwarto plik o nazwie '" << name << "'.\n"; }
-		return true;
+			if (messages) {
+				std::cout << "Otwarto plik o nazwie '" << name << " w trybie" << (mode[1] || mode[0] ? " " : "")
+					<< (mode[1] ? "R" : "") << (mode[0] ? "W" : "") << ".\n";
+			}
+			return true;
+		}
 	}
 	catch (const std::string& description) {
 		std::cout << description << '\n';
@@ -391,20 +594,26 @@ bool FileManager::file_open(const std::string & name) {
 	}
 }
 
-bool FileManager::file_close(const std::string & name) {
+bool FileManager::file_close(const std::string& name) {
 	try {
-		//Error1
-		if (name.empty()) { throw "Pusta nazwa!"; }
-
 		const auto fileIterator = fileSystem.rootDirectory.find(name);
-		//Error2
-		if (fileIterator == fileSystem.rootDirectory.end()) { throw("Plik o nazwie '" + name + "' nie znaleziony!"); }
 
-		fileSystem.inodeTable[fileIterator->second].flagOpen = false; //Zeruje flagê plik otwarty
-		usedFiles.erase(name);
+		//Czêœæ sprawdzaj¹ca
+		{
+			//Error1
+			if (name.empty()) { throw "Pusta nazwa!"; }
 
-		if (messages) { std::cout << "Zamkniêto plik o œcie¿ce '" << name << "'.\n"; }
-		return true;
+			//Error2
+			if (fileIterator == fileSystem.rootDirectory.end()) { throw("Plik o nazwie '" + name + "' nie znaleziony!"); }
+		}
+
+		//Czêœæ dzia³aj¹ca
+		{
+			accessedFiles.erase(name);
+
+			if (messages) { std::cout << "Zamknieto plik o sciezce '" << name << "'.\n"; }
+			return true;
+		}
 	}
 	catch (const std::string& description) {
 		std::cout << description << '\n';
@@ -415,10 +624,12 @@ bool FileManager::file_close(const std::string & name) {
 
 
 //--------------------- Dodatkowe Metody --------------------
+
 bool FileManager::disk_format() {
 	try {
 		//Error1
-		if (!usedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
+		//if (!usedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
+		if (!accessedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
 
 		fileSystem.reset();
 
@@ -439,7 +650,7 @@ bool FileManager::file_create(const std::string& name, const std::string& data) 
 	else { return true; }
 }
 
-bool FileManager::file_rename(const std::string& name, const std::string& changeName) {
+bool FileManager::file_rename(const std::string& name, const std::string& newName) {
 	try {
 		const auto fileIterator = fileSystem.rootDirectory.find(name);
 
@@ -451,13 +662,13 @@ bool FileManager::file_rename(const std::string& name, const std::string& change
 			//Error1
 			if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
 			//Error2
-			if (changeName.empty()) { errorDescriptions.emplace_back("Pusta nowa nazwa!"); throw errorDescriptions; }
+			if (newName.empty()) { errorDescriptions.emplace_back("Pusta nowa nazwa!"); throw errorDescriptions; }
 			//Error3
-			if (check_if_name_used(changeName)) {
+			if (check_if_name_used(newName)) {
 				errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
 			}
 			//Error4
-			if (changeName.size() > MAX_FILENAME_LENGTH) {
+			if (newName.size() > MAX_FILENAME_LENGTH) {
 				errorDescriptions.emplace_back("Nowa nazwa za d³uga!"); error = true;
 			}
 
@@ -469,15 +680,25 @@ bool FileManager::file_rename(const std::string& name, const std::string& change
 			if (error) { throw errorDescriptions; }
 		}
 
-		//Lokowanie nowego klucza w tablicy hashowej katalogu g³ównego i przypisanie do niego id i-wêz³a
-		fileSystem.rootDirectory[changeName] = fileIterator->second;
 
-		//Usuniêcie starego klucza z katalogu g³ównego
-		fileSystem.rootDirectory.erase(fileIterator);
+		//Czêœæ dzia³aj¹ca --------------------
+		{
+			//Lokowanie nowego klucza w tablicy hashowej katalogu g³ównego i przypisanie do niego id i-wêz³a
+			fileSystem.rootDirectory[newName] = fileIterator->second;
 
-		if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << changeName << "'.\n"; }
+			//Usuniêcie starego klucza z katalogu g³ównego
+			fileSystem.rootDirectory.erase(fileIterator);
 
-		return true;
+			//Jeœli plik jest otwarty zmieniany jest wpis w mapie wykorzystywanych plików
+			if (accessedFiles.find(name) != accessedFiles.end()) {
+				accessedFiles[newName] = accessedFiles[name];
+				accessedFiles.erase(name);
+			}
+
+			if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << newName << "'.\n"; }
+
+			return true;
+		}
 	}
 	catch (const std::vector<std::string>& descriptions) { std::cout << descriptions; return false; }
 }
@@ -494,7 +715,7 @@ void FileManager::set_detailed_messages(const bool&  onOff) {
 //------------------ Metody do wyœwietlania -----------------
 
 void FileManager::display_file_system_params() {
-	std::cout << "disk capacity: " << DISK_CAPACITY << " Bytes\n";
+	std::cout << "Disk capacity: " << DISK_CAPACITY << " Bytes\n";
 	std::cout << "Block size: " << static_cast<int>(BLOCK_SIZE) << " Bytes\n";
 	std::cout << "Max file size: " << MAX_FILE_SIZE << " Bytes\n";
 	std::cout << "Max data size: " << MAX_DATA_SIZE << " Bytes\n";
@@ -523,10 +744,12 @@ bool FileManager::display_file_info(const std::string& name) {
 		const auto file = &fileSystem.inodeTable[fileIterator->second];
 
 		std::cout << "Name: " << name << '\n';
+		std::cout << "I-node number: " << fileIterator->second << '\n';
 		std::cout << "Size: " << file->realSize << " Bytes\n";
 		std::cout << "Size on disk: " << file->blocksOccupied*BLOCK_SIZE << " Bytes\n";
 		std::cout << "Created: " << file->creationTime << '\n';
 		std::cout << "Modified: " << file->modificationTime << '\n';
+
 		std::cout << "Direct block indexes: ";
 		for (const auto& elem : file->directBlocks) {
 			if (elem != -1) { std::cout << elem << ' '; }
@@ -552,7 +775,12 @@ bool FileManager::display_file_info(const std::string& name) {
 			std::cout << '\n';
 		}
 		else { std::cout << -1 << "\n"; }
-		std::cout << "Saved data: " << file_read_all(file) << '\n';
+
+
+		std::cout << "Saved data: ";
+		if (accessedFiles.find(name) != accessedFiles.end()) { std::cout << accessedFiles[name].read_all(); }
+		std::cout << '\n';
+
 		return true;
 	}
 	catch (const std::string& description) {
@@ -562,10 +790,15 @@ bool FileManager::display_file_info(const std::string& name) {
 }
 
 void FileManager::display_root_directory() {
-	std::cout << std::string(1, ' ') << "root/" << "\n";
+	std::cout << std::string(1, ' ') << "root" << "\n";
 
-	for (auto i = fileSystem.rootDirectory.begin(); i != fileSystem.rootDirectory.end(); ++i) {
-		std::cout << std::string(2, ' ') << "- " << i->first << '\n';
+	for (auto it = fileSystem.rootDirectory.begin(); it != fileSystem.rootDirectory.end(); ++it) {
+		++it;
+		std::cout << ' ';
+		if (it != fileSystem.rootDirectory.end()) { std::cout << static_cast<u_char>(195); }
+		else { std::cout << static_cast<u_char>(192); }
+		--it;
+		std::cout << std::string(2, static_cast<u_char>(196)) << " " << it->first << '\n';
 	}
 }
 
@@ -613,7 +846,7 @@ const bool FileManager::check_if_enough_space(const u_int& dataSize) const {
 
 //-------------------- Metody Obliczaj¹ce -------------------
 
-const u_int FileManager::calculate_needed_blocks(const size_t& dataSize) const {
+const u_int FileManager::calculate_needed_blocks(const size_t& dataSize) {
 	/*
 	Przybli¿enie w górê rozmiaru pliku przez rozmiar bloku.
 	Jest tak, poniewa¿, jeœli zape³nia chocia¿ o jeden bajt
@@ -635,7 +868,7 @@ const size_t FileManager::calculate_directory_size_on_disk() {
 
 const size_t FileManager::calculate_directory_size() {
 	//Rzeczywisty rozmiar katalogu
-	size_t realSize = 9;
+	size_t realSize = 0;
 
 	//Dodaje rzeczywisty rozmiar plików w katalogu do rozmiaru katalogu
 	for (const auto& element : fileSystem.rootDirectory) {
@@ -650,26 +883,25 @@ const size_t FileManager::calculate_directory_size() {
 
 void FileManager::file_truncate(Inode* file, const u_int& neededBlocks) {
 	if (neededBlocks != file->blocksOccupied) {
-		//Jeœli nale¿y zmniejszyæ plik
-		if (neededBlocks < file->blocksOccupied) { file_allocation_decrease(file, neededBlocks); }
-		//Jeœli nale¿y zwiêkszyæ plik
-		else if (neededBlocks > file->blocksOccupied) { file_allocation_increase(file, neededBlocks); }
+		if (neededBlocks > file->blocksOccupied) { file_allocation_increase(file, neededBlocks); }
 	}
 }
 
 void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks) {
 	if (file != nullptr) {
-		if (blocks.size() != size_t(0) && file->blocksOccupied * BLOCK_SIZE <= MAX_FILE_SIZE) {
+		if (!blocks.empty() && file->blocksOccupied * BLOCK_SIZE <= MAX_FILE_SIZE) {
 
 			u_int blocksIndex = 0;
 			//Wpisanie bloków do bezpoœredniego bloku indeksowego
 			for (size_t i = 0; i < BLOCK_INDEX_NUMBER && blocksIndex < blocks.size(); i++) {
-				file->directBlocks[i] = blocks[blocksIndex];
-				blocksIndex++;
+				if (file->directBlocks[i] == -1) {
+					file->directBlocks[i] = blocks[blocksIndex];
+					blocksIndex++;
+				}
 			}
 
 			//Wpisanie bloków do 1-poziomowego bloku indeksowego
-			if (blocks.size() > BLOCK_INDEX_NUMBER) {
+			if (file->blocksOccupied > BLOCK_INDEX_NUMBER) {
 				const u_int index = find_unallocated_blocks(1)[0];
 
 				file->blocksOccupied++;
@@ -679,10 +911,12 @@ void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks
 				indirectBlocks.fill(-1);
 
 				for (size_t i = 0; i < BLOCK_SIZE / 2 && blocksIndex < blocks.size(); i++) {
-					indirectBlocks[i] = blocks[blocksIndex];
-					blocksIndex++;
+					if (indirectBlocks[i] == -1) {
+						indirectBlocks[i] = blocks[blocksIndex];
+						blocksIndex++;
+					}
 				}
-				disk.write(index * 32, indirectBlocks);
+				disk.write(index * BLOCK_SIZE, indirectBlocks);
 				fileSystem.bitVector[index] = BLOCK_OCCUPIED;
 				fileSystem.freeSpace -= BLOCK_SIZE;
 				if (detailedMessages) { std::cout << "Stworzono blok indeksowy pod indeksem: " << index << '\n'; }
@@ -694,16 +928,15 @@ void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks
 void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlocks) {
 	const u_int increaseBlocksNumber = abs(int(neededBlocks - file->blocksOccupied));
 	bool fitsAfterLastIndex = true;
-	u_int index = 0;
-	u_int lastBlockIndex = 0;
+	u_int index = -1;
+	u_int lastBlockIndex = -1;
 
 	if (file->blocksOccupied != 0) {
 		//Jeœli indeksy zapisane s¹ tylko w bezpoœrednim bloku indeksowym 
 		if (file->blocksOccupied <= BLOCK_INDEX_NUMBER) {
-			for (u_int i = 0; i >= 0 && index == -1; i--) {
-				lastBlockIndex = index;
+			for (int i = BLOCK_INDEX_NUMBER - 1; i >= 0 && index == -1; i--) {
 				index = file->directBlocks[i];
-				if (i == 0) { break; } //u_int po obni¿eniu zera przyjmuje wartoœæ wiêksz¹ od zera
+				lastBlockIndex = index;
 			}
 		}
 		else {
@@ -711,15 +944,14 @@ void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlock
 			indirectBlocks.fill(-1);
 			indirectBlocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
 
-			for (u_int i = 0; i >= 0 && index == -1; i--) {
-				lastBlockIndex = index;
+			for (int i = BLOCK_SIZE / 2 - 1; i >= 0 && index == -1; i--) {
 				index = indirectBlocks[i];
+				lastBlockIndex = index;
 			}
 		}
 
 		for (u_int i = lastBlockIndex + 1; i < lastBlockIndex + increaseBlocksNumber + 1; i++) {
 			if (fileSystem.bitVector[i] == BLOCK_OCCUPIED) { fitsAfterLastIndex = false; break; }
-			else if (i == increaseBlocksNumber) { break; }
 		}
 		lastBlockIndex++;
 	}
@@ -735,67 +967,10 @@ void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlock
 		file_allocate_blocks(file, blocks);
 	}
 	else {
-		if (file->blocksOccupied > 0) { file_deallocate(file); };
+		if (file->blocksOccupied > 0) { file_deallocate(file); }
 		file_allocate_blocks(file, find_unallocated_blocks(neededBlocks));
 	}
-	if (detailedMessages) { std::cout << "Zwiêkszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
-}
-
-void FileManager::file_allocation_decrease(Inode* file, const u_int& neededBlocks) {
-	const u_int sizeToStart = neededBlocks * BLOCK_SIZE;
-	//Zmienna do analizowania, czy ju¿ mo¿na usuwaæ/dodawaæ bloki do pliku
-	u_int currentSize = 0;
-
-	u_int indexNumber = 0;
-	u_int index = file->directBlocks[indexNumber];
-
-	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
-	indirectBlocks.fill(-1);
-	if (file->blocksOccupied > BLOCK_INDEX_NUMBER) {
-		indirectBlocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
-	}
-
-	//Dopóki indeks na coœ wskazuje
-	bool indirect = false;
-	while (index != -1) {
-		currentSize += BLOCK_SIZE;
-		//Sprawdzenie czy mamy doczynienia z niebezpoœrednim blokiem indeksowym
-		if (indexNumber == BLOCK_INDEX_NUMBER) {
-			indirect = true;
-			indexNumber = 0;
-		}
-		if (!indirect) {
-			index = file->directBlocks[indexNumber];
-		}
-		else if (indirect) {
-			index = indirectBlocks[indexNumber];
-		}
-		//Spisz kolejny indeks
-		indexNumber++;
-
-		//Jeœli obecny rozmiar przewy¿sza rozmiar potrzebny do rozpoczêcia usuwania
-		//zacznij usuwaæ bloki
-		if (currentSize > sizeToStart && index != -1) {
-			//Zmniejszenie rozmiaru pliku
-			file->blocksOccupied--;
-
-			//Po uciêciu rozmiar i rozmiar rzeczywisty bêd¹ takie same
-			file->realSize = file->blocksOccupied*BLOCK_SIZE;
-
-			//Oznacz obecny indeks jako wolny
-			change_bit_vector_value(index, BLOCK_FREE);
-
-			//Obecny indeks w pliku wskazuje na nic
-			if (!indirect) {
-				file->directBlocks[index] = -1;
-			}
-			else if (indirect) {
-				indirectBlocks[index] = -1;
-			}
-		}
-	}
-
-	if (detailedMessages) { std::cout << "Zmniejszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
+	if (detailedMessages) { std::cout << "Zwiekszono plik do rozmiaru " << file->blocksOccupied*BLOCK_SIZE << " Bajt.\n"; }
 }
 
 void FileManager::file_deallocate(Inode* file) {
@@ -848,7 +1023,7 @@ void FileManager::file_allocate_blocks(Inode* file, const std::vector<u_int>& bl
 	for (const auto& i : blocks) {
 		change_bit_vector_value(i, BLOCK_OCCUPIED);
 	}
-	file->blocksOccupied += static_cast<u_char>(blocks.size());
+	file->blocksOccupied += static_cast<int8_t>(blocks.size());
 
 	file_add_indexes(file, blocks);
 
@@ -943,62 +1118,58 @@ const std::vector<u_int> FileManager::find_unallocated_blocks(const u_int& block
 
 //----------------------- Metody Inne -----------------------
 
-void FileManager::file_write(Inode* file, const std::string& data) {
+std::string FileManager::get_file_data_block(Inode* file, const int8_t& indexNumber) const {
+	std::string data;
+
+	if (indexNumber < BLOCK_INDEX_NUMBER) {
+		data = disk.read_str(file->directBlocks[indexNumber] * BLOCK_SIZE);
+	}
+	else if (file->singleIndirectBlocks != -1) {
+		std::array<u_int, BLOCK_SIZE / 2>blocks;
+		blocks.fill(-1);
+		blocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
+
+		data = disk.read_str(blocks[indexNumber - BLOCK_INDEX_NUMBER]);
+	}
+	return data;
+}
+
+void FileManager::file_write(Inode* file, FileIO* IO, const std::string& data) {
 	file->modificationTime = get_current_time_and_date();
 
 	//Uzyskuje dane podzielone na fragmenty
-	const std::vector<std::string>fileFragments = data_to_data_fragments(data);
+	const std::vector<std::string>dataFragments = fragmentate_data(data);
 
 	//Alokowanie bloków dla pliku
-	file_truncate(file, fileFragments.size());
+	file_truncate(file, dataFragments.size());
+
+	IO->write(dataFragments, 0);
 
 	file->realSize = static_cast<u_short_int>(data.size());
-
-	//Indeks pod którym maj¹ zapisywane byæ dane
-	u_int indexNumber = 0;
-	u_int index = file->directBlocks[0];
-	bool indirect = false;
-
-	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
-	indirectBlocks.fill(-1);
-	if (file->singleIndirectBlocks != -1) {
-		indirectBlocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
-	}
-
-	//Zapisuje wszystkie dane na dysku
-	for (const auto& fileFragment : fileFragments) {
-		if (index == -1) { break; }
-		//Zapisuje fragment na dysku
-		disk.write(index * BLOCK_SIZE, fileFragment);
-		//Przypisuje do indeksu numer kolejnego bloku
-		indexNumber++;
-		if (indexNumber == BLOCK_INDEX_NUMBER && !indirect) {
-			indirect = true;
-			indexNumber = 0;
-		}
-		if (!indirect) { index = file->directBlocks[indexNumber]; }
-		else if (indirect) { index = indirectBlocks[indexNumber]; }
-	}
 }
 
-const std::string FileManager::file_read_all(Inode* file) const {
-	std::string data;
+void FileManager::file_append(Inode* file, FileIO* IO, const std::string& data) {
+	file->modificationTime = get_current_time_and_date();
+	std::string data_ = data;
 
-	for (size_t i = 0; i < BLOCK_INDEX_NUMBER && file->directBlocks[i] != -1; i++) {
-		data += disk.read_str(file->directBlocks[i] * BLOCK_SIZE);
+	int8_t surplusBlock = 0;
+	if (file->realSize % BLOCK_SIZE + data_.size() % BLOCK_SIZE > BLOCK_SIZE) { surplusBlock = 1; }
+
+	auto lastBlockIndex = static_cast<int8_t>(floor(file->realSize / BLOCK_SIZE));
+	if (file->realSize % BLOCK_SIZE != 0) {
+		data_.insert(0, get_file_data_block(file, lastBlockIndex));
 	}
+	else { lastBlockIndex += surplusBlock; }
 
-	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
-	indirectBlocks.fill(-1);
-	if (file->singleIndirectBlocks != -1) {
-		indirectBlocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
-	}
+	const std::vector<std::string>dataFragments = fragmentate_data(data_);
 
-	for (size_t i = 0; i < BLOCK_INDEX_NUMBER && indirectBlocks[i] != -1; i++) {
-		data += disk.read_str(indirectBlocks[i] * BLOCK_SIZE);
-	}
+	//Alokowanie bloków dla nowych danych
+	file->blocksOccupied += static_cast<int8_t>(dataFragments.size()) - surplusBlock;
+	file_allocate_blocks(file, find_unallocated_blocks(dataFragments.size() - surplusBlock));
 
-	return data;
+	IO->write(dataFragments, lastBlockIndex);
+
+	file->realSize += static_cast<u_short_int>(data.size());
 }
 
 const tm FileManager::get_current_time_and_date() {
@@ -1019,7 +1190,7 @@ void FileManager::change_bit_vector_value(const u_int& block, const bool& value)
 	fileSystem.bitVector[block] = value;
 }
 
-const std::vector<std::string> FileManager::data_to_data_fragments(const std::string& data) const {
+const std::vector<std::string> FileManager::fragmentate_data(const std::string& data) {
 	//Tablica fragmentów podanych danych
 	std::vector<std::string>fileFragments;
 
@@ -1031,27 +1202,4 @@ const std::vector<std::string> FileManager::data_to_data_fragments(const std::st
 		fileFragments.push_back(data.substr(substrBegin, BLOCK_SIZE));
 	}
 	return fileFragments;
-}
-
-void FileManager::FileReader::read(const u_short_int& byteNumber) {
-	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
-	indirectBlocks.fill(-1);
-	if (file->singleIndirectBlocks != -1) {
-		indirectBlocks = disk->read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
-	}
-
-	for (u_int i = 0; i < byteNumber; i++) {
-		const u_int blockNumber = static_cast<u_int>(std::floor(posPointer / BLOCK_SIZE));
-		if (blockNumber < BLOCK_INDEX_NUMBER) {
-			buffer += disk->read_str(file->directBlocks[blockNumber]);
-		}
-		else {
-			buffer += disk->read_str(file->directBlocks[blockNumber - BLOCK_INDEX_NUMBER]);
-		}
-		posPointer++;
-		if (posPointer > MAX_DATA_SIZE) {
-			resetPosPointer();
-			break;
-		}
-	}
 }
