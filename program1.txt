@@ -1,0 +1,7 @@
+MOV B 5
+MOV A 1
+JZ B [16]
+MUL A B
+DEC B
+JMP [6]
+HLT
