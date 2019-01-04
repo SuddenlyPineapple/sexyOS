@@ -524,7 +524,7 @@ int FileManager::file_close(const std::string& name) {
 		accessedFiles.erase(name);
 
 		if (messages) { std::cout << "Zamknieto plik o sciezce '" << name << "'.\n"; }
-		return true;
+		return FILE_ERROR_NONE;
 	}
 }
 
