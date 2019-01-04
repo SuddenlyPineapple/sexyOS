@@ -4,7 +4,7 @@
 	Przeznaczenie: Zawiera klasê FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 30/12/18
+	@version 04/01/19
 */
 
 /*
@@ -27,15 +27,25 @@
 /*
 	TODO:
 	- dodaæ semafory (czekam na semafory)
-	- dodaæ odczyt i zapis sekwencyjny
-	- dorobiæ stuff z ³adowaniem do pliku wymiany (opcjonalne)
-	- i z zapisywaniem z pliku wymiany do dysku (opcjonalne)
+	- dorobiæ stuff z ³adowaniem bufora do RAMu przy odczycie (opcjonalne)
 */
 
 //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
 #define OPEN_R_MODE  std::bitset<2>{ "10" }
 #define OPEN_W_MODE  std::bitset<2>{ "01" }
 #define OPEN_RW_MODE std::bitset<2>{ "11" }
+
+//Do u¿ycia przy obs³udze b³êdów
+#define FILE_ERROR_NONE 0
+#define FILE_ERROR_EMPTY_NAME 1
+#define FILE_ERROR_NAME_TOO_LONG 2
+#define FILE_ERROR_NAME_USED 3
+#define FILE_ERROR_NO_INODES_LEFT 4
+#define FILE_ERROR_DATA_TOO_BIG 5
+#define FILE_ERROR_NOT_FOUND 6
+#define FILE_ERROR_NOT_OPENED 7
+#define FILE_ERROR_NOT_R_MODE 8
+#define FILE_ERROR_NOT_W_MODE 9
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
@@ -173,7 +183,7 @@ public:
 		@param name Nazwa pliku.
 		@return True, jeœli operacja siê uda³a i false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_create(const std::string& name);
+	int file_create(const std::string& name);
 
 	/**
 		Zapisuje podane dane w danym pliku usuwaj¹c poprzedni¹ zawartoœæ.
@@ -182,7 +192,7 @@ public:
 		@param data Dane do zapisu.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_write(const std::string& name, const std::string& data);
+	int file_write(const std::string& name, const std::string& data);
 
 	/**
 		Dopisuje podane dane na koniec pliku.
@@ -191,7 +201,7 @@ public:
 		@param data Dane do zapisu.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_append(const std::string& name, const std::string& data);
+	int file_append(const std::string& name, const std::string& data);
 
 	/**
 		Odczytuje podan¹ liczbê bajtów z pliku. Po odczycie przesuwa siê wskaŸnik odczytu.\n
@@ -199,17 +209,19 @@ public:
 
 		@param name Nazwa pliku.
 		@param byteNumber Iloœæ bajtów do odczytu.
+		@param result Miejsce do zapisania odczytanych danych.
 		@return Odczytane dane.
 	*/
-	std::string file_read(const std::string& name, const u_short_int& byteNumber);
+	int file_read(const std::string& name, const u_short_int& byteNumber, std::string& result);
 
 	/**
 		Odczytuje ca³e dane z pliku.
 
 		@param name Nazwa pliku.
+		@param result Miejsca do zapisania odczytanych danych.
 		@return Odczytane dane.
 	*/
-	const std::string file_read_all(const std::string& name);
+	int file_read_all(const std::string& name, std::string& result);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.\n
@@ -218,7 +230,7 @@ public:
 		@param name Nazwa pliku.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_delete(const std::string& name);
+	int file_delete(const std::string& name);
 
 	/**
 		Otwiera plik z podanym trybem dostêpu:
@@ -230,7 +242,7 @@ public:
 		@param mode Tryb dostêpu do pliku.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_open(const std::string& name, const std::bitset<2>& mode);
+	int file_open(const std::string& name, const std::bitset<2>& mode);
 
 	/**
 		Zamyka plik o podanej nazwie.
@@ -238,7 +250,7 @@ public:
 		@param name Nazwa pliku.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_close(const std::string& name);
+	int file_close(const std::string& name);
 
 
 
@@ -260,7 +272,7 @@ public:
 		@param data Dane typu string.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_create(const std::string& name, const std::string& data);
+	int file_create(const std::string& name, const std::string& data);
 
 	/**
 		Zmienia nazwê pliku o podanej nazwie.
@@ -269,7 +281,7 @@ public:
 		@param newName Zmieniona nazwa pliku.
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool file_rename(const std::string& name, const std::string& newName);
+	int file_rename(const std::string& name, const std::string& newName);
 
 	/**
 		Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.
@@ -312,7 +324,7 @@ public:
 
 		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
 	*/
-	bool display_file_info(const std::string& name);
+	int display_file_info(const std::string& name);
 
 	/**
 		Wyœwietla strukturê katalogów.

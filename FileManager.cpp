@@ -4,7 +4,7 @@
 	Przeznaczenie: Zawiera definicje metod i konstruktorów dla klas z FileManager.h
 
 	@author Tomasz Kiljañczyk
-	@version 30/12/18
+	@version 04/01/19
 */
 
 /*
@@ -298,326 +298,233 @@ const std::bitset<2> FileManager::FileIO::get_flags() const {
 
 //-------------------- Podstawowe Metody --------------------
 
-bool FileManager::file_create(const std::string& name) {
-	try {
-		//Czêœæ sprawdzaj¹ca
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-			std::vector<std::string> errorDescriptions{ "Blad tworzenia pliku '" + name + "\'!" };
-			bool error = false;
-			//Error2
-			if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
-			//Error3
-			if (fileSystem.rootDirectory.size() >= INODE_NUMBER_LIMIT) {
-				errorDescriptions.emplace_back(
-					"Wykorzystano wszystkie i-wêz³y!"); error = true;
-			}
-			//Error4
-			if (check_if_name_used(name)) { errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true; }
-			//Error5
-			if (name.size() > MAX_FILENAME_LENGTH) { errorDescriptions.emplace_back("Nazwa za d³uga!"); error = true; }
-			if (error) { throw errorDescriptions; }
+int FileManager::file_create(const std::string& name) {
+	//Czêœæ sprawdzaj¹ca
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
+		//Error2
+		if (fileSystem.rootDirectory.size() >= INODE_NUMBER_LIMIT) {
+			return FILE_ERROR_NO_INODES_LEFT;
 		}
-
-		//Czêœæ dzia³aj¹ca
-		{
-			const u_int inodeId = fileSystem.get_free_inode_id();
-			//Dodanie pliku do katalogu g³ównego
-			fileSystem.rootDirectory[name] = inodeId;
-			fileSystem.inodeBitVector[inodeId] = true;
-			fileSystem.inodeTable[inodeId].creationTime = get_current_time_and_date();
-			fileSystem.inodeTable[inodeId].modificationTime = get_current_time_and_date();
-
-			if (messages) { std::cout << "Stworzono plik o nazwie '" << name << ".\n"; }
-			file_open(name, OPEN_W_MODE);
-
-			return true;
-		}
+		//Error3
+		if (check_if_name_used(name)) { return FILE_ERROR_NAME_USED; }
+		//Error4
+		if (name.size() > MAX_FILENAME_LENGTH) { return FILE_ERROR_NAME_TOO_LONG; }
 	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-	catch (const std::vector<std::string>& descriptions) {
-		std::cout << descriptions;
-		return false;
+
+	//Czêœæ dzia³aj¹ca
+	{
+		const u_int inodeId = fileSystem.get_free_inode_id();
+		//Dodanie pliku do katalogu g³ównego
+		fileSystem.rootDirectory[name] = inodeId;
+		fileSystem.inodeBitVector[inodeId] = true;
+		fileSystem.inodeTable[inodeId].creationTime = get_current_time_and_date();
+		fileSystem.inodeTable[inodeId].modificationTime = get_current_time_and_date();
+
+		if (messages) { std::cout << "Stworzono plik o nazwie '" << name << ".\n"; }
+		return file_open(name, OPEN_W_MODE);
 	}
 }
 
-bool FileManager::file_write(const std::string& name, const std::string& data) {
-	try {
-		Inode* inode;
+int FileManager::file_write(const std::string& name, const std::string& data) {
+	Inode* inode;
 
-		//Czêœæ sprawdzaj¹ca
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-			std::vector<std::string> errorDescriptions{ "Blad zapisywania do pliku '" + name + "\'!" };
-			bool error = false;
+	//Czêœæ sprawdzaj¹ca
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
 
-			//Error2
-			if (data.size() > MAX_DATA_SIZE) {
-				errorDescriptions.emplace_back("Podane dane przekraczaj¹ maksymalny rozmiar!"); error = true;
-			}
+		//Error2
+		if (data.size() > MAX_DATA_SIZE) { return FILE_ERROR_DATA_TOO_BIG; }
 
-			//Error3
-			if (data.size() > BLOCK_INDEX_NUMBER * BLOCK_SIZE && fileSystem.freeSpace < calculate_needed_blocks(data.size())*BLOCK_SIZE + BLOCK_SIZE) {
-				errorDescriptions.emplace_back("Brakuje bloków do zapisania podanych danych!"); error = true;
-			}
-
-			//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-			const auto fileIterator = fileSystem.rootDirectory.find(name);
-
-			//Error4
-			if (fileIterator == fileSystem.rootDirectory.end()) {
-				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony.");
-				throw errorDescriptions;
-			}
-			inode = &fileSystem.inodeTable[fileIterator->second];
-
-			//Error5
-			if (accessedFiles.find(name) == accessedFiles.end()) {
-				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest otwarty.");
-				throw errorDescriptions;
-			}
-
-			//Error6
-			if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) {
-				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest ustawiony do zapisu.");
-				throw errorDescriptions;
-			}
-
-			//Error7
-			if (data.size() > fileSystem.freeSpace - inode->blocksOccupied*BLOCK_SIZE) {
-				errorDescriptions.emplace_back("Za ma³o miejsca na dysku!"); error = true;
-			}
-			if (error) { throw errorDescriptions; }
+		//Error3
+		if (data.size() > BLOCK_INDEX_NUMBER * BLOCK_SIZE &&
+			fileSystem.freeSpace < calculate_needed_blocks(data.size())*BLOCK_SIZE + BLOCK_SIZE) {
+			return FILE_ERROR_DATA_TOO_BIG;
 		}
 
-		//Czêœæ dzia³aj¹ca
+		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+		const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+		//Error4
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+		inode = &fileSystem.inodeTable[fileIterator->second];
+
+		//Error5
+		if (accessedFiles.find(name) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+
+		//Error6
+		if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
+
+		//Error7
+		if (data.size() > fileSystem.freeSpace - inode->blocksOccupied*BLOCK_SIZE) { return FILE_ERROR_DATA_TOO_BIG; }
+	}
+
+	//Czêœæ dzia³aj¹ca
+	file_deallocate(inode);
+	file_write(inode, &accessedFiles[name], data);
+	if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
+	return FILE_ERROR_NONE;
+}
+
+int FileManager::file_append(const std::string& name, const std::string& data) {
+	Inode* inode;
+
+	//Czêœæ sprawdzaj¹ca
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
+
+		//Error2
+		if (data.size() > BLOCK_INDEX_NUMBER * BLOCK_SIZE && fileSystem.freeSpace < calculate_needed_blocks(data.size())*BLOCK_SIZE + BLOCK_SIZE) {
+			return FILE_ERROR_DATA_TOO_BIG;
+		}
+
+		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+		const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+		//Error3
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+		inode = &fileSystem.inodeTable[fileIterator->second];
+
+		//Error4
+		if (accessedFiles.find(name) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+
+		//Error5
+		if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
+
+		//Error6
+		if (inode->realSize + data.size() > MAX_DATA_SIZE) { return FILE_ERROR_DATA_TOO_BIG; }
+
+		//Error7
+		if (data.size() > fileSystem.freeSpace) { return FILE_ERROR_DATA_TOO_BIG; }
+	}
+
+	//Czêœæ dzia³aj¹ca
+	file_append(inode, &accessedFiles[name], data);
+	if (messages) { std::cout << "Wpisano dane do pliku o nazwie '" << name << "'.\n"; }
+	return FILE_ERROR_NONE;
+}
+
+int FileManager::file_read(const std::string& name, const u_short_int& byteNumber, std::string& result) {
+	//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
+	const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+	//Czêœæ sprawdzaj¹ca --------------------
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
+
+		//Error2
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+
+		//Error4
+		if (accessedFiles.find(name) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+
+		//Error5
+		if (accessedFiles[name].get_flags()[READ_FLAG] != true) { return FILE_ERROR_NOT_R_MODE; }
+	}
+
+	//Czêœæ dzia³aj¹ca ----------------------
+	result = accessedFiles[name].read(byteNumber);
+	return FILE_ERROR_NONE;
+}
+
+int FileManager::file_read_all(const std::string& name, std::string& result) {
+	const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+	//Czêœæ sprawdzaj¹ca
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
+
+		//Error2
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+	}
+
+	//Czêœæ dzia³aj¹ca
+	return file_read(name, fileSystem.inodeTable[fileSystem.rootDirectory[name]].realSize, result);
+}
+
+int FileManager::file_delete(const std::string& name) {
+	const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+	//Czêœæ sprawdzaj¹ca
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
+
+		//Error2
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+
+		//Error3
+		if (accessedFiles.find(name) != accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+	}
+
+	//Czêœæ dzia³aj¹ca
+	{
+		Inode* inode = &fileSystem.inodeTable[fileIterator->second];
+
 		file_deallocate(inode);
-		file_write(inode, &accessedFiles[name], data);
-		if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
+		fileSystem.inodeTable[fileIterator->second].clear();
+
+		//Usuñ wpis o pliku z obecnego katalogu
+		fileSystem.rootDirectory.erase(fileIterator);
+		accessedFiles.erase(name);
+
+		if (messages) { std::cout << "Usunieto plik o nazwie '" << name << "'.\n"; }
+		return FILE_ERROR_NONE;
+	}
+}
+
+int FileManager::file_open(const std::string& name, const std::bitset<2>& mode) {
+	Inode* inode;
+
+	//Czêœæ sprawdzaj¹ca
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_DATA_TOO_BIG; }
+
+		//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
+		const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+		//Error2
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+
+		inode = &fileSystem.inodeTable[fileIterator->second];
+	}
+
+	//Czêœæ dzia³aj¹ca
+	{
+		accessedFiles[name] = FileIO(&disk, inode, mode);
+
+		if (messages) {
+			std::cout << "Otwarto plik o nazwie '" << name << " w trybie" << (mode[1] || mode[0] ? " " : "")
+				<< (mode[1] ? "R" : "") << (mode[0] ? "W" : "") << ".\n";
+		}
+		return FILE_ERROR_NONE;
+	}
+}
+
+int FileManager::file_close(const std::string& name) {
+	const auto fileIterator = fileSystem.rootDirectory.find(name);
+
+	//Czêœæ sprawdzaj¹ca
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
+
+		//Error2
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+	}
+
+	//Czêœæ dzia³aj¹ca
+	{
+		accessedFiles.erase(name);
+
+		if (messages) { std::cout << "Zamknieto plik o sciezce '" << name << "'.\n"; }
 		return true;
-	}
-	catch (const std::string& description) { std::cout << description << '\n'; return false; }
-	catch (const std::vector<std::string>& descriptions) { std::cout << descriptions; return false; }
-}
-
-bool FileManager::file_append(const std::string& name, const std::string& data) {
-	try {
-		Inode* inode;
-
-		//Czêœæ sprawdzaj¹ca
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-			std::vector<std::string> errorDescriptions{ "Blad zapisywania do pliku '" + name + "\'!" };
-			bool error = false;
-
-			//Error2
-			if (data.size() > BLOCK_INDEX_NUMBER * BLOCK_SIZE && fileSystem.freeSpace < calculate_needed_blocks(data.size())*BLOCK_SIZE + BLOCK_SIZE) {
-				errorDescriptions.emplace_back("Brakuje bloków do zapisania podanych danych!"); error = true;
-			}
-
-			//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-			const auto fileIterator = fileSystem.rootDirectory.find(name);
-
-			//Error3
-			if (fileIterator == fileSystem.rootDirectory.end()) {
-				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony.");
-				throw errorDescriptions;
-			}
-			inode = &fileSystem.inodeTable[fileIterator->second];
-
-			//Error4
-			if (accessedFiles.find(name) == accessedFiles.end()) {
-				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest otwarty.");
-				throw errorDescriptions;
-			}
-
-			//Error5
-			if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) {
-				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie jest ustawiony do zapisu.");
-				throw errorDescriptions;
-			}
-
-			//Error6
-			if (inode->realSize + data.size() > MAX_DATA_SIZE) {
-				errorDescriptions.emplace_back("Podane dane przekraczaj¹ maksymalny rozmiar!"); error = true;
-			}
-
-			//Error7
-			if (data.size() > fileSystem.freeSpace) {
-				errorDescriptions.emplace_back("Za ma³o miejsca na dysku!"); error = true;
-			}
-			if (error) { throw errorDescriptions; }
-		}
-
-		//Czêœæ dzia³aj¹ca
-		file_append(inode, &accessedFiles[name], data);
-		if (messages) { std::cout << "Wpisano dane do pliku o nazwie '" << name << "'.\n"; }
-		return true;
-	}
-	catch (const std::string& description) { std::cout << description << '\n'; return false; }
-	catch (const std::vector<std::string>& descriptions) { std::cout << descriptions; return false; }
-}
-
-std::string FileManager::file_read(const std::string& name, const u_short_int& byteNumber) {
-	try {
-		//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
-		const auto fileIterator = fileSystem.rootDirectory.find(name);
-
-		//Czêœæ sprawdzaj¹ca --------------------
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-
-			//Error2
-			if (fileIterator == fileSystem.rootDirectory.end()) {
-				throw("Plik o nazwie '" + name + "' nie znaleziony!");
-			}
-
-			//Error4
-			if (accessedFiles.find(name) == accessedFiles.end()) {
-				throw "Plik o nazwie '" + name + "' nie jest otwarty.";
-			}
-
-			//Error5
-			if (accessedFiles[name].get_flags()[READ_FLAG] != true) {
-				throw "Plik o nazwie '" + name + "' nie jest ustawiony do odczytu.";
-			}
-		}
-
-		//Czêœæ dzia³aj¹ca ----------------------
-		return accessedFiles[name].read(byteNumber);
-	}
-	catch (const std::string& description) { std::cout << description << '\n'; return ""; }
-}
-
-const std::string FileManager::file_read_all(const std::string& name) {
-	try {
-		const auto fileIterator = fileSystem.rootDirectory.find(name);
-
-		//Czêœæ sprawdzaj¹ca
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-			//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
-
-			//Error2
-			if (fileIterator == fileSystem.rootDirectory.end()) {
-				throw("Plik o nazwie '" + name + "' nie znaleziony!");
-			}
-		}
-
-		//Czêœæ dzia³aj¹ca
-		return file_read(name, fileSystem.inodeTable[fileSystem.rootDirectory[name]].realSize);
-	}
-	catch (const std::string& description) { std::cout << description << '\n'; return ""; }
-}
-
-bool FileManager::file_delete(const std::string& name) {
-	try {
-		const auto fileIterator = fileSystem.rootDirectory.find(name);
-
-		//Czêœæ sprawdzaj¹ca
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-
-			//Error2
-			if (fileIterator == fileSystem.rootDirectory.end()) {
-				throw("Plik o nazwie '" + name + "' nie znaleziony!");
-			}
-
-			//Error3
-			if (accessedFiles.find(name) != accessedFiles.end()) {
-				throw("Plik o nazwie '" + name + "' jest otwarty!");
-			}
-		}
-
-		//Czêœæ dzia³aj¹ca
-		{
-			Inode* inode = &fileSystem.inodeTable[fileIterator->second];
-
-			file_deallocate(inode);
-			fileSystem.inodeTable[fileIterator->second].clear();
-
-			//Usuñ wpis o pliku z obecnego katalogu
-			fileSystem.rootDirectory.erase(fileIterator);
-			accessedFiles.erase(name);
-
-			if (messages) { std::cout << "Usunieto plik o nazwie '" << name << "'.\n"; }
-			return true;
-		}
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-bool FileManager::file_open(const std::string& name, const std::bitset<2>& mode) {
-	try {
-		Inode* inode;
-
-		//Czêœæ sprawdzaj¹ca
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-			//Iterator zwracany podczas przeszukiwania obecnego katalogu za plikiem o podanej nazwie
-			const auto fileIterator = fileSystem.rootDirectory.find(name);
-			//Error2
-			if (fileIterator == fileSystem.rootDirectory.end()) {
-				throw("Plik o nazwie '" + name + "' nie znaleziony!");
-			}
-
-			inode = &fileSystem.inodeTable[fileIterator->second];
-		}
-
-		//Czêœæ dzia³aj¹ca
-		{
-			accessedFiles[name] = FileIO(&disk, inode, mode);
-
-			if (messages) {
-				std::cout << "Otwarto plik o nazwie '" << name << " w trybie" << (mode[1] || mode[0] ? " " : "")
-					<< (mode[1] ? "R" : "") << (mode[0] ? "W" : "") << ".\n";
-			}
-			return true;
-		}
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
-}
-
-bool FileManager::file_close(const std::string& name) {
-	try {
-		const auto fileIterator = fileSystem.rootDirectory.find(name);
-
-		//Czêœæ sprawdzaj¹ca
-		{
-			//Error1
-			if (name.empty()) { throw "Pusta nazwa!"; }
-
-			//Error2
-			if (fileIterator == fileSystem.rootDirectory.end()) { throw("Plik o nazwie '" + name + "' nie znaleziony!"); }
-		}
-
-		//Czêœæ dzia³aj¹ca
-		{
-			accessedFiles.erase(name);
-
-			if (messages) { std::cout << "Zamknieto plik o sciezce '" << name << "'.\n"; }
-			return true;
-		}
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
 	}
 }
 
@@ -626,81 +533,67 @@ bool FileManager::file_close(const std::string& name) {
 //--------------------- Dodatkowe Metody --------------------
 
 bool FileManager::disk_format() {
-	try {
-		//Error1
-		//if (!usedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
-		if (!accessedFiles.empty()) { throw "Nie mo¿na sformatowaæ dysku gdy pliki s¹ u¿ywane!"; }
+	//Error1 - nie mo¿na sformatowaæ gdy otwarte s¹ pliki
+	if (!accessedFiles.empty()) { return false; }
 
-		fileSystem.reset();
+	fileSystem.reset();
 
-		if (messages) { std::cout << "Sformatowano dysk!\n"; }
-		return true;
-	}
-	catch (const std::string& description) { std::cout << description << '\n'; return false; }
+	if (messages) { std::cout << "Sformatowano dysk!\n"; }
+	return true;
 }
 
-bool FileManager::file_create(const std::string& name, const std::string& data) {
-	if (!file_create(name)) { return false; }
+int FileManager::file_create(const std::string& name, const std::string& data) {
+	int result = file_create(name);
+	if (result != 0) { return result; }
 
 	//Zapisanie danych na dysku
-	if (!file_write(name, data)) {
-		file_delete(name);
-		return false;
+	result = file_write(name, data);
+	if (result != 0) {
+		return file_delete(name);
 	}
-	else { return true; }
+	else { return result; }
 }
 
-bool FileManager::file_rename(const std::string& name, const std::string& newName) {
-	try {
-		const auto fileIterator = fileSystem.rootDirectory.find(name);
+int FileManager::file_rename(const std::string& name, const std::string& newName) {
+	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
-		//Czêœæ sprawdzaj¹ca --------------------
-		{
-			std::vector<std::string> errorDescriptions;
-			bool error = false;
+	//Czêœæ sprawdzaj¹ca --------------------
+	{
+		//Error1
+		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
 
-			//Error1
-			if (name.empty()) { errorDescriptions.emplace_back("Pusta nazwa!"); throw errorDescriptions; }
-			//Error2
-			if (newName.empty()) { errorDescriptions.emplace_back("Pusta nowa nazwa!"); throw errorDescriptions; }
-			//Error3
-			if (check_if_name_used(newName)) {
-				errorDescriptions.push_back("Nazwa '" + name + "' jest ju¿ zajêta!"); error = true;
-			}
-			//Error4
-			if (newName.size() > MAX_FILENAME_LENGTH) {
-				errorDescriptions.emplace_back("Nowa nazwa za d³uga!"); error = true;
-			}
+		//Error2
+		if (newName.empty()) { return FILE_ERROR_EMPTY_NAME; }
 
-			//Error5
-			if (fileIterator == fileSystem.rootDirectory.end()) {
-				errorDescriptions.push_back("Plik o nazwie '" + name + "' nie znaleziony!");
-				throw errorDescriptions;
-			}
-			if (error) { throw errorDescriptions; }
-		}
+		//Error3
+		if (check_if_name_used(newName)) { return FILE_ERROR_NAME_USED; }
 
+		//Error4
+		if (newName.size() > MAX_FILENAME_LENGTH) { return FILE_ERROR_NAME_TOO_LONG; }
 
-		//Czêœæ dzia³aj¹ca --------------------
-		{
-			//Lokowanie nowego klucza w tablicy hashowej katalogu g³ównego i przypisanie do niego id i-wêz³a
-			fileSystem.rootDirectory[newName] = fileIterator->second;
-
-			//Usuniêcie starego klucza z katalogu g³ównego
-			fileSystem.rootDirectory.erase(fileIterator);
-
-			//Jeœli plik jest otwarty zmieniany jest wpis w mapie wykorzystywanych plików
-			if (accessedFiles.find(name) != accessedFiles.end()) {
-				accessedFiles[newName] = accessedFiles[name];
-				accessedFiles.erase(name);
-			}
-
-			if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << newName << "'.\n"; }
-
-			return true;
-		}
+		//Error5
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 	}
-	catch (const std::vector<std::string>& descriptions) { std::cout << descriptions; return false; }
+
+
+	//Czêœæ dzia³aj¹ca --------------------
+	{
+		//Lokowanie nowego klucza w tablicy hashowej katalogu g³ównego i przypisanie do niego id i-wêz³a
+		fileSystem.rootDirectory[newName] = fileIterator->second;
+
+		//Usuniêcie starego klucza z katalogu g³ównego
+		fileSystem.rootDirectory.erase(fileIterator);
+
+		//Jeœli plik jest otwarty zmieniany jest wpis w mapie wykorzystywanych plików
+		if (accessedFiles.find(name) != accessedFiles.end()) {
+			accessedFiles[newName] = accessedFiles[name];
+			accessedFiles.erase(name);
+		}
+
+		if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << newName << "'.\n"; }
+
+		return FILE_ERROR_NONE;
+	}
 }
 
 void FileManager::set_messages(const bool& onOff) {
@@ -732,17 +625,19 @@ void FileManager::display_root_directory_info() {
 	std::cout << "Contains: " << fileSystem.rootDirectory.size() << " Files\n";
 }
 
-bool FileManager::display_file_info(const std::string& name) {
-	try {
-		const auto fileIterator = fileSystem.rootDirectory.find(name);
+int FileManager::display_file_info(const std::string& name) {
+	//Error1
+	if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
 
-		//Error1
-		if (fileIterator == fileSystem.rootDirectory.end()) {
-			throw("Plik o nazwie '" + name + "' nie znaleziony!");
-		}
+	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
-		const auto file = &fileSystem.inodeTable[fileIterator->second];
+	//Error2
+	if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 
+	const auto file = &fileSystem.inodeTable[fileIterator->second];
+
+	//Wyœwietlanie
+	{
 		std::cout << "Name: " << name << '\n';
 		std::cout << "I-node number: " << fileIterator->second << '\n';
 		std::cout << "Size: " << file->realSize << " Bytes\n";
@@ -780,13 +675,9 @@ bool FileManager::display_file_info(const std::string& name) {
 		std::cout << "Saved data: ";
 		if (accessedFiles.find(name) != accessedFiles.end()) { std::cout << accessedFiles[name].read_all(); }
 		std::cout << '\n';
+	}
 
-		return true;
-	}
-	catch (const std::string& description) {
-		std::cout << description << '\n';
-		return false;
-	}
+	return FILE_ERROR_NONE;
 }
 
 void FileManager::display_root_directory() {
@@ -949,7 +840,6 @@ void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlock
 				lastBlockIndex = index;
 			}
 		}
-
 		for (u_int i = lastBlockIndex + 1; i < lastBlockIndex + increaseBlocksNumber + 1; i++) {
 			if (fileSystem.bitVector[i] == BLOCK_OCCUPIED) { fitsAfterLastIndex = false; break; }
 		}
