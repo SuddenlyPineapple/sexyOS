@@ -181,7 +181,7 @@ public:
 		Po stworzeniu plik jest otwarty w trybie do zapisu.
 
 		@param name Nazwa pliku.
-		@return True, jeœli operacja siê uda³a i false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_create(const std::string& name);
 
@@ -190,7 +190,7 @@ public:
 
 		@param name Nazwa pliku.
 		@param data Dane do zapisu.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_write(const std::string& name, const std::string& data);
 
@@ -199,7 +199,7 @@ public:
 
 		@param name Nazwa pliku.
 		@param data Dane do zapisu.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_append(const std::string& name, const std::string& data);
 
@@ -210,7 +210,7 @@ public:
 		@param name Nazwa pliku.
 		@param byteNumber Iloœæ bajtów do odczytu.
 		@param result Miejsce do zapisania odczytanych danych.
-		@return Odczytane dane.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_read(const std::string& name, const u_short_int& byteNumber, std::string& result);
 
@@ -219,7 +219,7 @@ public:
 
 		@param name Nazwa pliku.
 		@param result Miejsca do zapisania odczytanych danych.
-		@return Odczytane dane.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_read_all(const std::string& name, std::string& result);
 
@@ -228,7 +228,7 @@ public:
 		Plik jest wymazywany z katalogu g³ównego oraz wektora bitowego.
 
 		@param name Nazwa pliku.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_delete(const std::string& name);
 
@@ -240,7 +240,7 @@ public:
 
 		@param name Nazwa pliku.
 		@param mode Tryb dostêpu do pliku.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_open(const std::string& name, const std::bitset<2>& mode);
 
@@ -248,7 +248,7 @@ public:
 		Zamyka plik o podanej nazwie.
 
 		@param name Nazwa pliku.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_close(const std::string& name);
 
@@ -270,7 +270,7 @@ public:
 
 		@param name Nazwa pliku.
 		@param data Dane typu string.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_create(const std::string& name, const std::string& data);
 
@@ -279,9 +279,16 @@ public:
 
 		@param name Obecna nazwa pliku.
 		@param newName Zmieniona nazwa pliku.
-		@return True, jeœli operacja siê uda³a lub false, jeœli operacja nie powiod³a siê.
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_rename(const std::string& name, const std::string& newName);
+
+	/**
+		Zamyka wszystkie pliki.
+
+		@return Kod b³êdu. 0 oznacza brak b³êdu.
+	*/
+	int file_close_all();
 
 	/**
 		Zmienia zmienn¹ odpowiadaj¹c¹ za wyœwietlanie komunikatów.

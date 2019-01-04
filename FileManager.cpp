@@ -596,6 +596,16 @@ int FileManager::file_rename(const std::string& name, const std::string& newName
 	}
 }
 
+int FileManager::file_close_all() {
+	std::vector<std::string> fileNames;
+	for(const auto& elem : accessedFiles) { fileNames.push_back(elem.first); }
+	for(const std::string& fileName : fileNames) {
+		if (const int result = file_close(fileName) != 0) { return result; }
+	}
+
+	return FILE_ERROR_NONE;
+}
+
 void FileManager::set_messages(const bool& onOff) {
 	messages = onOff;
 }
@@ -901,10 +911,12 @@ void FileManager::file_deallocate(Inode* file) {
 		file->blocksOccupied = 0;
 	}
 	if (detailedMessages) {
-		std::sort(freedBlocks.begin(), freedBlocks.end());
-		std::cout << "Zwolniono bloki: ";
-		for (u_int i = 0; i < freedBlocks.size(); i++) { std::cout << freedBlocks[i] << (i < freedBlocks.size() - 1 ? ", " : ""); }
-		std::cout << '\n';
+		if (!freedBlocks.empty()) {
+			std::sort(freedBlocks.begin(), freedBlocks.end());
+			std::cout << "Zwolniono bloki: ";
+			for (u_int i = 0; i < freedBlocks.size(); i++) { std::cout << freedBlocks[i] << (i < freedBlocks.size() - 1 ? ", " : ""); }
+			std::cout << '\n';
+		}
 	}
 }
 
