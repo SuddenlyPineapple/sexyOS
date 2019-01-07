@@ -8,9 +8,12 @@ void PCB::change_state(Process_state x)
 	this->state = x;
 }
 
-void PCB::update()
+void PCB::add_file_to_proc(std::string open_file)
 {
+	this->open_files.push_back(open_file);
 }
+
+
 
 void PCB::Set_PID(int i)
 {
@@ -136,17 +139,60 @@ void proc_tree::fork(PCB *proc,const std::string name, MemoryManager mm, int roz
 			proc->change_state(READY);
 			proc->proces_size = pages * 16;
 
-			;
+			
 		}
 		else {
 			std::cout << "nie znaleziono ojca" << std::endl;
 		}
 
+	}
+
+}
+void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar) {
+	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+
+		proc->PID = free_PID;
+		free_PID++;
+		proc->parent_proc = &this->proc;
+
+		double pages = ceil((double)rozmiar / 16);
+		if (mm.loadProgram(file_name,rozmiar,proc->PID)!=1) {
+			//exit()
+			throw 1;// rzucam cos rzeby funckeje przerwac
+
+		}
+		proc->pageList = mm.createPageList(rozmiar, proc->PID);
+		proc->change_state(READY);
+		proc->proces_size = pages * 16;
+		this->proc.child_vector.push_back(proc);
+		
+
+	}
+	else {
+		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
+			int temp = proc->PID;
 
 
+			proc->parent_proc = this->proc.GET_kid(temp);
+			proc->PID = free_PID;
+			this->proc.GET_kid(temp)->child_vector.push_back(proc);
+			std::cout << " znaleziono ojca" << std::endl;
+			free_PID++;
+			double pages = ceil((double)rozmiar / 16);
+			if (mm.loadProgram(file_name, rozmiar, proc->PID) != 1) {
+				//exit()
+				throw 1;// rzucam cos rzeby funckeje przerwac
 
+			}
+			proc->pageList = mm.createPageList(rozmiar, proc->PID);
+			proc->change_state(READY);
+			proc->proces_size = pages * 16;
 
-
+			
+		}
+		else {
+			std::cout << "nie znaleziono ojca" << std::endl;
+		}
 
 	}
 
@@ -171,13 +217,52 @@ void proc_tree::fork(PCB * proc, const std::string name)
 			std::cout << " znaleziono ojca" << std::endl;
 			free_PID++;
 
-			;
+			
 		}
 		else {
 			std::cout << "nie znaleziono ojca" << std::endl;
 		}
 	}
 
+}
+void proc_tree::fork(PCB * proc, const std::string name, MemoryManager mm, int rozmiar, std::string open_file)
+{
+	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+		
+		proc->PID = free_PID;
+		free_PID++;
+		proc->parent_proc = &this->proc;
+		proc->add_file_to_proc(open_file);
+		double pages = ceil((double)rozmiar / 16);
+		proc->pageList = mm.createPageList(rozmiar, proc->PID);
+		proc->change_state(READY);
+		proc->proces_size = pages * 16;
+		this->proc.child_vector.push_back(proc);
+
+
+	}
+	else {
+		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
+			int temp = proc->PID;
+
+
+			proc->parent_proc = this->proc.GET_kid(temp);
+			proc->PID = free_PID;
+			this->proc.GET_kid(temp)->child_vector.push_back(proc);
+			std::cout << " znaleziono ojca" << std::endl;
+			free_PID++;
+			double pages = ceil((double)rozmiar / 16);
+			proc->pageList = mm.createPageList(rozmiar, proc->PID);
+			proc->change_state(READY);
+			proc->proces_size = pages * 16;
+			proc->add_file_to_proc(open_file);
+			
+		}
+		else {
+			std::cout << "nie znaleziono ojca" << std::endl;
+		}
+
+	}
 }
 void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar) {
 	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
@@ -209,7 +294,7 @@ void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, M
 			proc->change_state(READY);
 			proc->proces_size = pages * 16;
 
-			;
+			
 		}
 		else {
 			std::cout << "nie znaleziono ojca" << std::endl;
@@ -218,7 +303,7 @@ void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, M
 
 }
 
-void proc_tree::fork(PCB * proc, const std::string name, std::string file_name)
+/*void proc_tree::fork(PCB * proc, const std::string name, std::string file_name) tu jest bez mm
 {
 	{
 		if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
@@ -246,7 +331,7 @@ void proc_tree::fork(PCB * proc, const std::string name, std::string file_name)
 			}
 		}
 	}
-}
+}*/
 void proc_tree::fork(PCB * proc, const std::string name, std::vector<std::string> file_names)
 {
 	{
@@ -272,7 +357,7 @@ void proc_tree::fork(PCB * proc, const std::string name, std::vector<std::string
 				std::cout << " znaleziono ojca" << std::endl;
 				free_PID++;
 
-				;
+				
 			}
 			else {
 				std::cout << "nie znaleziono ojca" << std::endl;

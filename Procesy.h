@@ -52,7 +52,7 @@ public:
     void display_allkids();//funkcja która pokazuje dzieci procesu i dzieci dzieci
     void display_allkids(int a);//funkcja pomocnicza do tej wy¿ej
     void change_state(Process_state x);//zmiana stanu procesu
-    void update();//fukncja aktualizujaca dane w procesie (do zrobienia)
+    void add_file_to_proc(std::string open_file)
 
 
 
@@ -61,14 +61,14 @@ public:
 class proc_tree {//klasa pomocniczna inicjujemy j¹ na poczatku konstruktorem domyslny i zawiera systemd czyli g³owny proces (proc_tree Drzewo = proc_tree();)
 public:
     PCB proc;
-	void fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar);//tu fork tworz¹cy z jakiegos pliku do zrobienia jeszce bo nie ogrniam kodu kasperskiego
+	void fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar);//tu fork tworz¹cy z jakiegos pliku 
 	void fork(PCB *proc,const std::string name,MemoryManager mm,int rozmiar); // tu jest funckja tworzaca proces z memory managera takze marcin uzywaj go
     void fork(PCB *proc,
-              const std::string name/*,tutaj memory mangment z przydzielaniem pamieci */ );//dodaje kopieprocesu(dzieciaka) procesu do drzewa
+              const std::string name);//dodaje kopieprocesu(dzieciaka) procesu do drzewa
+    void fork(PCB *proc, const std::string name, MemoryManager mm, int rozmiar,
+              std::string open_file);//to samo co wyzej tylko z nazwa pliku ktory moze otworzyc
     void fork(PCB *proc, const std::string name/*,tutaj memory mangment z przydzielaniem pamieci */,
-              std::string file_name);//to samo co wyzej tylko z nazwa pliku
-    void fork(PCB *proc, const std::string name/*,tutaj memory mangment z przydzielaniem pamieci */,
-              std::vector<std::string> file_names);//to samo co wyzej tylko z vectorem plików
+              std::vector<std::string> file_names);//to samo co wyzej tylko z vectorem plików ktore moze otworzyc
     /*void exit() usuwanie procesów  do zrobieina*/
     void display_tree();//wyswietla cale drzewa
     PCB find_proc(int PID);//znajduje proces
