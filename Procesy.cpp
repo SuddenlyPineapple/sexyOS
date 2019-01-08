@@ -109,17 +109,18 @@ void PCB::display_allkids(int a)
 
 	std::cout << std::endl;
 }
-void proc_tree::fork(PCB *proc,const std::string name, MemoryManager mm, int rozmiar) {
+void proc_tree::fork(PCB *proc,const std::string name, MemoryManager &mm, int rozmiar) {
 	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
-		
+	
 		proc->PID = free_PID;
 		free_PID++;
 		proc->parent_proc = &this->proc;
-		
 		double pages = ceil((double)rozmiar / 16);
 		proc->pageList = mm.createPageList(rozmiar, proc->PID);
 		proc->change_state(READY);
 		proc->proces_size = pages * 16;
+		
+		
 		this->proc.child_vector.push_back(proc);
 
 
@@ -127,7 +128,6 @@ void proc_tree::fork(PCB *proc,const std::string name, MemoryManager mm, int roz
 	else {
 		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
 			int temp = proc->PID;
-
 
 			proc->parent_proc = this->proc.GET_kid(temp);
 			proc->PID = free_PID;
@@ -225,7 +225,7 @@ void proc_tree::fork(PCB * proc, const std::string name)
 	}
 
 }
-void proc_tree::fork(PCB * proc, const std::string name, MemoryManager mm, int rozmiar, std::string open_file)
+/*void proc_tree::fork(PCB * proc, const std::string name, MemoryManager mm, int rozmiar, std::string open_file)
 {
 	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
 		
@@ -263,8 +263,8 @@ void proc_tree::fork(PCB * proc, const std::string name, MemoryManager mm, int r
 		}
 
 	}
-}
-void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar) {
+}*/
+/*void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar) {
 	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
 
 		proc->PID = free_PID;
