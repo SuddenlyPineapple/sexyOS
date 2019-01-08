@@ -43,27 +43,32 @@ void MemoryManager::showMem() {
             std::cout << "Frame no." << i/16 << ": ";
         RAM[i] != ' ' ? std::cout << RAM[i] : std::cout << '-';
     }
+    std::cout << std::endl;
 }
 
 void MemoryManager::showMem(int begin, int bytes) {
     if (begin + bytes > 256) {
-        std::cout << "Error: Number of bytes to display has excced amount of memory!";
+        std::cout << "Error: Number of bytes to display has excced amount of memory! \n";
     } else {
         std::cout << "Displaying physical memory from cell " << begin << " to " << begin + bytes << ":" << std::endl;
         for (int i = begin; i < begin + bytes; i++) {
             if (i != 0 && i % 16 == 0) std::cout << "\n";
             RAM[i] != ' ' ? std::cout << RAM[i] : std::cout << '-';
         }
+        std::cout << std::endl;
     }
 }
 
 void MemoryManager::showPageFile() {
-    for(auto &process : PageFile){
+    std::cout << "-------Page File-------" << std::endl;
+    for(auto process : PageFile){
         std::cout << "PID: " << process.first << "\n";
-        for (auto &page: process.second){
+        //std::cout << "Pages Content:";
+        for (auto page: process.second){
             page.print();
         }
     }
+    std::cout << std::endl;
 }
 
 void MemoryManager::showPageTable(std::vector<PageTableData> *pageList) {
@@ -75,6 +80,7 @@ void MemoryManager::showPageTable(std::vector<PageTableData> *pageList) {
 }
 
 void MemoryManager::showStack() {
+    std::cout << "\nFIFO Stack: ";
     for(auto frame:Stack){
         std::cout << frame << " ";
     }
@@ -121,10 +127,11 @@ std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
         pageList->push_back(PageTableData(false, 0));
 		
     }
+
 	PageFile[PID].emplace_back();
-	
     loadToMemory(PageFile[PID][0], 0, PID, pageList);
 	PageFile[PID].pop_back();
+
     return pageList;
 }
 
