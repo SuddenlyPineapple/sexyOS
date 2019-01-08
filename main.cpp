@@ -47,7 +47,7 @@ int main() {
     Drzewo.fork(new PCB("sadasd",3), "dasdasd");
     Drzewo.display_tree();
     //Drzewo.proc.GET_kid.
-    //Drzewo.display_proc(7);
+    //Drzewo.display_tree(7);
 
     mm.showPageFile();
     mm.showMem();
