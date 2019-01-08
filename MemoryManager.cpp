@@ -116,17 +116,22 @@ void MemoryManager::stackUpdate(int frameID) {
 std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
     double pages = ceil((double)mem/16);
     auto *pageList = new std::vector<PageTableData>();
-
+	
     for(int i = 0; i < pages; i++){
         pageList->push_back(PageTableData(false, 0));
+		
     }
-
+	PageFile[PID].emplace_back();
+	
     loadToMemory(PageFile[PID][0], 0, PID, pageList);
+	PageFile[PID].pop_back();
     return pageList;
 }
 
 int MemoryManager::seekFreeFrame() {
     int seekedFrame = -1;
+	
+
     for(int i = 0; i < Frames.size(); i++){
         if(Frames[i].isFree){
             seekedFrame = i;
@@ -201,6 +206,7 @@ int MemoryManager::loadProgram(std::string path, int mem, int PID) {
 }
 
 int MemoryManager::loadToMemory(MemoryManager::Page page, int pageID, int PID, std::vector<PageTableData> *pageList) {
+	
     int frame = seekFreeFrame();
 
     if(frame == -1)
