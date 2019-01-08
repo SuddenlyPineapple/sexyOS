@@ -2,9 +2,9 @@
 //znaczenie fd(deksryptor)
 //0-koniec do czytania
 //1-koniec do zapisu
-//-1-oznaczenie ze potok nie jest juø potrzebny
-//FD dodaÊ w zarzadzaniu procesami
-//ktos ma pomysl jak oznaczy pipy by interpreter sie nie pomyli≥?
+//-1-oznaczenie ze potok nie jest ju≈º potrzebny
+
+
 
 Pipe::Pipe(PCB& p1, PCB &p2, Pipeline& p) {//konstruktor pipe
 	this->p1 = &p1;
@@ -19,10 +19,10 @@ std::string Pipe::read(size_t rozmiar) {
 	std::string t;//string z wiadomoscia
 	if (p2->FD[1] == 0) {//sprawdzanie czy to odpowiedni koniec rury
 		if (buffer.empty()) {//sprawdzanie czy jest cos w kolejce
-			p2;//zmiana statusu procesu na czekanie bo buffor jest pusty(nie wiem jaka funkcja to zmienia jeszcze)
+			p2->change_state(WAITING);//zmiana na weiting je≈õli pusta kolejka
 		}
 		else {
-			if (rozmiar > buffer.size()) {//wiadomosc d≥uøsza niø romiar buffera
+			if (rozmiar > buffer.size()) {//wiadomosc d≈Çu≈ºsza ni≈º romiar buffera
 				while (buffer.size() > 0) {
 					t.push_back(buffer.front());
 					buffer.pop();
@@ -35,7 +35,8 @@ std::string Pipe::read(size_t rozmiar) {
 				}
 			}
 		}
-	}else if (p2->FD[1] != 0) {//sytuacja jesli jest to z≥y koniec pipa,
+	}
+	else if (p2->FD[1] != 0) {//sytuacja jesli jest to z≈Çy koniec pipa,
 		std::cout << "Nie ta strona rury xD" << std::endl;
 	}
 	return t;
@@ -45,15 +46,15 @@ void Pipe::write(const std::string &wiadomosc) {
 		for (auto x : wiadomosc) {
 			buffer.push(x);
 		}
-		p2;//funkcja zmiany procesu na ready ma tu byÊ
+		p2->change_state(READY);//zmiana na ready po odebraniu wiadomosci
 	}
 	else if (p1->FD[1] != 1) {
 		std::cout << "Nie ten koniec rury xD" << std::endl;
 	}
 }
 void Pipeline::createPipe(PCB &p1, PCB& p2) {//tworzenie
-	for (int i = 0; i < pipes.size(); i++) {//zapisywanie do wektora pipÛw
-		if(pipes[i] == NULL){
+	for (int i = 0; i < pipes.size(); i++) {//zapisywanie do wektora pip√≥w
+		if (pipes[i] == NULL) {
 			Pipe* v = new Pipe(p1, p2, (*this));//na wolnym miejscu
 			pipes[i] = v;
 			p1.FD[0] = i;
