@@ -25,6 +25,7 @@ public:
 
 	//Commands functions declarations
 
+	void go();															//Nastepny krok pracy krokowej
 	void help();														//Wyswietalnie listy poleceń
 	void cp(/*ProcessManager procmem*/);								//Tworzenie procesu
 	void lp(/*ProcessManager procmem*/);								//Lista PCB wszystkich procesów
