@@ -124,8 +124,7 @@ std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
     auto *pageList = new std::vector<PageTableData>();
 	
     for(int i = 0; i < pages; i++){
-        pageList->push_back(PageTableData(false, 0));
-		
+        pageList->emplace_back(PageTableData(false, 0));
     }
 
 	PageFile[PID].emplace_back();

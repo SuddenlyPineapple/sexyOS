@@ -4,12 +4,12 @@
 //#include "Shell.h"
 
 proc_tree Drzewo = proc_tree();
-MemoryManager mm=MemoryManager();
+MemoryManager mm = MemoryManager();
 
 int main() {
 //	Shell shell;
 //	shell.boot();
-	
+
     //MemoryManager memoryManager;
     //memoryManager.memoryInit();
     //memoryManager.showFrames();
@@ -31,6 +31,7 @@ int main() {
     memoryManager.showStack();
     */
 
+    mm.memoryInit();
     mm.showFrames();
     mm.showPageFile();
 
@@ -46,9 +47,12 @@ int main() {
     Drzewo.fork(new PCB("sadasd",3), "dasdasd");
     Drzewo.display_tree();
     //Drzewo.proc.GET_kid.
-    //Drzewo.display_proc(7);
+    //Drzewo.display_tree(7);
 
-
+    mm.showPageFile();
+    mm.showMem();
+    mm.showStack();
+    mm.showPageTable(Drzewo.proc.pageList);
 
     //shell.exit();
     return 0;

@@ -41,14 +41,7 @@ PCB* PCB::GET_kid(unsigned int PID)
 			else if (!kid->child_vector.empty()) {
 				return kid->GET_kid(PID);
 			}
-
-
-
-
-
-
 		}
-
 	}
 
 bool PCB::find_kid(unsigned int PID)
@@ -59,12 +52,6 @@ bool PCB::find_kid(unsigned int PID)
 			if( kid->find_kid(PID))
 				return kid->find_kid(PID);
 		}
-
-
-
-
-
-
 	}
 	return false;
 }
