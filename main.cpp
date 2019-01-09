@@ -1,12 +1,15 @@
 #include <iostream>
 #include "Procesy.h"
 #include "MemoryManager.h"
-#include "Shell.h"
+//#include "Shell.h"
+
+proc_tree Drzewo = proc_tree();
+MemoryManager mm = MemoryManager();
 
 int main() {
-	Shell shell;
-	shell.boot();
-	
+//	Shell shell;
+//	shell.boot();
+
     //MemoryManager memoryManager;
     //memoryManager.memoryInit();
     //memoryManager.showFrames();
@@ -27,6 +30,30 @@ int main() {
     memoryManager.stackUpdate(16);
     memoryManager.showStack();
     */
-	shell.exit();
+
+    mm.memoryInit();
+    mm.showFrames();
+    mm.showPageFile();
+
+    Drzewo.fork(new PCB("kek", 1), "kek",mm, 16);
+    mm.showFrames();
+    mm.showPageFile();
+    Drzewo.fork(new PCB("dsd", 1), "pensadasdis");
+    Drzewo.display_tree();
+    std::cout << "PID " << Drzewo.proc.GET_kid(2)->PID << " nazwa " << Drzewo.proc.GET_kid(2)->process_name << std::endl;
+    Drzewo.fork(new PCB("test dla 2", 2), "test dla 2");
+    Drzewo.display_tree();
+    Drzewo.fork(new PCB("test dla 4", 4), "test dla 4");
+    Drzewo.fork(new PCB("sadasd",3), "dasdasd");
+    Drzewo.display_tree();
+    //Drzewo.proc.GET_kid.
+    //Drzewo.display_tree(7);
+
+    mm.showPageFile();
+    mm.showMem();
+    mm.showStack();
+    mm.showPageTable(Drzewo.proc.pageList);
+
+    //shell.exit();
     return 0;
 }
