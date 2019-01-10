@@ -1,7 +1,7 @@
-MOV AX 5
+MOV A 5
 CP "proc1"
 SP "proc1"
-SM "proc1" AX
-RM "proc1" BX 1
+SM  A
+RM  B 1
 DP "proc1"
 HLT
