@@ -35,7 +35,7 @@ int main() {
     mm.showFrames();
     mm.showPageFile();
 
-    Drzewo.fork(new PCB("kek", 1), "kek",mm, 32);
+    Drzewo.fork(new PCB("kek", 1), "kek", "program1.txt", mm, 100);
     mm.showFrames();
     mm.showPageFile();
     Drzewo.fork(new PCB("dsd", 1), "pensadasdis");
@@ -45,7 +45,7 @@ int main() {
     //Drzewo.display_tree();
     Drzewo.fork(new PCB("test dla 4", 4), "test dla 4");
     Drzewo.fork(new PCB("sadasd",3), "dasdasd");
-    //Drzewo.display_tree();
+    Drzewo.display_tree();
     //Drzewo.proc.GET_kid.
     //Drzewo.display_tree(7);
 

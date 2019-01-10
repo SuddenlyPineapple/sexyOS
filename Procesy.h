@@ -65,7 +65,7 @@ public:
 class proc_tree {//klasa pomocniczna inicjujemy j¹ na poczatku konstruktorem domyslny i zawiera systemd czyli g³owny proces (proc_tree Drzewo = proc_tree();)
 public:
     PCB proc;
-	void fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar);//tu fork tworz¹cy z jakiegos pliku 
+    void fork(PCB *proc, const std::string name, std::string file_name, MemoryManager &mm, int rozmiar);//tu fork tworz¹cy z jakiegos pliku
 	void fork(PCB *proc,const std::string name,MemoryManager &mm,int rozmiar); // tu jest funckja tworzaca proces z memory managera takze marcin uzywaj go
     void fork(PCB *proc,
               const std::string name);//dodaje kopieprocesu(dzieciaka) procesu do drzewa

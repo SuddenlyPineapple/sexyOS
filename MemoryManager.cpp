@@ -30,8 +30,7 @@ MemoryManager::~MemoryManager() = default;
 //------------- Funkcje do wyświetlania bieżących stanów pamięci oraz pracy krokowej  --------------
 void MemoryManager::Page::print() {
     for(auto &x: data){
-        if(!x) std::cout << "#";
-        else if(x == ' ') std::cout << "_";
+        if(x == ' ') std::cout << "_";
         else std::cout << x;
     }
     std::cout << std::endl;
@@ -66,7 +65,7 @@ void MemoryManager::showMem(int begin, int bytes) {
 void MemoryManager::showPageFile() {
     std::cout << "-------Page File-------" << std::endl;
     for(auto process : PageFile){
-        std::cout << "PID: " << process.first << "\n";
+        std::cout << "\n**** PID:" << process.first << " ****\n";
         //std::cout << "Pages Content:";
         for (auto page: process.second){
             page.print();
@@ -135,6 +134,7 @@ std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
     //Załadowanie pierszej stronicy naszego programu do Pamięci RAM
 	PageFile[PID].emplace_back();
     loadToMemory(PageFile.at(PID).at(0), 0, PID, pageList);
+    //PageFile[PID].pop_back();
 
     return pageList;
 }
