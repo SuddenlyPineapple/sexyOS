@@ -36,6 +36,7 @@ int main() {
     mm.showPageFile();
 
     Drzewo.fork(new PCB("kek", 1), "kek", "program1.txt", mm, 100);
+    Drzewo.fork(new PCB("kek", 1), "kek", "program2.txt", mm, 100);
     mm.showFrames();
     mm.showPageFile();
     Drzewo.fork(new PCB("dsd", 1), "pensadasdis");

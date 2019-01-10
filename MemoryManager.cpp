@@ -71,7 +71,6 @@ void MemoryManager::showPageFile() {
             page.print();
         }
     }
-    std::cout << std::endl;
 }
 
 void MemoryManager::showPageTable(std::vector<PageTableData> *pageList) {
@@ -83,7 +82,7 @@ void MemoryManager::showPageTable(std::vector<PageTableData> *pageList) {
 }
 
 void MemoryManager::showStack() {
-    std::cout << "\nFIFO Stack: ";
+    std::cout << "FIFO Stack: ";
     for(auto frame:Stack){
         std::cout << frame << " ";
     }
