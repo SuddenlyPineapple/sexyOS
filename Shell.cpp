@@ -1,11 +1,7 @@
 ﻿#include "Shell.h"
 #include <iostream>
 #include <string>
-#include <algorithm>
-#include <stdio.h>
-#include <ctype.h>
-#include "MemoryManager.h"
-#include "MemoryManager.cpp"
+
 Shell::Shell()
 {
 	bool status;
