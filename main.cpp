@@ -7,8 +7,8 @@ proc_tree Drzewo = proc_tree();
 MemoryManager mm = MemoryManager();
 
 int main() {
-//	Shell shell;
-//	shell.boot();
+    //Shell shell;
+    //shell.boot();
 
     //MemoryManager memoryManager;
     //memoryManager.memoryInit();
@@ -35,22 +35,24 @@ int main() {
     mm.showFrames();
     mm.showPageFile();
 
-    Drzewo.fork(new PCB("kek", 1), "kek",mm, 16);
+    Drzewo.fork(new PCB("kek", 1), "kek",mm, 32);
     mm.showFrames();
     mm.showPageFile();
     Drzewo.fork(new PCB("dsd", 1), "pensadasdis");
-    Drzewo.display_tree();
-    std::cout << "PID " << Drzewo.proc.GET_kid(2)->PID << " nazwa " << Drzewo.proc.GET_kid(2)->process_name << std::endl;
+    //Drzewo.display_tree();
+    //std::cout << "PID " << Drzewo.proc.GET_kid(2)->PID << " nazwa " << Drzewo.proc.GET_kid(2)->process_name << std::endl;
     Drzewo.fork(new PCB("test dla 2", 2), "test dla 2");
-    Drzewo.display_tree();
+    //Drzewo.display_tree();
     Drzewo.fork(new PCB("test dla 4", 4), "test dla 4");
     Drzewo.fork(new PCB("sadasd",3), "dasdasd");
-    Drzewo.display_tree();
+    //Drzewo.display_tree();
     //Drzewo.proc.GET_kid.
     //Drzewo.display_tree(7);
 
-    mm.showPageFile();
+
+    mm.showFrames();
     mm.showMem();
+    mm.showPageFile();
     mm.showStack();
     mm.showPageTable(Drzewo.proc.pageList);
 

@@ -30,18 +30,22 @@ MemoryManager::~MemoryManager() = default;
 //------------- Funkcje do wyświetlania bieżących stanów pamięci oraz pracy krokowej  --------------
 void MemoryManager::Page::print() {
     for(auto &x: data){
-        std::cout << x;
+        if(!x) std::cout << "#";
+        else if(x == ' ') std::cout << "_";
+        else std::cout << x;
     }
     std::cout << std::endl;
 }
 
 void MemoryManager::showMem() {
+    std::cout << "RAM - PHYSICAL FRAMES CONTENT: \n";
+    std::cout << "First bit: 0 ->\t0123456789012345 -> 15 :last bit in frame\n";
     for(int i = 0; i < 256; i++){
         if(i%16 == 0 && i!=0)
-            std::cout << "\nFrame no." << i/16 << ": ";
+            std::cout << "\nFrame no." << i/16 << ": \t";
         else if(i%16 == 0)
-            std::cout << "Frame no." << i/16 << ": ";
-        RAM[i] != ' ' ? std::cout << RAM[i] : std::cout << '-';
+            std::cout << "Frame no." << i/16 << ": \t";
+        RAM[i] != ' ' ? std::cout << RAM[i] : std::cout << '#';
     }
     std::cout << std::endl;
 }
@@ -88,6 +92,7 @@ void MemoryManager::showStack() {
 }
 
 void MemoryManager::showFrames() {
+    std::cout << "FRAMES INFO: \n";
     std::cout << "\t\tFREE \tPAGE \tPID " << std::endl;
     int i = 0;
     for(auto &frame : Frames){
@@ -127,9 +132,9 @@ std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
         pageList->emplace_back(PageTableData(false, 0));
     }
 
+    //Załadowanie pierszej stronicy naszego programu do Pamięci RAM
 	PageFile[PID].emplace_back();
-    loadToMemory(PageFile[PID][0], 0, PID, pageList);
-	PageFile[PID].pop_back();
+    loadToMemory(PageFile.at(PID).at(0), 0, PID, pageList);
 
     return pageList;
 }
@@ -282,6 +287,7 @@ std::string MemoryManager::get(PCB *process, int LADDR) {
 }
 
 int MemoryManager::write(PCB *process, int adress, std::string data) {
+
     if(data.size() == 0) return 1;
 
     if(adress + data.size() - 1 > process->pageList->size() * 16 - 1 || adress < 0){
@@ -292,7 +298,7 @@ int MemoryManager::write(PCB *process, int adress, std::string data) {
     int pageID;
     for(int i = 0; i < data.size(); i++){
         pageID = (adress+i)/16;
-        if(!process->pageList->at(pageID).bit)
+        if(process->pageList->at(pageID).bit == 0)
             loadToMemory(PageFile[process->PID][pageID], pageID, process->PID, process->pageList);
         RAM[process->pageList->at(pageID).frame * 16 + adress + i - (16 * pageID)] = data[i];
         

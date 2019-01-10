@@ -54,6 +54,7 @@ class MemoryManager {
         //------------- Plik stronicowania -------------
         // map < PID procesu, Stronice danego procesu>
         std::map<int, std::vector<Page>> PageFile;
+        //std::vector<std::pair<int, std::vector<Page>>> PageFile;
 
         //------------- Stos ostatnio używanych ramek (Least Recently Used Stack) -------------
         //Stos dzięki, którem wiemy, która ramka jest najdłużej w pamięci i którą ramkę możemy zastąpić
@@ -110,14 +111,14 @@ class MemoryManager {
 
         //Pobiera rozkaz z danego adresu
         /* PCB *process - wskaźnik do PCB danego procesu
-         * int LADDR - adres logiczny
+         * int LADDR - adres logiczny z którego chcemy pobrać wartość
          */
         std::string get(PCB *process, int LADDR);
 
         //Zapisuje dany fragment do pamięci
         /* *process - wskaźnik do PCB danego procesu
-         * adress - adres logiczny w pamięci
-         * data - dane do zapisania w pamięci
+         * adress - adres logiczny w pamięci na którym chemy coś zapisać
+         * data - dane do zapisania w pamięci - np. dane z rejestru
          */
         int write(PCB *process, int adress, std::string data);
 
