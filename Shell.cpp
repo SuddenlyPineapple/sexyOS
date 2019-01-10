@@ -16,6 +16,8 @@ Shell::~Shell() {}
 
 //Shell work functions
 
+
+
 void Shell::execute(/*Interpreter inter,....., ProcessManager procmem*/) {
 
 	if (parsed[0] == "help")					//Wyswietalnie listy poleceń
@@ -40,26 +42,32 @@ void Shell::execute(/*Interpreter inter,....., ProcessManager procmem*/) {
 
 	else if (parsed[0] == "cf")					//Utworzenie pliku
 	{
-		cf(/*hdd)*/);
+		cf();
 	}
 
 	else if (parsed[0] == "df")					//Usunięcie pliku
 	{
-		df(/*hdd)*/);
+        df();
 	}
 
 	else if (parsed[0] == "ld")					//Listowanie zawartości wskazanego bloku dyskowego
 	{
-		ld(/*hdd)*/);
+        ld();
 	}
 	else if (parsed[0] == "exit")				//Kończenie pracy
 	{
 		exit();
 	}
+	else if(parsed[0]==""){
+		go();
+	}
 	else
 		cout << "Command not found! Type \"help\" for more information" << endl;
 }
 
+void Shell::go(){
+		cout << "Nastepny krok" << endl; //to tylko pomocnicze, poki nie ma menadzera procesow
+}
 
 void Shell::parse() //Parsowanie
 {
@@ -157,7 +165,7 @@ void Shell::cf/*HDD hdd*/() //Utworzenie pliku
 {
 	if (parsed.size() == 2)
 	{
-		FileManager.file_create(parsed[1]);
+		file_write(parsed[1]);
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }
@@ -166,7 +174,7 @@ void Shell::df(/*HDD hdd*/) //Usunięcie pliku
 {
 	if (parsed.size() == 2) 
 	{
-		FileManager.file_delete(parsed[1]);
+		file_delete(parsed[1]);
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }
@@ -175,7 +183,7 @@ void Shell::ld(/*HDD hdd*/) //Listowanie zawartości wskazanego bloku dyskowego
 {
 	if (parsed.size() == 2)
 	{
-		FileManager.display_block(parsed[1]);
+		display_root_directory_info();
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }

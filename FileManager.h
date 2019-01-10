@@ -31,9 +31,9 @@
 */
 
 //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
-#define OPEN_R_MODE  std::bitset<2>{ "10" }
-#define OPEN_W_MODE  std::bitset<2>{ "01" }
-#define OPEN_RW_MODE std::bitset<2>{ "11" }
+#define OPEN_R_MODE  2 //2
+#define OPEN_W_MODE  1 //1
+#define OPEN_RW_MODE 3 //3
 
 //Do u¿ycia przy obs³udze b³êdów
 #define FILE_ERROR_NONE 0
@@ -242,7 +242,7 @@ public:
 		@param mode Tryb dostêpu do pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_open(const std::string& name, const std::bitset<2>& mode);
+	int file_open(const std::string& name, const unsigned& mode);
 
 	/**
 		Zamyka plik o podanej nazwie.

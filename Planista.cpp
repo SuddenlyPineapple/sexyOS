@@ -10,12 +10,17 @@ class Planista {
 private:
 	std::list<PCB> WaitingPCB;
 	std::list<PCB>::iterator Rpcb, Wpcb;
+	unsigned char trial = 0;
 public:
 	std::list<PCB> ReadyPCB;
 	Planista() {}
 	~Planista() {}
 
 	void Check() {
+		trial++;
+		if (trial == 5) {
+			trial = 0;
+		}
 		for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); Rpcb++) {
 			if (Rpcb->state == TERMINATED) {
 				Rpcb = ReadyPCB.erase(Rpcb);
@@ -25,7 +30,6 @@ public:
 				Rpcb = WaitingPCB.erase(Rpcb);
 			}
 			else {
-			//	MakeOlder(Rpcb);
 				SetPriority(*Rpcb);
 			}
 		}
@@ -36,30 +40,27 @@ public:
 
 			}
 		}
-	}
-	void MakeOlder(std::list<PCB>::iterator &proces) {
-
+		SortReadyPCB();
 	}
 	void AddProces(PCB Proces) {
-		bool x=0;
-//		SetPriority(Proces);
-		if(Proces.state == READY){
+		bool x = 0;
+		if (Proces.state == READY) {
 			if (ReadyPCB.size() == 0) {
 				ReadyPCB.push_back(Proces);
 			}
 			else {
 				for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); Rpcb++) {
-					if (Proces.priority > Rpcb->priority) {							//   <><><> CO KURWA MA BYC
+					if (Proces.priority > Rpcb->priority) {
 						ReadyPCB.insert(Rpcb, Proces);
-						if (Rpcb==ReadyPCB.begin()) {								// jesli proces bêdzie na 1 miejscu
-							WywlaszczeniePCB = 1;									// flaga i prze³adowanie kontekstu
+						if (Rpcb == ReadyPCB.begin()) {								// jesli proces bÄ™dzie na 1 miejscu
+							WywlaszczeniePCB = 1;									// flaga i przeÅ‚adowanie kontekstu
 						}
 						x = 1;
 						break;
 					}
 				}
 				if (x == 0) {
-					ReadyPCB.push_back(Proces); 
+					ReadyPCB.push_back(Proces);
 				}
 			}
 		}
@@ -79,22 +80,36 @@ public:
 			}
 		}
 	}
-	void SetPriority(PCB &Proces) {
-/*		if (Proces.last_counter == 0) {
-			float LogRozmiar = log(Proces.proces_size);
-			//int IO = 0;																// jak okreœliæ na wstêpie iloœæ operacji wejscia/wyjscia? 
-			Proces.priority = 20 - LogRozmiar / 2; // (IO + LogRozmiar / 2);                // dopisaæ obliczanie od rozmiaru i iloœæ I/O
+	void SortReadyPCB() {
+		bool x;
+		for (int i = 0; i < ReadyPCB.size(); i++) {
+			x = 0;
+			Wpcb = ReadyPCB.begin();
+			Wpcb++;
+			for (Rpcb = ReadyPCB.begin(); Wpcb != ReadyPCB.end(); Rpcb++, Wpcb++) {
+				if (Rpcb->priority > Wpcb->priority) {
+					std::swap(*Rpcb, *Wpcb);
+					x = 1;
+				}
+			}
+			if (x == 0) {
+				break;
+			}
 		}
-		else {
-*/			float x = 0;
-			if (Proces.last_counter == 0) { 
-				Proces.last_counter++; 
-			}
-			if (Proces.comand_counter != 0) { 
-				Proces.last_counter = Proces.comand_counter - Proces.last_counter; 
-			}
-			x = (4 * Proces.priority + 4*log(Proces.last_counter)) / 4;
-			Proces.priority = (int)x;
-//		}
+	}
+
+	void SetPriority(PCB &Proces) {   // TO jeszcze do poprawy
+		float x = 0;
+		if (Proces.comand_counter != 0) {
+			Proces.last_counter = Proces.comand_counter - Proces.last_counter;
+		}
+		if (Proces.last_counter > 0) {
+			x = (4 * Proces.priority + log(Proces.last_counter)) / 5;
+		}
+		Proces.priority = (int)x;
+		if (Proces.priority >= 10) {
+			Proces.priority = 9;
+		}
+		Proces.last_counter = Proces.comand_counter;
 	}
 };

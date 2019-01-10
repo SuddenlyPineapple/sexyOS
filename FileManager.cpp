@@ -33,8 +33,9 @@ std::ostream& operator << (std::ostream& os, const std::vector<std::string>& str
 	return os;
 }
 std::ostream& operator << (std::ostream& os, const tm& time) {
-	os << time.tm_hour << ':' << std::setfill('0') << std::setw(2) << time.tm_min << ' ' << std::setfill('0') << std::setw(2) << time.tm_mday << '.'
-		<< std::setfill('0') << std::setw(2) << time.tm_mon << '.' << time.tm_year;
+	os << time.tm_hour << ':' << std::setfill('0') << std::setw(2) << time.tm_min
+	   << ' ' << std::setfill('0') << std::setw(2) << time.tm_mday << '.'
+	   << std::setfill('0') << std::setw(2) << time.tm_mon << '.' << time.tm_year;
 	return os;
 }
 bool operator == (const tm& time1, const tm& time2) {
@@ -478,8 +479,9 @@ int FileManager::file_delete(const std::string& name) {
 	}
 }
 
-int FileManager::file_open(const std::string& name, const std::bitset<2>& mode) {
+int FileManager::file_open(const std::string& name, const unsigned& mode) {
 	Inode* inode;
+	std::bitset<2>mode_(2);
 
 	//Czêœæ sprawdzaj¹ca
 	{
@@ -497,11 +499,11 @@ int FileManager::file_open(const std::string& name, const std::bitset<2>& mode) 
 
 	//Czêœæ dzia³aj¹ca
 	{
-		accessedFiles[name] = FileIO(&disk, inode, mode);
+		accessedFiles[name] = FileIO(&disk, inode, mode_);
 
 		if (messages) {
-			std::cout << "Otwarto plik o nazwie '" << name << " w trybie" << (mode[1] || mode[0] ? " " : "")
-				<< (mode[1] ? "R" : "") << (mode[0] ? "W" : "") << ".\n";
+			std::cout << "Otwarto plik o nazwie '" << name << " w trybie" << (mode_[1] || mode_[0] ? " " : "")
+				<< (mode_[1] ? "R" : "") << (mode_[0] ? "W" : "") << ".\n";
 		}
 		return FILE_ERROR_NONE;
 	}

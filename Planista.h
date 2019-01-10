@@ -4,20 +4,22 @@
 #include <list>
 #include <vector>
 
-//						Zak³adam, ¿e proces bêdzie mia³ priorytet z zakresu 1 - 10, przy czym pocz¹tkowy wynosi 5
+//						Zakï¿½adam, ï¿½e proces bï¿½dzie miaï¿½ priorytet z zakresu 1 - 10, przy czym poczï¿½tkowy wynosi 5
 
 class Planista {
 private:
 	std::list<PCB> WaitingPCB;
 	std::list<PCB>::iterator Rpcb, Wpcb;
+	unsigned char trial;
 public:
+	std::list<PCB> ReadyPCB;
 	Planista() {}
 	~Planista() {}
-	std::list<PCB> ReadyPCB;
+	void Check(){}
 	void AddProces(PCB &Proces){}
 	void RemoveProces(PCB &Proces){}
+	void SortReadyPCB(){}
 	void SetPriority(PCB &Proces){}
-	void Check(){}
 };
 
 
@@ -38,7 +40,7 @@ public:
 	unsigned int proces_size;//rozmiar procesu w stronicach(chyba).
 	int A, B, C, D;//Rejestry dla interpretera
 	std::vector<std::string> open_files;//otwarte plik
-	int comand_counter;//licznik rozkazów
+	int comand_counter;//licznik rozkazï¿½w
 	int priority;//priorytet tu mo?e bya jeszcze wirtualny ale nwm czy nasza grupa musi go miea(wirtualny priorytet)
 	int last_counter;
 	PCB() {//kontruktor dla systemd
@@ -63,7 +65,7 @@ public:
 	PCB *GET_kid(unsigned int PID);// funckja pomocnicza do znalezienia procesu po PID
 	bool find_kid(unsigned int PID);
 
-	void display_allkids();//funkcja która pokazuje dzieci procesu i dzieci dzieci
+	void display_allkids();//funkcja ktï¿½ra pokazuje dzieci procesu i dzieci dzieci
 	void display_allkids(int a);//funkcja pomocnicza do tej wy?ej
 	void change_state(Process_state x);//zmiana stanu procesu
 	void update();//fukncja aktualizujaca dane w procesie (do zrobienia)
