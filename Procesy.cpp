@@ -135,15 +135,14 @@ void proc_tree::fork(PCB *proc,const std::string name, MemoryManager &mm, int ro
 	}
 
 }
-void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar) {
+void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, MemoryManager &mm, int rozmiar) {
 	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
-
 		proc->PID = free_PID;
 		free_PID++;
 		proc->parent_proc = &this->proc;
 
 		double pages = ceil((double)rozmiar / 16);
-		if (mm.loadProgram(file_name,rozmiar,proc->PID)!=1) {
+		if ( mm.loadProgram( file_name,rozmiar,proc->PID ) == -1 ) {
 			//exit()
 			throw 1;// rzucam cos rzeby funckeje przerwac
 
@@ -152,8 +151,6 @@ void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, M
 		proc->change_state(READY);
 		proc->proces_size = pages * 16;
 		this->proc.child_vector.push_back(proc);
-		
-
 	}
 	else {
 		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
