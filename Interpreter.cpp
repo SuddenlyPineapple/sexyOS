@@ -1,130 +1,173 @@
 #include "interpreter.h"
-#include <iostream>
-#include <string>
 #include "FileManager.h"
-#include "Procesy.h"
 #include "MemoryManager.h"
+#include "Procesy.h"
+#include <iostream>
+#include <map>
 
 
 //				Uwagi:
-//JMP I JZ nwm,jednak mam zle chyba, moze to kogos innego
-//pamietaj by usunac kiedys te komentarze.
-//W plikach dales wszedzie rej zamiast wlasciwego stringa nazwy. Nieladnie.
+// pamietaj by usunac kiedys te komentarze.
+// chyba bede musial zmienic niektore nazwy rozkazow w tych ifach, by byly 2literowe.
+// gdy polacze sie z memorymanager, pewnie strace dane o tym, ktory to bajt i czy ostatni w rozkazie, wiec UWAGA!
 
 
-// chyba bede musial zmienic niektore nazwy rozkazow w tych ifach, bo asembler to nie asembler najwyrazniej. bucholc mnie takich rozkazow nauczyl jakie mam teraz, a nie jakies dziwne 2literowe,nie wiadomo skad, no bo w sumie to o co chodzi, po co zmieniac nazwy rozkazow? Jest jeden asembler po co tak konfudowac ludzi? No Bambo to pewnie bedzie chcial te dziwne, bo on sam jest dziwny i w ogole co ja mam dac na tej prezentacji, no bo sory, ale on nie dal mi zadnych materialow. Nie wiem co mam jeszcze napisac, by bylo smiesznie, ze jest taki dlugi komentarz. Na co mam jewszcze narzekac? A niewazne, i tak juz jest chyba wystarczajaco dlugi, nie? no dobra, juz koncze. xoxo
+int bajtRAM = 0; //miejsce bajtu w procesie
+
+//Mapa pocz¹tków instrukcji
+//Klucz	  - numer rozkazu
+//Wartoœæ - adres pierwszego bajtu rozkazu
+std::map<int, int> poczatkiRozkazow;
+
+Interpreter::Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_) : fileManager(fileManager_),
+memoryManager(memoryManager_), tree(tree_), A(0), B(0), C(0), D(0) {}
+
+std::array<std::string, 3> Interpreter::rozdziel_rozkaz(const std::string& rozkazCaly)
+{
+	std::string temp;
+	std::array<std::string, 3> wynik;
+	unsigned int pozycjaWyniku = 0;
+
+	for (const char& c : rozkazCaly)
+	{
+		if (c != ' ')
+		{
+			temp += c;
+		}
+		else
+		{
+			wynik[pozycjaWyniku] = temp;
+			temp.clear();
+			pozycjaWyniku++;
+		}
+	}
+	return wynik;
+}
+
 void Interpreter::rejestr_rozkaz()
 {
-	rozkaz = "XW";//memoryManager.GET(&tree.proc, interpreter.licznik_rozkazow);
-std::cout <<"rozkaz = "<< rozkaz;
+	std::cout << "Rozkaz: " << rozkazCaly;
 
-A = tree.proc.A;
-B = tree.proc.B;
-C = tree.proc.C;
-D = tree.proc.D;
+	A = tree->proc.A;
+	B = tree->proc.B;
+	C = tree->proc.C;
+	D = tree->proc.D;
 
-licznik_rozkazow = tree.proc.comand_counter;
 
+	licznik_rozkazow = tree->proc.comand_counter;
 }
 
 
-void Interpreter::stan_rejestrow()
+void Interpreter::stan_rejestrow() const
 {
-	std::cout << "\nA: " << A << "\nB: " << B << "\nC: " << C << "\nD: " << D <<"\nilosc rozkazow: "<<licznik_rozkazow<< "\n\n";
+	std::cout << "\nA: " << A << "\nB: " << B << "\nC: " << C << "\nD: " << D << "\nilosc rozkazow: " << licznik_rozkazow << "\n\n";
 }
 
-
-void Interpreter::wykonanie_programu()
+bool Interpreter::wykonanie_rozkazu()
 {
-	rejestr_rozkaz();
+
+	std::cout << "BajtRAM: " << bajtRAM << '\n';
+	std::cout << "Licznik rozkazow: " << licznik_rozkazow << '\n';
+	rozkazCaly = memoryManager->get((tree->proc.GET_kid(2)), bajtRAM);
+	poczatkiRozkazow[licznik_rozkazow] = bajtRAM;
+
+	std::cout << "Caly rozkaz: " << rozkazCaly << '\n';
+	rozkazCaly += ' ';
+	bajtRAM += rozkazCaly.length(); //+1 bo œrednik jeszcze
+	std::array<std::string, 3> rozkazCzesci = rozdziel_rozkaz(rozkazCaly);
+	const std::string rozkaz = rozkazCzesci[0];
+
+	//rejestr_rozkaz();
+	liczba = -1; adres = -1;
 	licznik_rozkazow++;
-
-	std::string rej = memoryManager.RAM;
-	std::cout <<"\nRAM "<< rej;
-	if (rej.size() < 1)		rej = "0";
-
 	std::string nazwa; //nazwa pliku
-	int *rej1;	rej1 = &A;
-	int *rej2;	rej2 = rej1;
 
-	
-	
+	int *rej1 = &A;
+	int *rej2 = rej1;
 
-	//zamiana na rozkaz i rejestr chcialem adres zrobic, ale chyba mi nie wyszlo :(																							tak jak wszystko w zyciu D:
-	/*if (rej[1] == ' ')
-	{
-		int temp = rej[0];
-		rej.erase(rej.begin(), rej.begin() + 2);
+	nazwa = "dzialaj";
 
-		if (rej == "A")
-			rej2 = &A;
-		else if (rej == "B")
-			rej2 = &B;
-		else if (rej == "C")
-			rej2 = &C;
-		else if (rej == "D")
-			rej2 = &D;
-		else if (rej[0] == '[')
+
+	//Wpisywanie wartoœci do rej1 (pierwszy wyraz rozkazu)
+	if (!rozkazCzesci[1].empty()) {
+		if (rozkazCzesci[1] == "A")
+			rej1 = &A;
+		else if (rozkazCzesci[1] == "B")
+			rej1 = &B;
+		else if (rozkazCzesci[1] == "C")
+			rej1 = &C;
+		else if (rozkazCzesci[1] == "D")
+			rej1 = &D;
+		else if (rozkazCzesci[1][0] == '[')
 		{
-			rej.erase(rej.begin());rej.erase(rej.end());//nie wiem, czy to...
-			adres = std::stoi(rej);		
-			std::cout << adres;
+			rozkazCzesci[1].erase(0);
+			rozkazCzesci[1].pop_back();
+			adres = std::stoi(rozkazCzesci[1]);
 		}
-		else liczba = std::stoi(rej);
-
-
-		rej = temp;
+		else if (rozkazCzesci[1][0] == '"')
+		{
+			rozkazCzesci[1].erase(0);
+			rozkazCzesci[1].pop_back();
+			nazwa = rozkazCzesci[1];
+		}
+		else liczba = std::stoi(rozkazCzesci[1]);
 	}
 
-	if (rej == "A")
-		rej1 = &A;
-	else if (rej == "B")
-		rej1 = &B;
-	else if (rej == "C")
-		rej1 = &C;
-	else if (rej == "D")
-		rej1 = &D;
-	else liczba = std::stoi(rej);*/
+	//Wpisywanie wartoœci do rej2 (drugi wyraz rozkazu)
+	if (!rozkazCzesci[2].empty()) {
+		if (rozkazCzesci[2] == "A") rej2 = &A;
+		else if (rozkazCzesci[2] == "B") rej2 = &B;
+		else if (rozkazCzesci[2] == "C") rej2 = &C;
+		else if (rozkazCzesci[2] == "D") rej2 = &D;
+		else if (rozkazCzesci[2] == "R") *rej2 = OPEN_R_MODE;
+		else if (rozkazCzesci[2] == "W") *rej2 = OPEN_W_MODE;
+		else if (rozkazCzesci[2] == "RW") *rej2 = OPEN_RW_MODE;
+		else if (rozkazCzesci[2][0] == '[')
+		{
+			rozkazCzesci[2].erase(0);
+			rozkazCzesci[2].pop_back();
+			adres = std::stoi(rozkazCzesci[2]);
+		}
+		else if (rozkazCzesci[2][0] == '"')
+		{
+			rozkazCzesci[2].erase(0);
+			rozkazCzesci[2].pop_back();
+			nazwa = rozkazCzesci[2];
+		}
+		else liczba = std::stoi(rozkazCzesci[2]);
+	}
 
-
-	
-
-
-
-
-
+	//Rozkazy arytmetyczne
 	if (rozkaz == "ADD")
 	{
-		if (liczba == 0)
+		if (liczba == -1)
 			*rej1 += *rej2;
 		else
 			*rej1 += liczba;
 	}
 	else if (rozkaz == "SUB")
 	{
-		if (liczba == 0)
+		if (liczba == -1)
 			*rej1 -= *rej2;
 		else
 			*rej1 -= liczba;
 	}
 	else if (rozkaz == "MUL")
 	{
-		if (liczba == 0)
+		if (liczba == -1)
 			*rej1 *= *rej2;
 		else
 			*rej1 *= liczba;
 	}
 	else if (rozkaz == "DIV")
 	{
-		if (liczba == 0)
+		if (liczba == -1)
 			*rej1 /= *rej2;
+		else if (liczba == 0)
+			std::cout << "nie wykonano rozkazu, dzielenie przez 0\n";
 		else
 			*rej1 /= liczba;
 	}
-
-
-
-
 	else if (rozkaz == "MOV")
 	{
 		if (liczba == 0)
@@ -141,45 +184,43 @@ void Interpreter::wykonanie_programu()
 		(*rej1)--;
 	}
 
-
-
-
+	//Rozkazy pamiêæ RAM
 	else if (rozkaz == "MW") {}//memory write
-	else if (rozkaz == "MR") 
+	else if (rozkaz == "MR")
 	{
-		memoryManager.showMem();
+		memoryManager->showMem();
 	}//memory read
 
-
-
-
+	//Rozkazy skoki
 	else if (rozkaz == "JMP")
 	{
-		//i = liczba;
+		licznik_rozkazow = adres;
+		bajtRAM = poczatkiRozkazow[licznik_rozkazow];
 	}
-	else if (rozkaz == "JNZ") //jump if not zero , skok wzarunkowy
+	else if (rozkaz == "JZ") //jump if zero , skok warunkowy
 	{
-		//if (rej1 != 0)
-			//i = liczba;
+		if (*rej1 == 0)
+		{
+			licznik_rozkazow = adres;
+			bajtRAM = poczatkiRozkazow[licznik_rozkazow];
+		}
 	}
 
 
-
-	//norberto potoki
+	//Rozkazy potoki
 	else if (rozkaz == "SP") //stworz potok
 	{
-		//createpipe(tree.find_proc(rej1),tree.find_proc(rej2));//dziecko rodzic, rodzic dziecko
+		//createpipe(tree->find_proc(rej1),tree->find_proc(rej2));//rodzic,dziecko  
 	}
 	else if (rozkaz == "UP") //usun potok
 	{
-		//int id = std::stoi(memoryManager.GET(tree.proc,licznik_rozkazow));
-		//deletePipe(tree.Get_process(id));
+		//int id = std::stoi(memoryManager->GET(tree->proc,licznik_rozkazow));
+		//deletePipe(tree->Get_process(id));
 	}
-	
 	else if (rozkaz == "SM")//send message 
 	{
 		/*PCB p1;
-		p1 = tree.Get_process_1(rej1);
+		p1 = tree->Get_process_1(rej1);
 		if (p1.Descriptor[0] >= 0)
 		{
 			pipeline.pipes[p1.Descriptor[0]]->write(rej2);
@@ -189,7 +230,6 @@ void Interpreter::wykonanie_programu()
 			std::cout << "Proces nie przypisany do potoku" << std::endl;
 		}*/
 	}
-
 	else if (rozkaz == "RM") //read message 
 	{
 		/*int dlugosc;
@@ -200,7 +240,7 @@ void Interpreter::wykonanie_programu()
 		adr = stoi(adres);
 		dlugosc = stoi(pobierzRozkaz(mm, pcb));
 		PCB p1;
-		p1 = tree.Get_process_1(rej2);
+		p1 = tree->Get_process_1(rej2);
 		if (p1.Descriptor[0] >= 0)
 		{
 			rej1 = pipeline.pipes[p1.Descriptor[0]]->read(dlugosc);
@@ -220,85 +260,84 @@ void Interpreter::wykonanie_programu()
 		}
 		StanRej();
 		zapiszRejestry(pcb);*/
-	} 
+	}
 
-
-
-
-	else if (rozkaz == "CLS") { system("cls"); }
-	
-	
+	//Rozkazy wyœwietlanie
 	else if (rozkaz == "DSD") //wypisz dysk
 	{
-		fileManager.DisplayBitVector();
-		fileManager.DisplayDiskContentChar();
-	} 
-
-
-
-	//pliki
-	else if (rozkaz == "CF")// stworzenie pliku
-	{
-		fileManager.FileCreate(nazwa);//nazwa i dane
-	}
-	else if (rozkaz == "FO")// otwarcie pliku, ma flage ze jest otwarty
-	{
-	if (!fileManager.FileOpen(nazwa))
-		std::cout << "teorzenie pliku o nazwie";
-		
-	}
-	else if (rozkaz == "FW")//zapisz do pliku
-	{
-		fileManager.FileWriteData(nazwa,std::to_string(*rej1));//nazwa pliku i caly program w stringu
-	}
-	else if (rozkaz == "FC")//ZAMKNIJ plik
-	{
-		fileManager.FileClose(nazwa);//nazwa pliku 
-	}
-	else if (rozkaz == "FR")//CZYTANIE Z PLIKU
-	{
-		*rej1 = std::stoi(fileManager.FileReadData(nazwa));//nazwa pliku 
+		fileManager->display_bit_vector();
+		fileManager->display_disk_content_char();
 	}
 
+	//Rozkazy pliki
+	else if (rozkaz == "MF")// stworzenie pliku
+	{
+		fileManager->file_create(nazwa);//nazwa
+	}
+	else if (rozkaz == "OF") // otwarcie pliku, ma flage ze jest otwarty
+	{
+		if(nazwa == "R") {  }
+		if (fileManager->file_open(nazwa, *rej2) != FILE_ERROR_NONE) {
+			std::cout << "Blad!\n";
+		}
+	}
+	else if (rozkaz == "WF")//nadpisz do pliku
+	{
+		fileManager->file_write(nazwa, std::to_string(*rej2));//nazwa pliku i caly program w stringu
+	}
+	else if (rozkaz == "AF")//dopisz do pliku
+	{
+		fileManager->file_append(nazwa, std::to_string(*rej2));//nazwa pliku i caly program w stringu
+	}
+	else if (rozkaz == "CF")//ZAMKNIJ plik
+	{
+		fileManager->file_close(nazwa);//nazwa pliku 
+	}
+	else if (rozkaz == "RF")//CZYTANIE Z PLIKU
+	{
+		std::string temp;
+		std::cout << "\nkod bledu: " << fileManager->file_read_all(nazwa, temp);//nazwa pliku, string do zapisu
+		std::cout << "\na prog to " << temp;
+		//*rej2 = std::stoi(temp);
+	}
 
-
-	//pamiec
-	else if (rozkaz == "CP") {} //czytaj pamiec/potok?
+	//Rozkazy pamiêæ
 	else if (rozkaz == "PP") {} //pokaz pamiec
 
-
-
-	//procesy
+	//Rozkazy procesy
 	else if (rozkaz == "TP") //wyswietlanie drzewa procesow		
 	{
-		tree.display_tree();
+		tree->display_tree();
 	}
 	else if (rozkaz == "CP") //tworzenie procesu
 	{
-		tree.fork(new PCB("proces1", 1), "proces1");
+		tree->fork(&tree->proc, nazwa, *memoryManager, tree->proc.proces_size);//Pid rodzica,nazwa dziecka,rozmiar programu rodzica
 	}
 	else if (rozkaz == "DP") //zabijanie procesu
 	{
-		tree.fork(new PCB("proces1", 1), "proces1"); // nope chyba
+		tree->fork(new PCB("proces1", 1), "proces1"); // nope chyba
 	}
 
+	//Rozkaz koniec procesu
+	else if (rozkaz == "HLT") { return false; }
 
-
-	else if (rozkaz == "HLT") {}// koniec procesu
-
-
-
-
-	else { std::cout << "error\n";  }
+	//B³¹d
+	else { std::cout << "error\n"; }
 
 
 	//teraz zapisz rejestry
-	/*pcb.PID = PID;
-		pcb.Reg1 = rejA;
-		pcb.Reg2 = rejB;
-		pcb.Reg3 = rejC;
-		pcb.Reg4 = rejD;
-		pcb.Command_counter = liczRoz;
-		pcb.CPU += liczRoz;  */
+	PCB* runningProc = tree->proc.GET_kid(2);
+	runningProc->A = A;
+	runningProc->B = B;
+	runningProc->C = C;
+	runningProc->D = D;
+	runningProc->comand_counter = licznik_rozkazow;
+	//runningProc->CPU += licznik_rozkazow; //Spytaæ Julka
 
+	std::string krok;
+	std::cout << "\n";
+	std::cin >> krok;
+	if (krok == "r") stan_rejestrow();
+
+	return true;
 }

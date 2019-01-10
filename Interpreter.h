@@ -1,34 +1,43 @@
 #pragma once
+
 #include <string>
 #include <vector>
+#include <array>
 
- 
+class proc_tree;
+class FileManager;
+class MemoryManager;
+class PCB;
 
-
-
-//zapodaj cos tu do interfejsu krokowego, jol.
 class Interpreter
 {
 public:
+	FileManager* fileManager;
+	MemoryManager* memoryManager;
+	proc_tree* tree;
+
 	void rejestr_rozkaz();
 
-	std::string rozkaz;
-	std::string rej;
-		
+	std::string rozkazCaly;
+
 	int A;
 	int B;
 	int C;
 	int D;
 
-	int adres;
-	int liczba;
+	int adres = -1;
+	int liczba = -1;
 
 	int licznik_rozkazow = 0;
 
-	Interpreter() : A(0), B(0), C(0), D(0) {}
+	Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_);
 
-	void stan_rejestrow();
-	void wykonanie_programu();
+	//Funkcja testowa
+	static std::array<std::string, 3> rozdziel_rozkaz(const std::string& rozkazCaly);
+	//Koniec funkcja
+
+	void stan_rejestrow() const;
+	bool wykonanie_rozkazu();
 };
 
-static Interpreter interpreter;
+//static Interpreter interpreter;
