@@ -12,7 +12,19 @@
 
 
 
-
+void display_file_error_text(const int &outcome) {
+	if (outcome == FILE_ERROR_NONE) { return; }
+	else if (outcome == FILE_ERROR_EMPTY_NAME) { std::cout << "Pusta nazwa!\n"; }
+	else if (outcome == FILE_ERROR_NAME_TOO_LONG) { std::cout << "Nazwa za dluga!\n"; }
+	else if (outcome == FILE_ERROR_NAME_USED) { std::cout << "Nazwa zajeta!\n"; }
+	else if (outcome == FILE_ERROR_NO_INODES_LEFT) { std::cout << "Osiagnieto limit plikow!\n"; }
+	else if (outcome == FILE_ERROR_DATA_TOO_BIG) { std::cout << "Dane za duze!\n"; }
+	else if (outcome == FILE_ERROR_NOT_FOUND) { std::cout << "Nie znaleziono pliku!\n"; }
+	else if (outcome == FILE_ERROR_NOT_OPENED) { std::cout << "Plik nie jest otwarty!\n"; }
+	else if (outcome == FILE_ERROR_NOT_R_MODE) { std::cout << "Plik nie jest do odczytu!\n"; }
+	else if (outcome == FILE_ERROR_NOT_W_MODE) { std::cout << "Plik nie jest do zapisu!\n"; }
+	else { std::cout << "Nie obsluzony blad: " << outcome << "\n"; }
+}
 
 Interpreter::Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_) : fileManager(fileManager_),
 memoryManager(memoryManager_), tree(tree_), A(0), B(0), C(0), D(0) {}
@@ -310,7 +322,7 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//Rozkazy pliki
 		else if (instruction == "MF")// stworzenie pliku
 		{
-			fileManager->file_create(nazwa);//nazwa
+			display_file_error_text(fileManager->file_create(nazwa));
 		}
 		else if (instruction == "OF") // otwarcie pliku, ma flage ze jest otwarty
 		{
@@ -321,20 +333,20 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		}
 		else if (instruction == "WF")//nadpisz do pliku
 		{
-			fileManager->file_write(nazwa, std::to_string(*reg2));//nazwa pliku i caly program w stringu
+			display_file_error_text(fileManager->file_write(nazwa, std::to_string(*reg2)));
 		}
 		else if (instruction == "AF")//dopisz do pliku
 		{
-			fileManager->file_append(nazwa, std::to_string(*reg2));//nazwa pliku i caly program w stringu
+			display_file_error_text(fileManager->file_append(nazwa, std::to_string(*reg2)));
 		}
 		else if (instruction == "CF")//ZAMKNIJ plik
 		{
-			fileManager->file_close(nazwa);//nazwa pliku 
+		display_file_error_text(fileManager->file_close(nazwa));
 		}
 		else if (instruction == "RF")//CZYTANIE Z PLIKU
 		{
 			std::string temp;
-			std::cout << "\nkod bledu: " << fileManager->file_read_all(nazwa, temp);//nazwa pliku, string do zapisu
+			display_file_error_text(fileManager->file_read_all(nazwa, temp));
 			std::cout << "\na prog to " << temp;
 			//*rej2 = std::stoi(temp);
 		}
@@ -375,7 +387,7 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 
 	std::string krok;
 	while (true) {
-		std::cout << "\nPodaj rozka pracy krokowej: "; //Praca krokowa temp
+		std::cout << "\nPodaj rozkaz pracy krokowej: "; //Praca krokowa temp
 		std::cin >> krok;
 		if (krok == "r") stan_rejestrow();
 		else if (krok == "dd") fileManager->display_disk_content_char(); //Displau disk
