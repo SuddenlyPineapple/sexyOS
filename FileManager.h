@@ -31,9 +31,9 @@
 */
 
 //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
-#define OPEN_R_MODE  2 //2
-#define OPEN_W_MODE  1 //1
-#define OPEN_RW_MODE 3 //3
+#define OPEN_R_MODE  2 //10
+#define OPEN_W_MODE  1 //01
+#define OPEN_RW_MODE 3 //11
 
 //Do u¿ycia przy obs³udze b³êdów
 #define FILE_ERROR_NONE 0

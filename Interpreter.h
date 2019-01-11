@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <map>
 
 class proc_tree;
 class FileManager;
@@ -11,33 +12,39 @@ class PCB;
 
 class Interpreter
 {
-public:
+private:
 	FileManager* fileManager;
 	MemoryManager* memoryManager;
 	proc_tree* tree;
 
-	void rejestr_rozkaz();
-
-	std::string rozkazCaly;
+	void registers_state();
 
 	int A;
 	int B;
 	int C;
 	int D;
 
-	int adres = -1;
-	int liczba = -1;
+	int address = -1;
+	int number = -1;
 
-	int licznik_rozkazow = 0;
+	int instruction_counter = 0;
+	int RAM_pos = 0; //Aktualny bajt do odczytywania z procesu
 
+	//Mapa pocz¹tków instrukcji
+	//Klucz	  - numer rozkazu
+	//Wartoœæ - address pierwszego bajtu rozkazu
+	std::map<int, int> instrBeginMap;
+
+public:
 	Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_);
 
-	//Funkcja testowa
-	static std::array<std::string, 3> rozdziel_rozkaz(const std::string& rozkazCaly);
-	//Koniec funkcja
-
 	void stan_rejestrow() const;
-	bool wykonanie_rozkazu();
+	void execute_program(const int& PID);
+	bool execute_instruction(const std::string& instructionWhole, const int& PID);
+
+private:
+	static std::array<std::string, 3> instruction_separate(const std::string& instructionWhole);
+	void jump_pos_set(const int& PID);
 };
 
 //static Interpreter interpreter;

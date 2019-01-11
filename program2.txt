@@ -1,6 +1,5 @@
 MOV A 5
 MF "plik1"
-OF "plik1"
 WF "plik1" A
 OF "plik1" R
 RF "plik1" B
