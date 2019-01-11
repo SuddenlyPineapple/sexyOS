@@ -2,7 +2,6 @@
 
 #include "Procesy.h"
 #include <list>
-#include <vector>
 
 //			Zakladam, ze proces bedzie mial priorytet z zakresu 1 - 10, przy czym poczatkowy wynosi 5
 
@@ -16,9 +15,10 @@ public:
 	std::list<PCB> ReadyPCB;
 	Planista() {}
 	~Planista() {}
-	void Check(){}
-	void AddProces(PCB &Proces){}
-	void RemoveProces(PCB &Proces){}
-	void SortReadyPCB(){}
-	void SetPriority(PCB &Proces){}
+
+	void Check();
+	void AddProces(PCB& Proces);
+	void RemoveProces(PCB& Proces);
+	void SortReadyPCB();
+	void SetPriority(PCB& Proces);
 };
