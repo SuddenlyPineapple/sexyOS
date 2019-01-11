@@ -108,12 +108,15 @@ public:
 			CounterMax = Proces.last_counter;
 		}
 		if (Proces.last_counter > 0) {
-			x = 2 + (Proces.priority + Proces.last_counter * 10 / CounterMax)/2;
+			x =(Proces.priority + Proces.last_counter * 30 / CounterMax)/4;
 			Proces.priority = (int)x;
 		}
 		if (Proces.priority >= 10) {
 			Proces.priority = 9;
 		}
+        if (Proces.priority < 0) {
+            Proces.priority = 0;
+        }
 //			POSTARZANIE, jesli proces nie otrzymał przydzialu do procesora w kilku ostatnich sesjach
 		if (Proces.priority > 1 && trial==ReadyPCB.size()/2 && Proces.last_counter==0){
 			Proces.priority--;
