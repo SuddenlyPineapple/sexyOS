@@ -1,3 +1,4 @@
+#include "Procesy.h"
 #include "Planista.h"
 #include <list>
 #include <cmath>
@@ -71,7 +72,7 @@ void Planista::RemoveProces(PCB &Proces) {
 }
 void Planista::SortReadyPCB() {
 	bool x;
-	for (int i = 0; i < ReadyPCB.size(); i++) {
+	for (size_t i = 0; i < ReadyPCB.size(); i++) {
 		x = 0;
 		Wpcb = ReadyPCB.begin();
 		Wpcb++;
@@ -88,15 +89,15 @@ void Planista::SortReadyPCB() {
 }
 
 void Planista::SetPriority(PCB &Proces) {
-	float x = 0;
+	double x = 0;
 	Proces.last_counter = Proces.comand_counter - Proces.last_counter;
 	//			USTALENIE MNOZNIKA od najwiekszego skoku
 	if (Proces.last_counter > CounterMax) {
 		CounterMax = Proces.last_counter;
 	}
 	if (Proces.last_counter > 0) {
-		x = (Proces.priority + Proces.last_counter * 30 / CounterMax) / 4;
-		Proces.priority = (int)x;
+		x = (Proces.priority + Proces.last_counter * 30.0 / CounterMax) / 4.0;
+		Proces.priority = static_cast<int>(x);
 	}
 	if (Proces.priority >= 10) {
 		Proces.priority = 9;

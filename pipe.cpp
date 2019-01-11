@@ -1,4 +1,7 @@
 #include "pipe.h"
+#include "Procesy.h"
+#include <iostream>
+
 //znaczenie fd(deksryptor)
 //0-koniec do czytania
 //1-koniec do zapisu
@@ -11,10 +14,12 @@ Pipe::Pipe(PCB& p1, PCB &p2, Pipeline& p) {//konstruktor pipe
 	this->p2 = &p2;
 	this->p = &p;
 }
-Pipe::Pipe(PCB& p1, PCB& p2, Pipeline& p) {
+
+Pipe::~Pipe() {
 	p1->FD[0] = -1;
 	p2->FD[0] = -1;
 }
+
 std::string Pipe::read(size_t rozmiar) {
 	std::string t;//string z wiadomoscia
 	if (p2->FD[1] == 0) {//sprawdzanie czy to odpowiedni koniec rury
@@ -22,14 +27,14 @@ std::string Pipe::read(size_t rozmiar) {
 			p2->change_state(WAITING);//zmiana na weiting jeśli pusta kolejka
 		}
 		else {
-			if (rozmiar > buffer.size()) {//wiadomosc dłuższa niż romiar buffera
-				while (buffer.size() > 0) {
+			if (rozmiar > buffer.size()) { //wiadomosc dłuższa niż romiar buffera
+				while (!buffer.empty()) {
 					t.push_back(buffer.front());
 					buffer.pop();
 				}
 			}
 			else {
-				for (int i = 0; i < rozmiar; i++) {
+				for (size_t i = 0; i < rozmiar; i++) {
 					t.push_back(buffer.front());
 					buffer.pop();
 				}
@@ -53,30 +58,33 @@ void Pipe::write(const std::string &wiadomosc) {
 	}
 }
 void Pipeline::createPipe(PCB &p1, PCB& p2) {//tworzenie
-	for (int i = 0; i < pipes.size(); i++) {//zapisywanie do wektora pipów
-		if (pipes[i] == NULL) {
+	bool created = false;
+
+	for (size_t i = 0; i < pipes.size(); i++) {//zapisywanie do wektora pipów
+		if (pipes[i] == nullptr) {
 			Pipe* v = new Pipe(p1, p2, (*this));//na wolnym miejscu
 			pipes[i] = v;
 			p1.FD[0] = i;
 			p1.FD[1] = 1;
 			p2.FD[0] = i;
 			p2.FD[1] = 0;
+			created = true;
 		}
-		else {
-			Pipe* v = new Pipe(p1, p2, (*this));//na koncu
-			pipes.push_back(v);
-			p1.FD[0] = pipes.size() - 1;
-			p1.FD[1] = 1;
-			p2.FD[0] = pipes.size() - 1;
-			p2.FD[1] = 0;
-		}
+	}
+	if (!created) {
+		Pipe* v = new Pipe(p1, p2, (*this));//na koncu
+		pipes.push_back(v);
+		p1.FD[0] = pipes.size() - 1;
+		p1.FD[1] = 1;
+		p2.FD[0] = pipes.size() - 1;
+		p2.FD[1] = 0;
 	}
 }
 void Pipeline::deletePipe(PCB &p1) {//usuwanie pipa
 	if (p1.FD[0] != -1) {
-		int v = p1.FD[0];
+		const int v = p1.FD[0];
 		delete(pipes[v]);
-		pipes[v] = NULL;
+		pipes[v] = nullptr;
 	}
 	else {
 		std::cout << "Nie istnieje taki potok" << std::endl;

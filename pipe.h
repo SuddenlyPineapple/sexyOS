@@ -1,19 +1,22 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <iostream>
+
 #include <queue>
+
+class PCB;
+class Pipe;
+
 class Pipeline {
 public:
-	Pipeline();
 	std::vector<Pipe*> pipes;
 	void createPipe(PCB &p1, PCB &p2);
 	void deletePipe(PCB& p1);
 	bool existPipe(PCB& p1, PCB& p2);
 };
-class Pipe{
+class Pipe {
 public:
-	Pipe(PCB& p1,PCB& p2,Pipeline& potok);
+	Pipe(PCB& p1, PCB& p2, Pipeline& potok);
 	~Pipe();
 	std::string read(size_t rozmiar);
 	void write(const std::string& wiadomosc);
