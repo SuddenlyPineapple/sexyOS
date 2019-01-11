@@ -1,5 +1,6 @@
 #include "Semaphores.hpp"
-extern class PCB;
+#include <list>
+
 Semaphore::Semaphore(int n) {
     this->value = n;
 }

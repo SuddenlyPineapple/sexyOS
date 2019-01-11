@@ -1,14 +1,10 @@
 
 #ifndef SEMAPHORES_SEMAPHORES_HPP
 #define SEMAPHORES_SEMAPHORES_HPP
-#pragma once
-#include <iostream>
-#include <list>
-#include <map>
-#include "Procesy.hpp"
+
+#include "Procesy.h"
 #include "Planista.h"
-class PCB;
-class Planista;
+
 class Semaphore{
 private:
     Planista p;
