@@ -23,6 +23,7 @@
 #include <bitset>
 #include <vector>
 #include <unordered_map>
+#include "Semaphores.hpp"
 
 /*
 	TODO:
@@ -31,8 +32,8 @@
 */
 
 //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
-#define OPEN_R_MODE  2 //10
-#define OPEN_W_MODE  1 //01
+#define OPEN_R_MODE  1 //01
+#define OPEN_W_MODE  2 //10
 #define OPEN_RW_MODE 3 //11
 
 //Do u¿ycia przy obs³udze b³êdów
@@ -89,6 +90,9 @@ private:
 		tm creationTime = tm();		//Czas i data utworzenia
 		tm modificationTime = tm(); //Czas i data ostatniej modyfikacji pliku
 
+		//Synchronizacja
+		Semaphore sem;
+
 		Inode();
 
 		virtual ~Inode() = default;
@@ -133,6 +137,9 @@ private:
 
 	class FileIO {
 	private:
+		#define READ_FLAG 0
+		#define WRITE_FLAG 1
+
 		std::string buffer;
 		u_short_int readPos = 0;
 		Disk* disk;
@@ -144,7 +151,7 @@ private:
 	public:
 		FileIO() : disk(nullptr), file(nullptr), readFlag(false), writeFlag(false) {}
 		FileIO(Disk* disk, Inode* inode, const std::bitset<2>& mode) : disk(disk), file(inode),
-			readFlag(mode[1]), writeFlag(mode[0]) {}
+			readFlag(mode[READ_FLAG]), writeFlag(mode[WRITE_FLAG]) {}
 
 		void buffer_update(const int8_t& blockNumber);
 

@@ -93,7 +93,7 @@ void FileManager::FileSystem::reset() {
 
 //-------------------------- I-wêzê³ ------------------------
 
-FileManager::Inode::Inode() : creationTime(), modificationTime() {
+FileManager::Inode::Inode() : creationTime(), modificationTime(), sem(1) {
 	//Wype³nienie indeksów bloków dyskowych wartoœci¹ -1 (pusty indeks)
 	directBlocks.fill(-1);
 	singleIndirectBlocks = -1;
@@ -205,8 +205,7 @@ const std::array<u_int, FileManager::BLOCK_SIZE / 2> FileManager::Disk::read_arr
 //Jeœli u¿ytkownik poda za du¿o bajt to czytamy do koñca i nie wiêcej
 //Rozmiar bajtowy oznacza koniec plików (EOF)
 
-#define READ_FLAG 0
-#define WRITE_FLAG 1
+
 
 void FileManager::FileIO::buffer_update(const int8_t& blockNumber) {
 	if (blockNumber < BLOCK_INDEX_NUMBER) {

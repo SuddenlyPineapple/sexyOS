@@ -404,9 +404,11 @@ void proc_tree::exit(int pid)
 			if (temp->child_vector.empty()) {//proces nie ma dzieci
 				for (size_t i = 0; i < temp->parent_proc->child_vector.size(); i++) {
 					if (temp->parent_proc->child_vector.at(i)->PID == pid) {
-						delete temp->parent_proc->child_vector.at(i);
-						temp->parent_proc->child_vector.erase(temp->parent_proc->child_vector.begin() + i);
 						mm->kill(pid);
+						PCB* parent = temp->parent_proc;
+						delete parent->child_vector.at(i);
+						parent->child_vector.erase(parent->child_vector.begin() + i);
+						break;
 					}
 				}
 			}
