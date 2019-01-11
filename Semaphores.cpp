@@ -14,8 +14,7 @@ void Semaphore::Wait(Semaphore *S) {
 void Semaphore::Signal(Semaphore *S){
     S->value = value ++;
     if(S->value <= 0){
-        PCB a = p.WaitingPCB.front();
-        wakeup(a);
+		wakeup(p.getWaitingPCB().front());
     }
 }
 void Semaphore::block(PCB a) {

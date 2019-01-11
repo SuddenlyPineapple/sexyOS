@@ -110,3 +110,7 @@ void Planista::SetPriority(PCB &Proces) {
 	}
 	Proces.last_counter = Proces.comand_counter;
 }
+
+std::list<PCB>& Planista::getWaitingPCB() {
+	return WaitingPCB;
+}

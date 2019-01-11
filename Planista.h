@@ -21,4 +21,6 @@ public:
 	void RemoveProces(PCB& Proces);
 	void SortReadyPCB();
 	void SetPriority(PCB& Proces);
+
+	std::list<PCB>& getWaitingPCB();
 };
