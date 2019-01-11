@@ -14,6 +14,7 @@ enum Process_state {
 
 class PCB {
 public:
+	int priority;// priorytet
 	int last_counter;//dla procesora
     std::string process_name; //nazwa procesu
     unsigned int PID;//identyfikator nie bedzie ujemnych 1 JEST "DLA SYSTEMD"
@@ -29,6 +30,7 @@ public:
     
 
     PCB() {//kontruktor dla systemd
+		this->priority = 12;
 		 this->last_counter=0;
 		this->FD[0] = -1;
 		this->FD[1] = -1;
@@ -41,6 +43,7 @@ public:
     };
 
     PCB(const std::string name, int father_PID) {//kontruktor innych
+		this->priority = 12;
 		this->last_counter = 0;
         this->process_name = name;
         this->PID = father_PID;
@@ -51,12 +54,14 @@ public:
 
     void Set_PID(int i);//funcja pomocnicza
     PCB *GET_kid(unsigned int PID);// funckja pomocnicza do znalezienia procesu po PID
+	PCB *GET_kid(std::string nazwa );// funckja pomocnicza do znalezienia procesu po nazwie
     bool find_kid(unsigned int PID);
 
     void display_allkids();//funkcja która pokazuje dzieci procesu i dzieci dzieci
     void display_allkids(int a);//funkcja pomocnicza do tej wy¿ej
     void change_state(Process_state x);//zmiana stanu procesu
 	void add_file_to_proc(std::string open_file);
+	void kill_all_childrens(MemoryManager &mm);
 
 
 
@@ -73,9 +78,10 @@ public:
               std::string open_file);//to samo co wyzej tylko z nazwa pliku ktory moze otworzyc
     void fork(PCB *proc, const std::string name/*,tutaj memory mangment z przydzielaniem pamieci */,
               std::vector<std::string> file_names);//to samo co wyzej tylko z vectorem plików ktore moze otworzyc
-    /*void exit() usuwanie procesów  do zrobieina*/
+	void exit(MemoryManager &mm, int pid);//usuwanie procesów 
     void display_tree();//wyswietla cale drzewa
-    PCB find_proc(int PID);//znajduje proces
+    PCB* find_proc(int PID);//znajduje proces przez PID 
+	PCB* find_proc(std::string nazwa);//znajduje proces po nazwie
     proc_tree() { this->proc = PCB(); }
 
     proc_tree(PCB *proc) { this->proc = *proc; };

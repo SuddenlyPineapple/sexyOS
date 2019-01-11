@@ -13,6 +13,19 @@ void PCB::add_file_to_proc(std::string open_file)
 	this->open_files.push_back(open_file);
 }
 
+void PCB::kill_all_childrens(MemoryManager & mm)
+{
+	
+	for (int i=0;i< this->child_vector.size(); ++i)
+	{
+		mm.kill(this->child_vector.at(i)->PID);
+		delete this->child_vector.at(i);
+		
+	}
+	this->child_vector.clear();
+	
+}
+
 
 
 void PCB::Set_PID(int i)
@@ -42,7 +55,34 @@ PCB* PCB::GET_kid(unsigned int PID)
 				return kid->GET_kid(PID);
 			}
 		}
+		return NULL;
+
 	}
+PCB* PCB::GET_kid(std::string nazwa)
+{
+	for (PCB* kid : this->child_vector) {
+		if (kid->process_name == nazwa) { return kid; }
+		for (PCB* grandkid : kid->child_vector) {
+			if (grandkid->process_name == nazwa) { return grandkid; }
+			for (PCB* ggrandkid : grandkid->child_vector) {
+				if (ggrandkid->process_name == nazwa) { return ggrandkid; }
+
+
+			}
+
+		}
+	}
+
+
+	for (PCB* kid : this->child_vector) {
+		if (kid->PID == PID) { return kid; }
+		else if (!kid->child_vector.empty()) {
+			return kid->GET_kid(PID);
+		}
+	}
+	return NULL;
+
+}
 
 bool PCB::find_kid(unsigned int PID)
 {
@@ -349,6 +389,56 @@ void proc_tree::fork(PCB * proc, const std::string name, std::vector<std::string
 		}
 	}
 }
+void proc_tree::exit(MemoryManager & mm, int pid)
+{
+	if (pid == this->proc.PID) {// kiedy damy id=1 
+		std::cout << "nie mo¿na usun¹æ inita/systemd" << std::endl;
+		}
+	else {	
+		if (this->proc.GET_kid(pid) == NULL) {//jak nie znajdzie dziecka
+			std::cout << "nie ma takiego procesu" << std::endl;
+		}
+		else {
+			PCB* temp = this->proc.GET_kid(pid);
+			if (temp->child_vector.size() == 0) {//proces nie ma dzieci
+				for(int i=0;i<temp->parent_proc->child_vector.size();i++){
+					if (temp->parent_proc->child_vector.at(i)->PID == pid) {
+						delete temp->parent_proc->child_vector.at(i);
+						temp->parent_proc->child_vector.erase(temp->parent_proc->child_vector.begin() + i);
+						mm.kill(pid);
+					}
+					}
+				}
+			else { //kiedy ma dzieci
+				//kiedy dziecko ma dzieci
+					for (int i = 0; i < temp->child_vector.size(); i++) {
+						if (temp->child_vector.at(i)->child_vector.size() != 0)//kiedy jest patologia
+						{
+							for (int j = 0; j < temp->child_vector.at(i)->child_vector.size(); j++)
+								temp->child_vector.at(i)->child_vector.at(j)->kill_all_childrens(mm);
+						}
+						temp->child_vector.at(i)->kill_all_childrens(mm);
+
+					
+					}
+				
+
+			}
+			
+			}
+		
+		
+		
+		}
+		
+
+
+
+	}
+
+
+
+
 
 void proc_tree::display_tree()
 {
@@ -362,12 +452,24 @@ void proc_tree::display_tree()
 
 }
 
-PCB proc_tree::find_proc(int PID)
+PCB *proc_tree::find_proc(int PID)
 {
 	if (PID == this->proc.PID){
-		return this->proc;
+		return &this->proc;// do sprawdzenia czy tak zadziaa
 
 	}
+	else return this->proc.GET_kid(PID);
 
+}
 
+PCB * proc_tree::find_proc(std::string nazwa)
+{
+	{
+		if (nazwa == this->proc.process_name) {
+			return &this->proc;// do sprawdzenia czy tak zadziaa
+
+		}
+		else return this->proc.GET_kid(nazwa);
+
+	}
 }
