@@ -2,6 +2,7 @@
 #include <list>
 #include <iterator>
 #include <cmath>
+#include <sstream>
 
 extern class PCB;
 bool WywlaszczeniePCB = 0;
@@ -11,16 +12,17 @@ private:
 	std::list<PCB> WaitingPCB;
 	std::list<PCB>::iterator Rpcb, Wpcb;
 	unsigned char trial = 0;
+	int CounterMax=1;
 public:
 	std::list<PCB> ReadyPCB;
 	Planista() {}
 	~Planista() {}
 
 	void Check() {
-		trial++;
-		if (trial == 5) {
+		if (trial == ReadyPCB.size()/2) {
 			trial = 0;
 		}
+		trial++;
 		for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); Rpcb++) {
 			if (Rpcb->state == TERMINATED) {
 				Rpcb = ReadyPCB.erase(Rpcb);
@@ -52,8 +54,8 @@ public:
 				for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); Rpcb++) {
 					if (Proces.priority > Rpcb->priority) {
 						ReadyPCB.insert(Rpcb, Proces);
-						if (Rpcb == ReadyPCB.begin()) {								// jesli proces będzie na 1 miejscu
-							WywlaszczeniePCB = 1;									// flaga i przeładowanie kontekstu
+						if (Rpcb == ReadyPCB.begin()) {				// jesli proces będzie na 1 miejscu
+							WywlaszczeniePCB = 1;					// flaga i przeładowanie kontekstu
 						}
 						x = 1;
 						break;
@@ -71,12 +73,12 @@ public:
 	void RemoveProces(PCB &Proces) {
 		for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); Rpcb++) {
 			if (Rpcb->PID == Proces.PID) {
-				ReadyPCB.erase(Rpcb);
+				Rpcb = ReadyPCB.erase(Rpcb);
 			}
 		}
 		for (Wpcb = WaitingPCB.begin(); Wpcb != WaitingPCB.end(); Wpcb++) {
 			if (Wpcb->PID == Proces.PID) {
-				WaitingPCB.erase(Wpcb);
+				Wpcb = WaitingPCB.erase(Wpcb);
 			}
 		}
 	}
@@ -98,17 +100,23 @@ public:
 		}
 	}
 
-	void SetPriority(PCB &Proces) {   // TO jeszcze do poprawy
+	void SetPriority(PCB &Proces) {
 		float x = 0;
-		if (Proces.comand_counter != 0) {
-			Proces.last_counter = Proces.comand_counter - Proces.last_counter;
+		Proces.last_counter = Proces.comand_counter - Proces.last_counter;
+//			USTALENIE MNOZNIKA od najwiekszego skoku
+		if (Proces.last_counter > CounterMax) {
+			CounterMax = Proces.last_counter;
 		}
 		if (Proces.last_counter > 0) {
-			x = (4 * Proces.priority + log(Proces.last_counter)) / 5;
+			x = 2 + (Proces.priority + Proces.last_counter * 10 / CounterMax)/2;
+			Proces.priority = (int)x;
 		}
-		Proces.priority = (int)x;
 		if (Proces.priority >= 10) {
 			Proces.priority = 9;
+		}
+//			POSTARZANIE, jesli proces nie otrzymał przydzialu do procesora w kilku ostatnich sesjach
+		if (Proces.priority > 1 && trial==ReadyPCB.size()/2 && Proces.last_counter==0){
+			Proces.priority--;
 		}
 		Proces.last_counter = Proces.comand_counter;
 	}

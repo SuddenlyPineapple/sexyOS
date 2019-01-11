@@ -11,6 +11,7 @@ private:
 	std::list<PCB> WaitingPCB;
 	std::list<PCB>::iterator Rpcb, Wpcb;
 	unsigned char trial;
+	int CounterMax=1;
 public:
 	std::list<PCB> ReadyPCB;
 	Planista() {}
