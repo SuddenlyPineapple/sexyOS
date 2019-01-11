@@ -143,7 +143,7 @@ int MemoryManager::seekFreeFrame() {
 	int seekedFrame = -1;
 
 
-	for (int i = 0; i < Frames.size(); i++) {
+	for (size_t i = 0; i < Frames.size(); i++) {
 		if (Frames[i].isFree) {
 			seekedFrame = i;
 			break;
@@ -153,9 +153,9 @@ int MemoryManager::seekFreeFrame() {
 }
 
 void MemoryManager::kill(int PID) {
-	for (int i = 0; i < Frames.size(); i++) {
+	for (size_t i = 0; i < Frames.size(); i++) {
 		if (Frames[i].PID == PID) {
-			for (int j = i * 16; j < i * 16 + 16; j++)
+			for (size_t j = i * 16; j < i * 16 + 16; j++)
 				RAM[j] = ' ';
 			stackUpdate(i);
 			Frames[i].isFree = true;
@@ -250,7 +250,7 @@ std::string MemoryManager::get(PCB *process, int LADDR) {
 	std::string response;
 	bool reading = true;
 	int Frame = -1;
-	int PageID = LADDR / 16;
+	unsigned int PageID = LADDR / 16;
 
 	//przekroczenie zakres dla tego procesu
 	if (process->pageList->size() <= PageID) {
@@ -297,7 +297,7 @@ int MemoryManager::write(PCB *process, int adress, std::string data) {
 	}
 
 	int pageID;
-	for (int i = 0; i < data.size(); i++) {
+	for (size_t i = 0; i < data.size(); i++) {
 		pageID = (adress + i) / 16;
 		if (process->pageList->at(pageID).bit == 0)
 			loadToMemory(PageFile[process->PID][pageID], pageID, process->PID, process->pageList);
