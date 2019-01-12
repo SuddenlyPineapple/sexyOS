@@ -480,7 +480,7 @@ int FileManager::file_delete(const std::string& name) {
 
 int FileManager::file_open(const std::string& name, const unsigned& mode) {
 	Inode* inode;
-	std::bitset<2>mode_(2);
+	std::bitset<2>mode_(mode);
 
 	//Czêœæ sprawdzaj¹ca
 	{
