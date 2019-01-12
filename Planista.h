@@ -21,5 +21,5 @@ public:
 	void RemoveProces(PCB& Proces);
 	void SetPriority(PCB& Proces);
 
-	std::list<PCB>& getWaitingPCB();
+	std::list<PCB*>& getWaitingPCB();
 };

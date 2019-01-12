@@ -12,14 +12,14 @@ Semaphore::Semaphore(int n) {
 void Semaphore::Wait(Semaphore *S) {
 	S->value = value--;
 	if (S->value < 0) {
-		PCB a = p.ReadyPCB.front();
+		PCB a = *(p.ReadyPCB.front());
 		block(a);
 	}
 }
 void Semaphore::Signal(Semaphore *S) {
 	S->value = value++;
 	if (S->value <= 0) {
-		wakeup(p.getWaitingPCB().front());
+		wakeup(*(p.getWaitingPCB().front()));
 	}
 }
 void Semaphore::block(PCB& a) {

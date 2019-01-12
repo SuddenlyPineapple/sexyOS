@@ -4,7 +4,7 @@
 #include <cmath>
 #include <sstream>
 
-bool WywlaszczeniePCB = 0;
+bool WywlaszczeniePCB = false;
 
 void Planista::Check() {
 	if (trial == ReadyPCB.size() / 2) {
@@ -20,7 +20,7 @@ void Planista::Check() {
 			Rpcb = WaitingPCB.erase(Rpcb);
 		}
 		else {
-			Rpcb++;
+			++Rpcb;
 			SetPriority(**Rpcb);
 		}
 	}
@@ -29,26 +29,26 @@ void Planista::Check() {
 			AddProces(**Wpcb);
 			Wpcb = WaitingPCB.erase(Wpcb);
 		}
-		else{
-			Wpcb++;
+		else {
+			++Wpcb;
 		}
 	}
 	SortReadyPCB();
 }
 void Planista::AddProces(PCB& Proces) {
-	bool x = 0;
+	bool x = false;
 	if (Proces.state == READY) {
 		if (ReadyPCB.size() == 0) {
 			ReadyPCB.push_back(&Proces);
 		}
 		else {
-			for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); Rpcb++) {
+			for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); ++Rpcb) {
 				if (Proces.priority > (*Rpcb)->priority) {
 					ReadyPCB.insert(Rpcb, &Proces);
 					if (Rpcb == ReadyPCB.begin()) {				// jesli proces będzie na 1 miejscu
-						WywlaszczeniePCB = 1;					// flaga i przeładowanie kontekstu
+						WywlaszczeniePCB = true;					// flaga i przeładowanie kontekstu
 					}
-					x = 1;
+					x = true;
 					break;
 				}
 			}
@@ -66,29 +66,29 @@ void Planista::RemoveProces(PCB &Proces) {
 		if ((*Rpcb)->PID == Proces.PID) {
 			Rpcb = ReadyPCB.erase(Rpcb);
 		}
-		else{
-			Rpcb++;
+		else {
+			++Rpcb;
 		}
 	}
 	for (Wpcb = WaitingPCB.begin(); Wpcb != WaitingPCB.end();) {
 		if ((*Wpcb)->PID == Proces.PID) {
 			Wpcb = WaitingPCB.erase(Wpcb);
 		}
-		else{
-			Wpcb++;
+		else {
+			++Wpcb;
 		}
 	}
 }
 void Planista::SortReadyPCB() {
 	bool x;
 	for (size_t i = 0; i < ReadyPCB.size(); i++) {
-		x = 0;
+		x = false;
 		Wpcb = ReadyPCB.begin();
-		Wpcb++;
-		for (Rpcb = ReadyPCB.begin(); Wpcb != ReadyPCB.end(); Rpcb++, Wpcb++) {
+		++Wpcb;
+		for (Rpcb = ReadyPCB.begin(); Wpcb != ReadyPCB.end(); ++Rpcb, ++Wpcb) {
 			if ((*Rpcb)->priority > (*Wpcb)->priority) {
 				std::swap(*Rpcb, *Wpcb);
-				x = 1;
+				x = true;
 			}
 		}
 		if (x == 0) {
@@ -121,6 +121,6 @@ void Planista::SetPriority(PCB &Proces) {
 	Proces.last_counter = Proces.comand_counter;
 }
 
-std::list<PCB>& Planista::getWaitingPCB() {
+std::list<PCB*>& Planista::getWaitingPCB() {
 	return WaitingPCB;
 }
