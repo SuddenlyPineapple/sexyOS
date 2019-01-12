@@ -17,36 +17,37 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <ctime>
+#include "Semaphores.hpp"
 #include <string>
 #include <array>
 #include <bitset>
 #include <vector>
 #include <unordered_map>
-#include "Semaphores.hpp"
+#include <map>
 
-/*
-	TODO:
-	- dodaæ semafory (czekam na semafory)
-	- dorobiæ stuff z ³adowaniem bufora do RAMu przy odczycie (opcjonalne)
-*/
+ /*
+	 TODO:
+	 - dodaæ semafory
+	 - dorobiæ stuff z ³adowaniem bufora do RAMu przy odczycie (opcjonalne)
+ */
 
-//Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
-#define OPEN_R_MODE  1 //01
-#define OPEN_W_MODE  2 //10
-#define OPEN_RW_MODE 3 //11
+ //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
+#define FILE_OPEN_R_MODE  1 //01
+#define FILE_OPEN_W_MODE  2 //10
+#define FILE_OPEN_RW_MODE 3 //11
 
 //Do u¿ycia przy obs³udze b³êdów
-#define FILE_ERROR_NONE 0
-#define FILE_ERROR_EMPTY_NAME 1
-#define FILE_ERROR_NAME_TOO_LONG 2
-#define FILE_ERROR_NAME_USED 3
-#define FILE_ERROR_NO_INODES_LEFT 4
-#define FILE_ERROR_DATA_TOO_BIG 5
-#define FILE_ERROR_NOT_FOUND 6
-#define FILE_ERROR_NOT_OPENED 7
-#define FILE_ERROR_NOT_R_MODE 8
-#define FILE_ERROR_NOT_W_MODE 9
+#define FILE_ERROR_NONE				0
+#define FILE_ERROR_EMPTY_NAME		1
+#define FILE_ERROR_NAME_TOO_LONG	2
+#define FILE_ERROR_NAME_USED		3
+#define FILE_ERROR_NO_INODES_LEFT	4
+#define FILE_ERROR_DATA_TOO_BIG		5
+#define FILE_ERROR_NOT_FOUND		6
+#define FILE_ERROR_NOT_OPENED		7
+#define FILE_ERROR_OPENED			8
+#define FILE_ERROR_NOT_R_MODE		9
+#define FILE_ERROR_NOT_W_MODE		10
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
@@ -137,8 +138,8 @@ private:
 
 	class FileIO {
 	private:
-		#define READ_FLAG 0
-		#define WRITE_FLAG 1
+#define READ_FLAG 0
+#define WRITE_FLAG 1
 
 		std::string buffer;
 		u_short_int readPos = 0;
@@ -170,7 +171,16 @@ private:
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania szczegó³owych powiadomieñ
 	//std::unordered_map<std::string, u_int> usedFiles;
-	std::unordered_map<std::string, FileIO> accessedFiles;
+
+	//Mapa dostêpu dla poszczególnych plików i procesów
+	//Klucz   - para nazwa pliku, nazwa procesu
+	//Wartoœæ - semafor przypisany danemu procesowi
+	std::map<std::pair<std::string, std::string>, FileIO> accessedFiles;
+
+	//Mapa semaforów dla poszczególnych procesów
+	//Klucz   - para nazwa pliku, nazwa procesu
+	//Wartoœæ - semafor przypisany danemu procesowi
+	std::map<std::pair<std::string, std::string>, Semaphore> fileSemaphores;
 
 
 public:
@@ -188,9 +198,10 @@ public:
 		Po stworzeniu plik jest otwarty w trybie do zapisu.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu tworz¹cego.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_create(const std::string& name);
+	int file_create(const std::string& name, const std::string& procName);
 
 	/**
 		Zapisuje podane dane w danym pliku usuwaj¹c poprzedni¹ zawartoœæ.
@@ -199,7 +210,7 @@ public:
 		@param data Dane do zapisu.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_write(const std::string& name, const std::string& data);
+	int file_write(const std::string& name, const std::string& procName, const std::string& data);
 
 	/**
 		Dopisuje podane dane na koniec pliku.
@@ -208,7 +219,7 @@ public:
 		@param data Dane do zapisu.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_append(const std::string& name, const std::string& data);
+	int file_append(const std::string& name, const std::string& procName, const std::string& data);
 
 	/**
 		Odczytuje podan¹ liczbê bajtów z pliku. Po odczycie przesuwa siê wskaŸnik odczytu.\n
@@ -219,7 +230,7 @@ public:
 		@param result Miejsce do zapisania odczytanych danych.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_read(const std::string& name, const u_short_int& byteNumber, std::string& result);
+	int file_read(const std::string& name, const std::string& procName, const u_short_int& byteNumber, std::string& result);
 
 	/**
 		Odczytuje ca³e dane z pliku.
@@ -228,7 +239,7 @@ public:
 		@param result Miejsca do zapisania odczytanych danych.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_read_all(const std::string& name, std::string& result);
+	int file_read_all(const std::string& name, const std::string& procName, std::string& result);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.\n
@@ -237,7 +248,7 @@ public:
 		@param name Nazwa pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_delete(const std::string& name);
+	int file_delete(const std::string& name, const std::string& procName);
 
 	/**
 		Otwiera plik z podanym trybem dostêpu:
@@ -246,10 +257,11 @@ public:
 		- RW (read/write) - do odczytu i zapisu
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu tworz¹cego.
 		@param mode Tryb dostêpu do pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_open(const std::string& name, const unsigned& mode);
+	int file_open(const std::string& name, const std::string& procName, const unsigned int& mode);
 
 	/**
 		Zamyka plik o podanej nazwie.
@@ -257,7 +269,7 @@ public:
 		@param name Nazwa pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_close(const std::string& name);
+	int file_close(const std::string& name, const std::string& procName);
 
 
 
@@ -276,10 +288,11 @@ public:
 		Po stworzeniu plik jest otwarty w trybie do zapisu.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu tworz¹cego.
 		@param data Dane typu string.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_create(const std::string& name, const std::string& data);
+	int file_create(const std::string& name, const std::string& procName, const std::string& data);
 
 	/**
 		Zmienia nazwê pliku o podanej nazwie.
@@ -288,7 +301,7 @@ public:
 		@param newName Zmieniona nazwa pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_rename(const std::string& name, const std::string& newName);
+	int file_rename(const std::string& name, const std::string& procName, const std::string& newName);
 
 	/**
 		Zamyka wszystkie pliki.
@@ -316,6 +329,31 @@ public:
 		@return void.
 	*/
 	void set_detailed_messages(const bool& onOff);
+
+
+
+	//----------------- Metody do synchronizacji ----------------
+
+	/**
+		Zwraca g³ówny semafor dla pliku.
+
+		@param fileName Nazwa pliku.
+		@param sem Zmienna do zapisania w niej semafora.
+		@return Kod b³êdu.
+	*/
+	int file_get_semaphore(const std::string& fileName, Semaphore& sem);
+
+	/**
+		Zwraca semafor dla pliku przypisany do procesu.
+
+		@param fileName Nazwa pliku.
+		@param procName Nazwa procesu.
+		@param sem Zmienna do zapisania w niej semafora.
+		@return Semafor pliku dla danego procesu.
+	*/
+	int file_get_semaphore(const std::string& fileName, const std::string& procName, Semaphore& sem);
+
+
 
 	//------------------ Metody do wyœwietlania -----------------
 

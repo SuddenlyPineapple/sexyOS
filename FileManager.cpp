@@ -34,8 +34,8 @@ std::ostream& operator << (std::ostream& os, const std::vector<std::string>& str
 }
 std::ostream& operator << (std::ostream& os, const tm& time) {
 	os << time.tm_hour << ':' << std::setfill('0') << std::setw(2) << time.tm_min
-	   << ' ' << std::setfill('0') << std::setw(2) << time.tm_mday << '.'
-	   << std::setfill('0') << std::setw(2) << time.tm_mon << '.' << time.tm_year;
+		<< ' ' << std::setfill('0') << std::setw(2) << time.tm_mday << '.'
+		<< std::setfill('0') << std::setw(2) << time.tm_mon << '.' << time.tm_year;
 	return os;
 }
 bool operator == (const tm& time1, const tm& time2) {
@@ -93,7 +93,7 @@ void FileManager::FileSystem::reset() {
 
 //-------------------------- I-wêzê³ ------------------------
 
-FileManager::Inode::Inode() : creationTime(), modificationTime(), sem(1) {
+FileManager::Inode::Inode() : creationTime(), modificationTime(), sem(-1) {
 	//Wype³nienie indeksów bloków dyskowych wartoœci¹ -1 (pusty indeks)
 	directBlocks.fill(-1);
 	singleIndirectBlocks = -1;
@@ -298,7 +298,7 @@ const std::bitset<2> FileManager::FileIO::get_flags() const {
 
 //-------------------- Podstawowe Metody --------------------
 
-int FileManager::file_create(const std::string& name) {
+int FileManager::file_create(const std::string& name, const std::string& procName) {
 	//Czêœæ sprawdzaj¹ca
 	{
 		//Error1
@@ -322,12 +322,12 @@ int FileManager::file_create(const std::string& name) {
 		fileSystem.inodeTable[inodeId].creationTime = get_current_time_and_date();
 		fileSystem.inodeTable[inodeId].modificationTime = get_current_time_and_date();
 
-		if (messages) { std::cout << "Stworzono plik o nazwie '" << name << ".\n"; }
-		return file_open(name, OPEN_W_MODE);
+		if (messages) { std::cout << "Stworzono plik o nazwie '" << name << "'.\n"; }
+		return file_open(name, procName, FILE_OPEN_W_MODE);
 	}
 }
 
-int FileManager::file_write(const std::string& name, const std::string& data) {
+int FileManager::file_write(const std::string& name, const std::string& procName, const std::string& data) {
 	Inode* inode;
 
 	//Czêœæ sprawdzaj¹ca
@@ -352,10 +352,10 @@ int FileManager::file_write(const std::string& name, const std::string& data) {
 		inode = &fileSystem.inodeTable[fileIterator->second];
 
 		//Error5
-		if (accessedFiles.find(name) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+		if (accessedFiles.find(std::pair(name, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error6
-		if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
+		if (accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
 
 		//Error7
 		if (data.size() > fileSystem.freeSpace - inode->blocksOccupied*BLOCK_SIZE) { return FILE_ERROR_DATA_TOO_BIG; }
@@ -363,12 +363,12 @@ int FileManager::file_write(const std::string& name, const std::string& data) {
 
 	//Czêœæ dzia³aj¹ca
 	file_deallocate(inode);
-	file_write(inode, &accessedFiles[name], data);
+	file_write(inode, &accessedFiles[std::pair(name, procName)], data);
 	if (messages) { std::cout << "Zapisano dane do pliku o nazwie '" << name << "'.\n"; }
 	return FILE_ERROR_NONE;
 }
 
-int FileManager::file_append(const std::string& name, const std::string& data) {
+int FileManager::file_append(const std::string& name, const std::string& procName, const std::string& data) {
 	Inode* inode;
 
 	//Czêœæ sprawdzaj¹ca
@@ -389,10 +389,10 @@ int FileManager::file_append(const std::string& name, const std::string& data) {
 		inode = &fileSystem.inodeTable[fileIterator->second];
 
 		//Error4
-		if (accessedFiles.find(name) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+		if (accessedFiles.find(std::pair(name, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error5
-		if (accessedFiles[name].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
+		if (accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
 
 		//Error6
 		if (inode->realSize + data.size() > MAX_DATA_SIZE) { return FILE_ERROR_DATA_TOO_BIG; }
@@ -402,12 +402,12 @@ int FileManager::file_append(const std::string& name, const std::string& data) {
 	}
 
 	//Czêœæ dzia³aj¹ca
-	file_append(inode, &accessedFiles[name], data);
+	file_append(inode, &accessedFiles[std::pair(name, procName)], data);
 	if (messages) { std::cout << "Wpisano dane do pliku o nazwie '" << name << "'.\n"; }
 	return FILE_ERROR_NONE;
 }
 
-int FileManager::file_read(const std::string& name, const u_short_int& byteNumber, std::string& result) {
+int FileManager::file_read(const std::string& name, const std::string& procName, const u_short_int& byteNumber, std::string& result) {
 	//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
@@ -420,18 +420,18 @@ int FileManager::file_read(const std::string& name, const u_short_int& byteNumbe
 		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 
 		//Error4
-		if (accessedFiles.find(name) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+		if (accessedFiles.find(std::pair(name, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error5
-		if (accessedFiles[name].get_flags()[READ_FLAG] != true) { return FILE_ERROR_NOT_R_MODE; }
+		if (accessedFiles[std::pair(name, procName)].get_flags()[READ_FLAG] != true) { return FILE_ERROR_NOT_R_MODE; }
 	}
 
 	//Czêœæ dzia³aj¹ca ----------------------
-	result = accessedFiles[name].read(byteNumber);
+	result = accessedFiles[std::pair(name, procName)].read(byteNumber);
 	return FILE_ERROR_NONE;
 }
 
-int FileManager::file_read_all(const std::string& name, std::string& result) {
+int FileManager::file_read_all(const std::string& name, const std::string& procName, std::string& result) {
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
 	//Czêœæ sprawdzaj¹ca
@@ -444,10 +444,10 @@ int FileManager::file_read_all(const std::string& name, std::string& result) {
 	}
 
 	//Czêœæ dzia³aj¹ca
-	return file_read(name, fileSystem.inodeTable[fileSystem.rootDirectory[name]].realSize, result);
+	return file_read(name, procName, fileSystem.inodeTable[fileSystem.rootDirectory[name]].realSize, result);
 }
 
-int FileManager::file_delete(const std::string& name) {
+int FileManager::file_delete(const std::string& name, const std::string& procName) {
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
 	//Czêœæ sprawdzaj¹ca
@@ -459,7 +459,7 @@ int FileManager::file_delete(const std::string& name) {
 		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 
 		//Error3
-		if (accessedFiles.find(name) != accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) { return FILE_ERROR_OPENED; }
 	}
 
 	//Czêœæ dzia³aj¹ca
@@ -471,14 +471,13 @@ int FileManager::file_delete(const std::string& name) {
 
 		//Usuñ wpis o pliku z obecnego katalogu
 		fileSystem.rootDirectory.erase(fileIterator);
-		accessedFiles.erase(name);
 
 		if (messages) { std::cout << "Usunieto plik o nazwie '" << name << "'.\n"; }
 		return FILE_ERROR_NONE;
 	}
 }
 
-int FileManager::file_open(const std::string& name, const unsigned& mode) {
+int FileManager::file_open(const std::string& name, const std::string& procName, const unsigned int& mode) {
 	Inode* inode;
 	std::bitset<2>mode_(mode);
 
@@ -498,17 +497,25 @@ int FileManager::file_open(const std::string& name, const unsigned& mode) {
 
 	//Czêœæ dzia³aj¹ca
 	{
-		accessedFiles[name] = FileIO(&disk, inode, mode_);
+		if (accessedFiles.find(std::pair(name, "")) != accessedFiles.end()) {
+			int semVal = 0;
+			if (mode == FILE_OPEN_R_MODE) { semVal = 10; }
+			else if (mode == FILE_OPEN_W_MODE || mode == FILE_OPEN_RW_MODE) { semVal = 1; }
+			inode->sem = Semaphore(semVal);
+		}
+		accessedFiles[std::pair(name, "")];
+		accessedFiles[std::pair(name, procName)] = FileIO(&disk, inode, mode_);
+		fileSemaphores[std::pair(name, procName)] = Semaphore(1);
 
 		if (messages) {
-			std::cout << "Otwarto plik o nazwie '" << name << " w trybie" << (mode_[1] || mode_[0] ? " " : "")
-				<< (mode_[1] ? "R" : "") << (mode_[0] ? "W" : "") << ".\n";
+			std::cout << "Otwarto plik o nazwie '" << name << "' w trybie" << (mode_[1] || mode_[0] ? " " : "")
+				<< (mode_[0] ? "R" : "") << (mode_[1] ? "W" : "") << ".\n";
 		}
 		return FILE_ERROR_NONE;
 	}
 }
 
-int FileManager::file_close(const std::string& name) {
+int FileManager::file_close(const std::string& name, const std::string& procName) {
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
 	//Czêœæ sprawdzaj¹ca
@@ -522,9 +529,10 @@ int FileManager::file_close(const std::string& name) {
 
 	//Czêœæ dzia³aj¹ca
 	{
-		accessedFiles.erase(name);
+		accessedFiles.erase(std::pair(name, procName));
+		fileSemaphores.erase(std::pair(name, procName));
 
-		if (messages) { std::cout << "Zamknieto plik o sciezce '" << name << "'.\n"; }
+		if (messages) { std::cout << "Zamknieto plik o nazwie '" << name << "'.\n"; }
 		return FILE_ERROR_NONE;
 	}
 }
@@ -543,19 +551,19 @@ bool FileManager::disk_format() {
 	return true;
 }
 
-int FileManager::file_create(const std::string& name, const std::string& data) {
-	int result = file_create(name);
+int FileManager::file_create(const std::string& name, const std::string& procName, const std::string& data) {
+	int result = file_create(name, procName);
 	if (result != 0) { return result; }
 
 	//Zapisanie danych na dysku
-	result = file_write(name, data);
+	result = file_write(name, procName, data);
 	if (result != 0) {
-		return file_delete(name);
+		file_delete(name, procName);
 	}
-	else { return result; }
+	return result;
 }
 
-int FileManager::file_rename(const std::string& name, const std::string& newName) {
+int FileManager::file_rename(const std::string& name, const std::string& procName, const std::string& newName) {
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
 	//Czêœæ sprawdzaj¹ca --------------------
@@ -586,22 +594,24 @@ int FileManager::file_rename(const std::string& name, const std::string& newName
 		fileSystem.rootDirectory.erase(fileIterator);
 
 		//Jeœli plik jest otwarty zmieniany jest wpis w mapie wykorzystywanych plików
-		if (accessedFiles.find(name) != accessedFiles.end()) {
-			accessedFiles[newName] = accessedFiles[name];
-			accessedFiles.erase(name);
+		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {
+			accessedFiles[std::pair(newName, procName)] = accessedFiles[std::pair(name, procName)];
+			accessedFiles.erase(std::pair(name, procName));
+			fileSemaphores[std::pair(newName, procName)] = fileSemaphores[std::pair(name, procName)];
+			fileSemaphores.erase(std::pair(name, procName));
 		}
 
-		if (messages) { std::cout << "Zmieniono nazwê pliku '" << name << "' na '" << newName << "'.\n"; }
+		if (messages) { std::cout << "Zmieniono nazwe pliku '" << name << "' na '" << newName << "'.\n"; }
 
 		return FILE_ERROR_NONE;
 	}
 }
 
 int FileManager::file_close_all() {
-	std::vector<std::string> fileNames;
-	for(const auto& elem : accessedFiles) { fileNames.push_back(elem.first); }
-	for(const std::string& fileName : fileNames) {
-		if (const int result = file_close(fileName) != 0) { return result; }
+	std::vector<std::pair<std::string, std::string>> fileNames;
+	for (const auto& elem : accessedFiles) { fileNames.push_back(elem.first); }
+	for (const std::pair<std::string, std::string>& fileName : fileNames) {
+		if (const int result = file_close(fileName.first, fileName.second) != 0) { return result; }
 	}
 
 	return FILE_ERROR_NONE;
@@ -614,6 +624,47 @@ void FileManager::set_messages(const bool& onOff) {
 void FileManager::set_detailed_messages(const bool&  onOff) {
 	detailedMessages = onOff;
 }
+
+int FileManager::file_get_semaphore(const std::string& fileName, Semaphore& sem) {
+	//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
+	const auto fileIterator = fileSystem.rootDirectory.find(fileName);
+
+	//Czêœæ sprawdzaj¹ca --------------------
+	{
+		//Error1
+		if (fileName.empty()) { return FILE_ERROR_EMPTY_NAME; }
+
+		//Error2
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+
+		//Error3
+		if (accessedFiles.find(std::pair(fileName, "")) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+	}
+
+	sem = fileSystem.inodeTable[fileIterator->second].sem;
+	return FILE_ERROR_NONE;
+}
+
+int FileManager::file_get_semaphore(const std::string& fileName, const std::string& procName, Semaphore& sem) {
+	//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
+	const auto fileIterator = fileSystem.rootDirectory.find(fileName);
+
+	//Czêœæ sprawdzaj¹ca --------------------
+	{
+		//Error1
+		if (fileName.empty()) { return FILE_ERROR_EMPTY_NAME; }
+
+		//Error2
+		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+
+		//Error3
+		if (accessedFiles.find(std::pair(fileName, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+	}
+
+	sem = fileSemaphores[std::pair(fileName, procName)];
+	return FILE_ERROR_NONE;
+}
+
 
 
 //------------------ Metody do wyœwietlania -----------------
@@ -645,25 +696,25 @@ int FileManager::display_file_info(const std::string& name) {
 	//Error2
 	if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 
-	const auto file = &fileSystem.inodeTable[fileIterator->second];
+	auto file = &fileSystem.inodeTable[fileIterator->second];
 
 	//Wyœwietlanie
 	{
-		std::cout << "Name: " << name << '\n';
-		std::cout << "I-node number: " << fileIterator->second << '\n';
-		std::cout << "Size: " << file->realSize << " Bytes\n";
-		std::cout << "Size on disk: " << file->blocksOccupied*BLOCK_SIZE << " Bytes\n";
-		std::cout << "Created: " << file->creationTime << '\n';
-		std::cout << "Modified: " << file->modificationTime << '\n';
+		std::cout << "         Name : " << name << '\n';
+		std::cout << "I-node number : " << fileIterator->second << '\n';
+		std::cout << "         Size : " << file->realSize << " Bytes\n";
+		std::cout << " Size on disk : " << file->blocksOccupied*BLOCK_SIZE << " Bytes\n";
+		std::cout << "      Created : " << file->creationTime << '\n';
+		std::cout << "     Modified : " << file->modificationTime << "\n\n";
 
-		std::cout << "Direct block indexes: ";
+		std::cout << "Direct block indexes : ";
 		for (const auto& elem : file->directBlocks) {
 			if (elem != -1) { std::cout << elem << ' '; }
 			else { std::cout << -1 << ' '; }
 		}
 		std::cout << '\n';
 
-		std::cout << "Indirect block index: ";
+		std::cout << "Indirect block index : ";
 		if (file->singleIndirectBlocks != -1)
 		{
 			std::cout << file->singleIndirectBlocks << ' ';
@@ -683,9 +734,9 @@ int FileManager::display_file_info(const std::string& name) {
 		else { std::cout << -1 << "\n"; }
 
 
-		std::cout << "Saved data: ";
-		if (accessedFiles.find(name) != accessedFiles.end()) { std::cout << accessedFiles[name].read_all(); }
-		std::cout << '\n';
+		std::cout << "Saved data : ";
+		FileIO tempIO(&disk, file, std::bitset<2>(3));
+		std::cout << tempIO.read_all() << '\n';
 	}
 
 	return FILE_ERROR_NONE;
