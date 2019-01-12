@@ -7,19 +7,18 @@
 
 class Planista {
 private:
-	std::list<PCB> WaitingPCB;
-	std::list<PCB>::iterator Rpcb, Wpcb;
+	std::list<PCB*>::iterator Rpcb, Wpcb;
 	unsigned char trial;
 	int CounterMax = 1;
+	void SortReadyPCB();
 public:
-	std::list<PCB> ReadyPCB;
+	std::list<PCB*> ReadyPCB, WaitingPCB;
 	Planista() {}
 	~Planista() {}
 
 	void Check();
 	void AddProces(PCB& Proces);
 	void RemoveProces(PCB& Proces);
-	void SortReadyPCB();
 	void SetPriority(PCB& Proces);
 
 	std::list<PCB>& getWaitingPCB();
