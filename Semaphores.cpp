@@ -2,6 +2,10 @@
 #include "Semaphores.hpp"
 #include <list>
 
+Semaphore::Semaphore() {
+	this->value = -1;
+}
+
 Semaphore::Semaphore(int n) {
 	this->value = n;
 }
@@ -18,11 +22,11 @@ void Semaphore::Signal(Semaphore *S) {
 		wakeup(p.getWaitingPCB().front());
 	}
 }
-void Semaphore::block(PCB a) {
+void Semaphore::block(PCB& a) {
 	a.change_state(WAITING);
 	p.Check();
 }
-void Semaphore::wakeup(PCB a) {
+void Semaphore::wakeup(PCB& a) {
 	a.change_state(RUNNING);
 	p.Check();
 }
