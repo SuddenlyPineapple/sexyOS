@@ -15,7 +15,6 @@ void PCB::add_file_to_proc(const std::string& open_file)
 
 void PCB::kill_all_childrens(MemoryManager & mm)
 {
-
 	for (auto& i : this->child_vector)
 	{
 		mm.kill(i.PID);
@@ -31,27 +30,14 @@ void PCB::Set_PID(int i)
 	this->PID = i;
 }
 
-PCB* PCB::GET_kid(unsigned int PID)
+PCB* PCB::GET_kid(const unsigned int& PID)
 {
 	for (PCB& kid : this->child_vector) {
 		if (kid.PID == PID) { return &kid; }
-		for (PCB& grandkid : kid.child_vector) {
-			if (grandkid.PID == PID) { return &grandkid; }
-			for (PCB& ggrandkid : grandkid.child_vector) {
-				if (ggrandkid.PID == PID) { return &ggrandkid; }
-
-
-			}
-
-		}
 	}
-
-
 	for (PCB& kid : this->child_vector) {
-		if (kid.PID == PID) { return &kid; }
-		else if (!kid.child_vector.empty()) {
-			return kid.GET_kid(PID);
-		}
+		PCB* foundKid = kid.GET_kid(PID); //U¿y³em rekurencji
+		if (foundKid != nullptr) { return foundKid; }
 	}
 	return nullptr;
 
@@ -60,54 +46,34 @@ PCB* PCB::GET_kid(const std::string& nazwa)
 {
 	for (PCB& kid : this->child_vector) {
 		if (kid.process_name == nazwa) { return &kid; }
-		for (PCB& grandkid : kid.child_vector) {
-			if (grandkid.process_name == nazwa) { return &grandkid; }
-			for (PCB& ggrandkid : grandkid.child_vector) {
-				if (ggrandkid.process_name == nazwa) { return &ggrandkid; }
-
-
-			}
-
-		}
 	}
-
-
 	for (PCB& kid : this->child_vector) {
-		if (kid.PID == PID) { return &kid; }
-		else if (!kid.child_vector.empty()) {
-			return kid.GET_kid(PID);
-		}
+		PCB* foundKid = kid.GET_kid(nazwa); //U¿y³em rekurencji
+		if (foundKid != nullptr) { return foundKid; }
 	}
-	return nullptr;
 
+	return nullptr;
 }
 
-bool PCB::find_kid(unsigned int PID)
+bool PCB::find_kid(const unsigned int& PID) const
 {
-	for (PCB kid : this->child_vector) {
+	for (const PCB& kid : this->child_vector) {
 		if (kid.PID == PID) { return true; }
 		else if (!kid.child_vector.empty()) {
-			if (kid.find_kid(PID))
-				return kid.find_kid(PID);
+			const bool result = kid.find_kid(PID);
+			if (result) { return kid.find_kid(PID); }
 		}
 	}
 	return false;
 }
-void PCB::display_allkids()
-{
-	int i = 0;
+void PCB::display_allkids() {
 	for (PCB kid : this->child_vector) {
-		if (kid.parent_proc->PID == 1)std::cout << "\t nazwa procesu " << kid.process_name << " PID procesu " << kid.PID << std::endl;
-		else
-			std::cout << "\t\t nazwa procesu " << kid.process_name << " PID procesu " << kid.PID << std::endl;
+		if (kid.parent_proc->PID == 1) { std::cout << "\t nazwa procesu " << kid.process_name << " PID procesu " << kid.PID << std::endl; }
+		else { std::cout << "\t\t nazwa procesu " << kid.process_name << " PID procesu " << kid.PID << std::endl; }
 
 		if (!kid.child_vector.empty()) {
-			std::cout << "\t"; kid.display_allkids(i);
-
+			std::cout << "\t"; kid.display_allkids(0);
 		}
-
-
-
 	}
 
 	std::cout << std::endl;
@@ -123,18 +89,13 @@ void PCB::display_allkids(int a)
 		std::cout << "\t\t nazwa procesu " << kid.process_name << " PID procesu " << kid.PID << std::endl;
 
 		if (!kid.child_vector.empty()) {
-
 			std::cout << "\t"; kid.display_allkids(a);
-
 		}
-
-
-
 	}
 
 	std::cout << std::endl;
 }
-void proc_tree::fork(PCB proc, const std::string& name, int rozmiar) {
+void proc_tree::fork(PCB proc, int rozmiar) {
 	if (proc.PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
 
 		proc.PID = free_PID;
@@ -173,7 +134,7 @@ void proc_tree::fork(PCB proc, const std::string& name, int rozmiar) {
 	}
 
 }
-void proc_tree::fork(PCB proc, const std::string& name, const std::string& file_name, int rozmiar) {
+void proc_tree::fork(PCB proc, const std::string& file_name, int rozmiar) {
 	if (proc.PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
 		proc.PID = free_PID;
 		free_PID++;
@@ -193,7 +154,6 @@ void proc_tree::fork(PCB proc, const std::string& name, const std::string& file_
 	else {
 		if (this->proc.GET_kid(proc.PID)->PID == proc.PID) {
 			int temp = proc.PID;
-
 
 			proc.parent_proc = this->proc.GET_kid(temp);
 			proc.PID = free_PID;
@@ -220,7 +180,7 @@ void proc_tree::fork(PCB proc, const std::string& name, const std::string& file_
 
 }
 
-void proc_tree::fork(PCB proc, const std::string& name)
+void proc_tree::fork(PCB proc)
 {
 	if (proc.PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
 		proc.PID = free_PID;
@@ -229,13 +189,11 @@ void proc_tree::fork(PCB proc, const std::string& name)
 		this->proc.child_vector.push_back(proc);
 	}
 	else {
-		if (this->proc.GET_kid(proc.PID)->PID == proc.PID) {
-			int temp = proc.PID;
-
-
-			proc.parent_proc = this->proc.GET_kid(temp);
+		if (this->find_proc(proc.PID) != nullptr) {
+			auto parent = this->find_proc(proc.PID);
+			proc.parent_proc = parent;
 			proc.PID = free_PID;
-			this->proc.GET_kid(temp)->child_vector.push_back(proc);
+			parent->child_vector.push_back(proc);
 			std::cout << " znaleziono ojca" << std::endl;
 			free_PID++;
 
@@ -247,148 +205,39 @@ void proc_tree::fork(PCB proc, const std::string& name)
 	}
 
 }
-/*void proc_tree::fork(PCB * proc, const std::string name, MemoryManager mm, int rozmiar, std::string open_file)
+
+void proc_tree::fork(PCB proc, std::vector<std::string> file_names)
 {
 	if (proc.PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
-
-		proc.PID = free_PID;
-		free_PID++;
-		proc.parent_proc = &this->proc;
-		proc.add_file_to_proc(open_file);
-		const auto pages = static_cast<unsigned int>(ceil(rozmiar / 16.0));
-		proc.pageList = mm.createPageList(rozmiar, proc.PID);
-		proc.change_state(READY);
-		proc.proces_size = pages * 16;
-		this->proc.child_vector.push_back(proc);
-
-
-	}
-	else {
-		if (this->proc.GET_kid(proc.PID)->PID == proc.PID) {
-			int temp = proc.PID;
-
-
-			proc.parent_proc = this->proc.GET_kid(temp);
-			proc.PID = free_PID;
-			this->proc.GET_kid(temp)->child_vector.push_back(proc);
-			std::cout << " znaleziono ojca" << std::endl;
-			free_PID++;
-			const auto pages = static_cast<unsigned int>(ceil(rozmiar / 16.0));
-			proc.pageList = mm.createPageList(rozmiar, proc.PID);
-			proc.change_state(READY);
-			proc.proces_size = pages * 16;
-			proc.add_file_to_proc(open_file);
-
-		}
-		else {
-			std::cout << "nie znaleziono ojca" << std::endl;
-		}
-
-	}
-}*/
-/*void proc_tree::fork(PCB *proc, const std::string name, std::string file_name, MemoryManager mm, int rozmiar) {
-	if (proc.PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
-
-		proc.PID = free_PID;
-		free_PID++;
-		proc.parent_proc = &this->proc;
-
-		const auto pages = static_cast<unsigned int>(ceil(rozmiar / 16.0));// tu zaczyna sie ustawianie pamiêci
-		proc.pageList = mm.createPageList(rozmiar, proc.PID);
-		proc.change_state(READY);
-		proc.proces_size = pages * 16;
-		this->proc.child_vector.push_back(proc);
-
-
-	}
-	else {
-		if (this->proc.GET_kid(proc.PID)->PID == proc.PID) {
-			int temp = proc.PID;
-
-
-			proc.parent_proc = this->proc.GET_kid(temp);
-			proc.PID = free_PID;
-			this->proc.GET_kid(temp)->child_vector.push_back(proc);
-			std::cout << " znaleziono ojca" << std::endl;
-			free_PID++;
-			const auto pages = static_cast<unsigned int>(ceil(rozmiar / 16.0));
-			proc.pageList = mm.createPageList(rozmiar, proc.PID);
-			proc.change_state(READY);
-			proc.proces_size = pages * 16;
-
-
-		}
-		else {
-			std::cout << "nie znaleziono ojca" << std::endl;
-		}
-	}
-
-}
-
-/*void proc_tree::fork(PCB * proc, const std::string name, std::string file_name) tu jest bez mm
-{
-	{
-		if (proc.PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+		for (const std::string& file_name : file_names) {
 			proc.open_files.push_back(file_name);
-			proc.PID = free_PID;
-			free_PID++;
-			proc.parent_proc = &this->proc;
-			this->proc.child_vector.push_back(proc);
-
 		}
-		else {
-			if (this->proc.GET_kid(proc.PID)->PID == proc.PID) {
-				int temp = proc.PID;
-				proc.open_files.push_back(file_name);
-				proc.parent_proc = this->proc.GET_kid(temp);
-				proc.PID = free_PID;
-				this->proc.GET_kid(temp)->child_vector.push_back(proc);
-				std::cout << " znaleziono ojca" << std::endl;
-				free_PID++;
-
-				;
-			}
-			else {
-				std::cout << "nie znaleziono ojca" << std::endl;
-			}
-		}
+		proc.PID = free_PID;
+		free_PID++;
+		proc.parent_proc = &this->proc;
+		this->proc.child_vector.push_back(proc);
 	}
-}*/
-void proc_tree::fork(PCB proc, const std::string& name, std::vector<std::string> file_names)
-{
-	{
-		if (proc.PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+	else {
+		if (this->proc.GET_kid(proc.PID)->PID == proc.PID) {
+			int temp = proc.PID;
 			for (const std::string& file_name : file_names) {
 				proc.open_files.push_back(file_name);
 			}
+			proc.parent_proc = this->proc.GET_kid(temp);
 			proc.PID = free_PID;
+			this->proc.GET_kid(temp)->child_vector.push_back(proc);
+			std::cout << " znaleziono ojca" << std::endl;
 			free_PID++;
-			proc.parent_proc = &this->proc;
-			this->proc.child_vector.push_back(proc);
+
 
 		}
 		else {
-			if (this->proc.GET_kid(proc.PID)->PID == proc.PID) {
-				int temp = proc.PID;
-				for (const std::string& file_name : file_names) {
-					proc.open_files.push_back(file_name);
-				}
-				proc.parent_proc = this->proc.GET_kid(temp);
-				proc.PID = free_PID;
-				this->proc.GET_kid(temp)->child_vector.push_back(proc);
-				std::cout << " znaleziono ojca" << std::endl;
-				free_PID++;
-
-
-			}
-			else {
-				std::cout << "nie znaleziono ojca" << std::endl;
-			}
+			std::cout << "nie znaleziono ojca" << std::endl;
 		}
 	}
 }
 
-void proc_tree::exit(int pid)
+void proc_tree::exit(const int& pid)
 {
 	if (pid == this->proc.PID) {// kiedy damy id=1 
 		std::cout << "nie mo¿na usun¹æ inita/systemd" << std::endl;
@@ -412,11 +261,7 @@ void proc_tree::exit(int pid)
 			else { //kiedy ma dzieci
 				//kiedy dziecko ma dzieci
 				for (auto& i : temp->child_vector) {
-					if (!i.child_vector.empty())//kiedy jest patologia
-					{
-						for (auto& j : i.child_vector)
-							j.kill_all_childrens(*mm);
-					}
+					exit(i.PID);
 					i.kill_all_childrens(*mm);
 				}
 			}
@@ -426,25 +271,16 @@ void proc_tree::exit(int pid)
 
 
 
-
-
 void proc_tree::display_tree()
 {
 	std::cout << "nazwa procesu " << proc.process_name << " PID procesu " << proc.PID << std::endl;
 	proc.display_allkids();
-
-
-
-
-
-
 }
 
 PCB *proc_tree::find_proc(int PID)
 {
 	if (PID == this->proc.PID) {
-		return &this->proc;// do sprawdzenia czy tak zadziaa
-
+		return &this->proc;// do sprawdzenia czy tak zadzia³a (sprawdzone)
 	}
 	else return this->proc.GET_kid(PID);
 
@@ -454,10 +290,8 @@ PCB * proc_tree::find_proc(const std::string& nazwa)
 {
 	{
 		if (nazwa == this->proc.process_name) {
-			return &this->proc;// do sprawdzenia czy tak zadziaa
-
+			return &this->proc;// do sprawdzenia czy tak zadzia³a (sprawdzone)
 		}
 		else return this->proc.GET_kid(nazwa);
-
 	}
 }

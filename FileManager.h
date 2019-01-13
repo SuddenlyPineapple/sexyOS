@@ -25,16 +25,18 @@
 #include <unordered_map>
 #include <map>
 
- /*
-	 TODO:
-	 - dodaæ semafory
-	 - dorobiæ stuff z ³adowaniem bufora do RAMu przy odczycie (opcjonalne)
- */
+class Planista;
+class proc_tree;
 
- //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
+/*
+	TODO:
+	- dodaæ semafory
+	- dorobiæ stuff z ³adowaniem bufora do RAMu przy odczycie (opcjonalne)
+*/
+
+//Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
 #define FILE_OPEN_R_MODE  1 //01
 #define FILE_OPEN_W_MODE  2 //10
-#define FILE_OPEN_RW_MODE 3 //11
 
 //Do u¿ycia przy obs³udze b³êdów
 #define FILE_ERROR_NONE				0
@@ -46,8 +48,9 @@
 #define FILE_ERROR_NOT_FOUND		6
 #define FILE_ERROR_NOT_OPENED		7
 #define FILE_ERROR_OPENED			8
-#define FILE_ERROR_NOT_R_MODE		9
-#define FILE_ERROR_NOT_W_MODE		10
+#define FILE_ERROR_SYNC				9
+#define FILE_ERROR_NOT_R_MODE		10
+#define FILE_ERROR_NOT_W_MODE		11
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
@@ -93,6 +96,7 @@ private:
 
 		//Synchronizacja
 		Semaphore sem;
+		bool opened = false;
 
 		Inode();
 
@@ -182,13 +186,17 @@ private:
 	//Wartoœæ - semafor przypisany danemu procesowi
 	std::map<std::pair<std::string, std::string>, Semaphore> fileSemaphores;
 
+	//Inne modu³y
+	Planista* p;
+	proc_tree* tree;
+
 
 public:
 	//----------------------- Konstruktor -----------------------
 	/**
 		Konstruktor domyœlny. Przypisuje do obecnego katalogu katalog g³ówny.
 	*/
-	explicit FileManager() = default;
+	explicit FileManager(Planista* plan, proc_tree* tree_) : p(plan), tree(tree_) {}
 
 
 
@@ -207,6 +215,7 @@ public:
 		Zapisuje podane dane w danym pliku usuwaj¹c poprzedni¹ zawartoœæ.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu, który chce zapisaæ do pliku.
 		@param data Dane do zapisu.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
@@ -216,6 +225,7 @@ public:
 		Dopisuje podane dane na koniec pliku.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu, który chce dopisaæ do pliku.
 		@param data Dane do zapisu.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
@@ -226,6 +236,7 @@ public:
 		Aby zresetowaæ wskaŸnik odczytu nale¿y ponownie otworzyæ plik.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu, który chce odczytaæ z pliku.
 		@param byteNumber Iloœæ bajtów do odczytu.
 		@param result Miejsce do zapisania odczytanych danych.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
@@ -236,6 +247,7 @@ public:
 		Odczytuje ca³e dane z pliku.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu, który chce odczytaæ z pliku.
 		@param result Miejsca do zapisania odczytanych danych.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
@@ -246,6 +258,7 @@ public:
 		Plik jest wymazywany z katalogu g³ównego oraz wektora bitowego.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu, który chce usun¹æ pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_delete(const std::string& name, const std::string& procName);
@@ -267,6 +280,7 @@ public:
 		Zamyka plik o podanej nazwie.
 
 		@param name Nazwa pliku.
+		@param procName Nazwa procesu, który zamkn¹æ pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_close(const std::string& name, const std::string& procName);
@@ -295,13 +309,11 @@ public:
 	int file_create(const std::string& name, const std::string& procName, const std::string& data);
 
 	/**
-		Zmienia nazwê pliku o podanej nazwie.
+		Zamyka wszystkie pliki dla danego procesu.
 
-		@param name Obecna nazwa pliku.
-		@param newName Zmieniona nazwa pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_rename(const std::string& name, const std::string& procName, const std::string& newName);
+	int file_close_all(const std::string& procName);
 
 	/**
 		Zamyka wszystkie pliki.
@@ -329,29 +341,6 @@ public:
 		@return void.
 	*/
 	void set_detailed_messages(const bool& onOff);
-
-
-
-	//----------------- Metody do synchronizacji ----------------
-
-	/**
-		Zwraca g³ówny semafor dla pliku.
-
-		@param fileName Nazwa pliku.
-		@param sem Zmienna do zapisania w niej semafora.
-		@return Kod b³êdu.
-	*/
-	int file_get_semaphore(const std::string& fileName, Semaphore& sem);
-
-	/**
-		Zwraca semafor dla pliku przypisany do procesu.
-
-		@param fileName Nazwa pliku.
-		@param procName Nazwa procesu.
-		@param sem Zmienna do zapisania w niej semafora.
-		@return Semafor pliku dla danego procesu.
-	*/
-	int file_get_semaphore(const std::string& fileName, const std::string& procName, Semaphore& sem);
 
 
 
@@ -401,6 +390,7 @@ public:
 	void display_bit_vector();
 
 
+	//------ KOLEJNE METODY MA£O KOGO POWINNY OBCHODZIÆ ---------
 private:
 	//------------------- Metody Sprawdzaj¹ce -------------------
 
@@ -441,6 +431,16 @@ private:
 
 
 	//----------------------- Metody Inne -----------------------
+
+	void update_file_proc_semaphores(const std::string& fileName);
+
+	bool is_file_opened_write(const std::string& fileName);
+
+	int file_accessing_proc_count(const std::string& fileName);
+
+	void sem_signal_all(const std::string& fileName);
+
+	void sem_wait_all(const std::string& fileName);
 
 	std::string get_file_data_block(Inode* file, const int8_t& indexNumber) const;
 

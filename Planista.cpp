@@ -1,7 +1,6 @@
 #include "Procesy.h"
 #include "Planista.h"
 #include <list>
-#include <cmath>
 #include <sstream>
 
 bool WywlaszczeniePCB = false;
@@ -15,12 +14,13 @@ void Planista::Check() {
 		if ((*Rpcb)->state == TERMINATED) {
 			Rpcb = ReadyPCB.erase(Rpcb);
 		}
-		if ((*Rpcb)->state != READY) {
+		else if ((*Rpcb)->state != READY) {
 			WaitingPCB.push_back(*Rpcb);
-			Rpcb = WaitingPCB.erase(Rpcb);
+			Rpcb = ReadyPCB.erase(Rpcb);
 		}
 		else {
 			++Rpcb;
+			if (Rpcb == ReadyPCB.end()) { break; }
 			SetPriority(**Rpcb);
 		}
 	}
@@ -38,15 +38,15 @@ void Planista::Check() {
 void Planista::AddProces(PCB& Proces) {
 	bool x = false;
 	if (Proces.state == READY) {
-		if (ReadyPCB.size() == 0) {
+		if (ReadyPCB.empty()) {
 			ReadyPCB.push_back(&Proces);
 		}
 		else {
 			for (Rpcb = ReadyPCB.begin(); Rpcb != ReadyPCB.end(); ++Rpcb) {
 				if (Proces.priority > (*Rpcb)->priority) {
 					ReadyPCB.insert(Rpcb, &Proces);
-					if (Rpcb == ReadyPCB.begin()) {				// jesli proces będzie na 1 miejscu
-						WywlaszczeniePCB = true;					// flaga i przeładowanie kontekstu
+					if (Rpcb == ReadyPCB.begin()) {			// jesli proces będzie na 1 miejscu
+						WywlaszczeniePCB = true;			// flaga i przeładowanie kontekstu
 					}
 					x = true;
 					break;
@@ -98,7 +98,7 @@ void Planista::SortReadyPCB() {
 }
 
 void Planista::SetPriority(PCB &Proces) {
-	double x = 0;
+	double x = 0.0;
 	Proces.last_counter = Proces.comand_counter - Proces.last_counter;
 	//			USTALENIE MNOZNIKA od najwiekszego skoku
 	if (Proces.last_counter > CounterMax) {
@@ -119,8 +119,4 @@ void Planista::SetPriority(PCB &Proces) {
 		Proces.priority--;
 	}
 	Proces.last_counter = Proces.comand_counter;
-}
-
-std::list<PCB*>& Planista::getWaitingPCB() {
-	return WaitingPCB;
 }

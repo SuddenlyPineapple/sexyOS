@@ -13,6 +13,8 @@
  */
 
 #include "FileManager.h"
+#include "Planista.h"
+#include "Procesy.h"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -93,7 +95,7 @@ void FileManager::FileSystem::reset() {
 
 //-------------------------- I-wêzê³ ------------------------
 
-FileManager::Inode::Inode() : creationTime(), modificationTime(), sem(-1) {
+FileManager::Inode::Inode() : creationTime(), modificationTime(), sem(nullptr, 99) {
 	//Wype³nienie indeksów bloków dyskowych wartoœci¹ -1 (pusty indeks)
 	directBlocks.fill(-1);
 	singleIndirectBlocks = -1;
@@ -352,12 +354,15 @@ int FileManager::file_write(const std::string& name, const std::string& procName
 		inode = &fileSystem.inodeTable[fileIterator->second];
 
 		//Error5
-		if (accessedFiles.find(std::pair(name, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+		if (!inode->opened) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error6
 		if (accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
 
 		//Error7
+		if (fileSemaphores.find(std::pair(name, procName)) != fileSemaphores.end()) { return FILE_ERROR_SYNC; }
+
+		//Error8
 		if (data.size() > fileSystem.freeSpace - inode->blocksOccupied*BLOCK_SIZE) { return FILE_ERROR_DATA_TOO_BIG; }
 	}
 
@@ -389,7 +394,7 @@ int FileManager::file_append(const std::string& name, const std::string& procNam
 		inode = &fileSystem.inodeTable[fileIterator->second];
 
 		//Error4
-		if (accessedFiles.find(std::pair(name, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
+		if (!inode->opened) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error5
 		if (accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
@@ -424,6 +429,9 @@ int FileManager::file_read(const std::string& name, const std::string& procName,
 
 		//Error5
 		if (accessedFiles[std::pair(name, procName)].get_flags()[READ_FLAG] != true) { return FILE_ERROR_NOT_R_MODE; }
+
+		//Error6
+		if (fileSemaphores.find(std::pair(name, procName)) != fileSemaphores.end()) { return FILE_ERROR_SYNC; }
 	}
 
 	//Czêœæ dzia³aj¹ca ----------------------
@@ -493,23 +501,44 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 
 		inode = &fileSystem.inodeTable[fileIterator->second];
+
+		//Error3
+		if (file_accessing_proc_count(name) > 0) {
+			if (is_file_opened_write(name) && mode == FILE_OPEN_R_MODE) { return FILE_ERROR_OPENED; }
+			else if (!is_file_opened_write(name) && mode == FILE_OPEN_W_MODE) { return FILE_ERROR_OPENED; }
+		}
 	}
 
 	//Czêœæ dzia³aj¹ca
 	{
-		if (accessedFiles.find(std::pair(name, "")) != accessedFiles.end()) {
+		if (!inode->opened) {
 			int semVal = 0;
-			if (mode == FILE_OPEN_R_MODE) { semVal = 10; }
-			else if (mode == FILE_OPEN_W_MODE || mode == FILE_OPEN_RW_MODE) { semVal = 1; }
-			inode->sem = Semaphore(semVal);
+			if (mode == FILE_OPEN_R_MODE) { semVal = 2; } //Tak ma³o, ¿eby mo¿na pokazaæ, ¿e dzia³a dla dwóch a potem nie
+			else if (mode == FILE_OPEN_W_MODE) { semVal = 2; }
+			inode->sem = Semaphore(p, semVal);
 		}
-		accessedFiles[std::pair(name, "")];
+
+		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {
+			if (const int result = file_close(name, procName) != FILE_ERROR_NONE) { return result; };
+		}
+
+		if (tree->find_proc(procName + "_" + name) == nullptr) {
+			tree->fork(PCB(procName + "_" + name, tree->find_proc(procName)->PID));
+			p->AddProces(*tree->find_proc(procName + "_" + name));
+		}
+
 		accessedFiles[std::pair(name, procName)] = FileIO(&disk, inode, mode_);
-		fileSemaphores[std::pair(name, procName)] = Semaphore(1);
+
+		if (inode->sem.is_blocked()) {
+			fileSemaphores.insert(std::pair(std::pair(name, procName), Semaphore(p, inode->sem.get_value())));
+		}
+
+		inode->sem.Wait(); //Obni¿enie wartoœci semafora
+		inode->opened = true;
 
 		if (messages) {
 			std::cout << "Otwarto plik o nazwie '" << name << "' w trybie" << (mode_[1] || mode_[0] ? " " : "")
-				<< (mode_[0] ? "R" : "") << (mode_[1] ? "W" : "") << ".\n";
+				<< (mode_[0] ? "R" : "") << (mode_[1] ? "W" : "") << " przez proces " << procName << ".\n";
 		}
 		return FILE_ERROR_NONE;
 	}
@@ -529,10 +558,27 @@ int FileManager::file_close(const std::string& name, const std::string& procName
 
 	//Czêœæ dzia³aj¹ca
 	{
+		const int PID = tree->find_proc(procName + "_" + name)->PID;
+		tree->exit(PID);
 		accessedFiles.erase(std::pair(name, procName));
 		fileSemaphores.erase(std::pair(name, procName));
+		//Podwy¿szenie wartoœci semafora
+		if (is_file_opened_write(name)) {
+			if (fileSystem.inodeTable[fileIterator->second].sem.get_value() < 1) {
+				fileSystem.inodeTable[fileIterator->second].sem.Signal();
+				sem_signal_all(name);
+			}
+		}
+		else {
+			if (fileSystem.inodeTable[fileIterator->second].sem.get_value() < 2) {
+				fileSystem.inodeTable[fileIterator->second].sem.Signal();
+				sem_signal_all(name);
+			}
+		}
 
-		if (messages) { std::cout << "Zamknieto plik o nazwie '" << name << "'.\n"; }
+		if (file_accessing_proc_count(name) == 0) { fileSystem.inodeTable[fileIterator->second].opened = false; }
+
+		if (messages) { std::cout << "Zamknieto plik o nazwie '" << name << "' przez proces " << procName << ".\n"; }
 		return FILE_ERROR_NONE;
 	}
 }
@@ -563,48 +609,16 @@ int FileManager::file_create(const std::string& name, const std::string& procNam
 	return result;
 }
 
-int FileManager::file_rename(const std::string& name, const std::string& procName, const std::string& newName) {
-	const auto fileIterator = fileSystem.rootDirectory.find(name);
-
-	//Czêœæ sprawdzaj¹ca --------------------
-	{
-		//Error1
-		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
-
-		//Error2
-		if (newName.empty()) { return FILE_ERROR_EMPTY_NAME; }
-
-		//Error3
-		if (check_if_name_used(newName)) { return FILE_ERROR_NAME_USED; }
-
-		//Error4
-		if (newName.size() > MAX_FILENAME_LENGTH) { return FILE_ERROR_NAME_TOO_LONG; }
-
-		//Error5
-		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
-	}
-
-
-	//Czêœæ dzia³aj¹ca --------------------
-	{
-		//Lokowanie nowego klucza w tablicy hashowej katalogu g³ównego i przypisanie do niego id i-wêz³a
-		fileSystem.rootDirectory[newName] = fileIterator->second;
-
-		//Usuniêcie starego klucza z katalogu g³ównego
-		fileSystem.rootDirectory.erase(fileIterator);
-
-		//Jeœli plik jest otwarty zmieniany jest wpis w mapie wykorzystywanych plików
-		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {
-			accessedFiles[std::pair(newName, procName)] = accessedFiles[std::pair(name, procName)];
-			accessedFiles.erase(std::pair(name, procName));
-			fileSemaphores[std::pair(newName, procName)] = fileSemaphores[std::pair(name, procName)];
-			fileSemaphores.erase(std::pair(name, procName));
+int FileManager::file_close_all(const std::string& procName) {
+	std::vector<std::pair<std::string, std::string>> fileNames;
+	for (const auto& elem : accessedFiles) { fileNames.push_back(elem.first); }
+	for (const std::pair<std::string, std::string>& fileName : fileNames) {
+		if (fileName.second == procName) {
+			if (const int result = file_close(fileName.first, fileName.second) != 0) { return result; }
 		}
-
-		if (messages) { std::cout << "Zmieniono nazwe pliku '" << name << "' na '" << newName << "'.\n"; }
-
-		return FILE_ERROR_NONE;
 	}
+
+	return FILE_ERROR_NONE;
 }
 
 int FileManager::file_close_all() {
@@ -623,46 +637,6 @@ void FileManager::set_messages(const bool& onOff) {
 
 void FileManager::set_detailed_messages(const bool&  onOff) {
 	detailedMessages = onOff;
-}
-
-int FileManager::file_get_semaphore(const std::string& fileName, Semaphore& sem) {
-	//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
-	const auto fileIterator = fileSystem.rootDirectory.find(fileName);
-
-	//Czêœæ sprawdzaj¹ca --------------------
-	{
-		//Error1
-		if (fileName.empty()) { return FILE_ERROR_EMPTY_NAME; }
-
-		//Error2
-		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
-
-		//Error3
-		if (accessedFiles.find(std::pair(fileName, "")) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
-	}
-
-	sem = fileSystem.inodeTable[fileIterator->second].sem;
-	return FILE_ERROR_NONE;
-}
-
-int FileManager::file_get_semaphore(const std::string& fileName, const std::string& procName, Semaphore& sem) {
-	//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
-	const auto fileIterator = fileSystem.rootDirectory.find(fileName);
-
-	//Czêœæ sprawdzaj¹ca --------------------
-	{
-		//Error1
-		if (fileName.empty()) { return FILE_ERROR_EMPTY_NAME; }
-
-		//Error2
-		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
-
-		//Error3
-		if (accessedFiles.find(std::pair(fileName, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
-	}
-
-	sem = fileSemaphores[std::pair(fileName, procName)];
-	return FILE_ERROR_NONE;
 }
 
 
@@ -1068,6 +1042,48 @@ const std::vector<u_int> FileManager::find_unallocated_blocks(const u_int& block
 	return blockList;
 }
 
+void FileManager::update_file_proc_semaphores(const std::string& fileName) {
+	for (auto it = fileSemaphores.begin(); it != fileSemaphores.end();) {
+		if (it->first.first == fileName) {
+			if (!it->second.is_blocked()) {
+				it = fileSemaphores.erase(it);
+			}
+			else { ++it; }
+		}
+		else { ++it; }
+		if (it == fileSemaphores.end()) { break; }
+	}
+}
+
+bool FileManager::is_file_opened_write(const std::string& fileName) {
+	for (auto& elem : accessedFiles) {
+		if (elem.first.first == fileName) {
+			if (elem.second.get_flags()[1]) { return true; }
+		}
+	}
+	return false;
+}
+
+int FileManager::file_accessing_proc_count(const std::string& fileName) {
+	int result = 0;
+	for (auto& elem : accessedFiles) {
+		if (elem.first.first == fileName) { result++; }
+	}
+	return result;
+}
+
+void FileManager::sem_signal_all(const std::string& fileName) {
+	for (auto& elem : fileSemaphores) {
+		if (elem.first.first == fileName) { elem.second.Signal(); }
+	}
+	update_file_proc_semaphores(fileName);
+}
+
+void FileManager::sem_wait_all(const std::string& fileName) {
+	for (auto& elem : fileSemaphores) {
+		if (elem.first.first == fileName) { elem.second.Signal(); }
+	}
+}
 
 
 //----------------------- Metody Inne -----------------------
