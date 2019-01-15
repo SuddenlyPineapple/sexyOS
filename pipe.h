@@ -5,24 +5,36 @@
 #include <queue>
 
 class PCB;
+class proc_tree;
 class Pipe;
 
 class Pipeline {
-public:
+private:
+	proc_tree* tree;
 	std::vector<Pipe*> pipes;
-	void createPipe(PCB &p1, PCB &p2);
-	void deletePipe(PCB& p1);
-	bool existPipe(PCB& p1, PCB& p2);
+
+
+public:
+	Pipeline(proc_tree* tree_) : tree(tree_){}
+
+	void createPipe(const std::string& p1, const std::string& p2);
+
+	void write(const std::string& p1, const std::string& p2, const std::string& data);
+	std::string read(const std::string& p1, const std::string& p2, const size_t& rozmiar);
+
+	void deletePipe(const std::string& p1, const std::string& p2);
+	bool existPipe(const std::string& p1, const std::string& p2);
 };
 class Pipe {
+private:
+	std::queue<char> buffer;
+	PCB* p1;
+	PCB* p2;
+	Pipeline *p;
+
 public:
-	Pipe(PCB& p1, PCB& p2, Pipeline& potok);
+	Pipe(PCB* p1, PCB* p2, Pipeline* potok);
 	~Pipe();
 	std::string read(size_t rozmiar);
 	void write(const std::string& wiadomosc);
-private:
-	std::queue<char> buffer;
-	PCB *p1;
-	PCB *p2;
-	Pipeline *p;
 };

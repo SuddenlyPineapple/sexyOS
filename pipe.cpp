@@ -7,95 +7,127 @@
 //1-koniec do zapisu
 //-1-oznaczenie ze potok nie jest już potrzebny
 
+#define READ_END	0
+#define WRITE_END	1
+#define UNUSED		-1
 
-
-Pipe::Pipe(PCB& p1, PCB &p2, Pipeline& p) {//konstruktor pipe
-	this->p1 = &p1;
-	this->p2 = &p2;
-	this->p = &p;
-}
-
-Pipe::~Pipe() {
-	p1->FD[0] = -1;
-	p2->FD[0] = -1;
-}
-
-std::string Pipe::read(size_t rozmiar) {
-	std::string t;//string z wiadomoscia
-	if (p2->FD[1] == 0) {//sprawdzanie czy to odpowiedni koniec rury
-		if (buffer.empty()) {//sprawdzanie czy jest cos w kolejce
-			p2->change_state(WAITING);//zmiana na weiting jeśli pusta kolejka
-		}
-		else {
-			if (rozmiar > buffer.size()) { //wiadomosc dłuższa niż romiar buffera
-				while (!buffer.empty()) {
-					t.push_back(buffer.front());
-					buffer.pop();
-				}
-			}
-			else {
-				for (size_t i = 0; i < rozmiar; i++) {
-					t.push_back(buffer.front());
-					buffer.pop();
-				}
-			}
-		}
-	}
-	else if (p2->FD[1] != 0) {//sytuacja jesli jest to zły koniec pipa,
-		std::cout << "Nie ta strona rury xD" << std::endl;
-	}
-	return t;
-}
-void Pipe::write(const std::string &wiadomosc) {
-	if (p1->FD[1] == 1) {//sprawdzanie czy to dobry koniec
-		for (auto x : wiadomosc) {
-			buffer.push(x);
-		}
-		p2->change_state(READY);//zmiana na ready po odebraniu wiadomosci
-	}
-	else if (p1->FD[1] != 1) {
-		std::cout << "Nie ten koniec rury xD" << std::endl;
-	}
-}
-void Pipeline::createPipe(PCB &p1, PCB& p2) {//tworzenie
-	bool created = false;
+void Pipeline::createPipe(const std::string& p1, const std::string& p2) {//tworzenie
+	PCB* proc1 = tree->find_proc(p1);
+	PCB* proc2 = tree->find_proc(p2);
 
 	for (size_t i = 0; i < pipes.size(); i++) {//zapisywanie do wektora pipów
 		if (pipes[i] == nullptr) {
-			Pipe* v = new Pipe(p1, p2, (*this));//na wolnym miejscu
+			Pipe* v = new Pipe(proc1, proc2, this);//na wolnym miejscu
 			pipes[i] = v;
-			p1.FD[0] = i;
-			p1.FD[1] = 1;
-			p2.FD[0] = i;
-			p2.FD[1] = 0;
-			created = true;
+			proc1->FD[p2 + "_W"][0] = i;
+			proc1->FD[p2 + "_W"][1] = WRITE_END;
+			proc2->FD[p1 + "_R"][0] = i;
+			proc2->FD[p1 + "_R"][1] = READ_END;
+			return;
 		}
 	}
-	if (!created) {
-		Pipe* v = new Pipe(p1, p2, (*this));//na koncu
-		pipes.push_back(v);
-		p1.FD[0] = pipes.size() - 1;
-		p1.FD[1] = 1;
-		p2.FD[0] = pipes.size() - 1;
-		p2.FD[1] = 0;
-	}
+
+	//Jesli nie bylo wolnych
+	Pipe* v = new Pipe(proc1, proc2, this);//na koncu
+	pipes.push_back(v);
+	proc1->FD[p2 + "_W"][0] = pipes.size() - 1;
+	proc1->FD[p2 + "_W"][1] = WRITE_END;
+	proc2->FD[p1 + "_R"][0] = pipes.size() - 1;
+	proc2->FD[p1 + "_R"][1] = READ_END;
 }
-void Pipeline::deletePipe(PCB &p1) {//usuwanie pipa
-	if (p1.FD[0] != -1) {
-		const int v = p1.FD[0];
-		delete(pipes[v]);
-		pipes[v] = nullptr;
+
+void Pipeline::write(const std::string& p1, const std::string& p2, const std::string& data) {
+	PCB* proc1 = tree->find_proc(p1);
+	PCB* proc2 = tree->find_proc(p2);
+
+	if (proc1->FD[p2 + "_W"][0] != UNUSED && proc1->FD[p2 + "_W"][1] == WRITE_END &&
+		proc2->FD[p1 + "_R"][0] != UNUSED && proc2->FD[p1 + "_R"][1] == READ_END) {
+		pipes[proc1->FD[p2 + "_W"][0]]->write(data);
 	}
 	else {
 		std::cout << "Nie istnieje taki potok" << std::endl;
 	}
 }
-bool Pipeline::existPipe(PCB& p1, PCB& p2) {//sprawdzanie czy istnieje
-	if (p1.FD[0] == p2.FD[0] && p1.FD[1] == 1 && p1.FD[0] != -1) {
+
+std::string Pipeline::read(const std::string& p1, const std::string& p2, const size_t& rozmiar) {
+	PCB* proc1 = tree->find_proc(p1);
+	PCB* proc2 = tree->find_proc(p2);
+	std::string t;
+
+	if (proc1->FD[p2 + "_R"][0] != UNUSED && proc1->FD[p2 + "_R"][1] == READ_END &&
+		proc2->FD[p1 + "_W"][0] != UNUSED && proc2->FD[p1 + "_W"][1] == WRITE_END) {
+		t = pipes[proc1->FD[proc2->name + "_R"][0]]->read(rozmiar);
+	}
+	else {
+		std::cout << "Nie istnieje taki potok" << std::endl;
+	}
+	return t;
+}
+
+void Pipeline::deletePipe(const std::string& p1, const std::string& p2) {//usuwanie pipa
+	PCB* proc1 = tree->find_proc(p1);
+	PCB* proc2 = tree->find_proc(p2);
+
+	if (proc1->FD[p2 + "_W"][0] != UNUSED) {
+		const int v = proc1->FD[p2 + "_W"][0];
+		delete pipes[v];
+		pipes[v] = nullptr;
+		proc1->FD[p2 + "_W"][0] = UNUSED;
+		proc1->FD[p2 + "_W"][1] = UNUSED;
+		proc2->FD[p1 + "_R"][0] = UNUSED;
+		proc2->FD[p1 + "_R"][1] = UNUSED;
+	}
+	else {
+		std::cout << "Nie istnieje taki potok" << std::endl;
+	}
+}
+
+bool Pipeline::existPipe(const std::string& p1, const std::string& p2) {//sprawdzanie czy istnieje
+	PCB* proc1 = tree->find_proc(p1);
+	PCB* proc2 = tree->find_proc(p2);
+
+	if (proc1->FD[p2 + "_W"][0] == proc2->FD[p1 + "_R"][0] &&
+		proc1->FD[p2 + "_W"][1] == WRITE_END && proc2->FD[p1 + "_R"][1] == READ_END) {
 		return true;//istnieje to zwraca true
 	}
 	else {
-		createPipe(p1, p2);//nie istnieje wiec jest taki pipe tworzony
-		return true;
+		return false;
 	}
+}
+
+Pipe::Pipe(PCB* p1, PCB* p2, Pipeline* p) {//konstruktor pipe
+	this->p1 = p1;
+	this->p2 = p2;
+	this->p = p;
+}
+
+Pipe::~Pipe() { }
+
+std::string Pipe::read(size_t rozmiar) {
+	std::string t; //string z wiadomoscia
+	if (buffer.empty()) {//sprawdzanie czy jest cos w kolejce
+		p2->change_state(WAITING);//zmiana na weiting jeśli pusta kolejka
+	}
+	else {
+		if (rozmiar > buffer.size()) { //wiadomosc dłuższa niż romiar buffera
+			while (!buffer.empty()) {
+				t.push_back(buffer.front());
+				buffer.pop();
+			}
+		}
+		else {
+			for (size_t i = 0; i < rozmiar; i++) {
+				t.push_back(buffer.front());
+				buffer.pop();
+			}
+		}
+	}
+	return t;
+}
+
+void Pipe::write(const std::string &wiadomosc) {
+	for (auto x : wiadomosc) {
+		buffer.push(x);
+	}
+	p2->change_state(READY);//zmiana na ready po odebraniu wiadomosci
 }
