@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <array>
-#include <iostream>
+#include <map>
 
 struct PageTableData;
 class MemoryManager;
@@ -17,13 +17,17 @@ class PCB {
 public:
 	int priority;					// priorytet
 	int last_counter;				//dla procesora
-	std::string process_name;		//nazwa procesu
+	std::string name;		//nazwa procesu
 	unsigned int PID;				//identyfikator nie bedzie ujemnych 1 JEST "DLA SYSTEMD"
 	Process_state state;			//stan procesu
 	PCB *parent_proc;				//wskaznik na ojca procesu
 	std::vector<PCB*> child_vector;	//vector dzieci
 	std::vector<PageTableData> *pageList;//wska?nik wektora stronic
-	std::array<int, 2>  FD {-1,-1}; //dla krzysia deskryptor
+
+	//Mapa deskryptorów dla krzysia
+	//Klucz to nazwa procesu (z dodatkiem)
+	std::map<std::string, std::array<int, 2>>  FD;
+
 	unsigned int proces_size;		//rozmiar procesu w stronicach(chyba).
 	int A = 0, B = 0, C = 0, D = 0;	//Rejestry dla interpretera
 	std::vector<std::string> open_files; //otwarte plik
@@ -34,7 +38,7 @@ public:
 		this->priority = 12;
 		this->last_counter = 0;
 		this->state = NEW;
-		this->process_name = "systemd";
+		this->name = "systemd";
 		this->PID = 1;
 		this->parent_proc = nullptr;
 		this->proces_size = 16;
@@ -44,7 +48,7 @@ public:
 	PCB(const std::string& name, const int& father_PID) {//kontruktor innych
 		this->priority = 12;
 		this->last_counter = 0;
-		this->process_name = name;
+		this->name = name;
 		this->PID = father_PID;
 		this->state = READY;
 		this->proces_size = 16;

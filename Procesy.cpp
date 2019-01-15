@@ -1,6 +1,7 @@
 #include "Procesy.h"
 #include "Planista.h"
 #include "MemoryManager.h"
+#include <iostream>
 
 
 void PCB::change_state(Process_state x)
@@ -46,7 +47,7 @@ PCB* PCB::GET_kid(const unsigned int& PID)
 PCB* PCB::GET_kid(const std::string& nazwa)
 {
 	for (PCB* kid : this->child_vector) {
-		if (kid->process_name == nazwa) { return kid; }
+		if (kid->name == nazwa) { return kid; }
 	}
 	for (PCB* kid : this->child_vector) {
 		PCB* foundKid = kid->GET_kid(nazwa); //U¿y³em rekurencji
@@ -70,15 +71,13 @@ bool PCB::find_kid(const unsigned int& PID) const
 void PCB::display_allkids() {
 	for (PCB* kid : this->child_vector) {
 		std::cout << '\t';
-		if (kid->parent_proc->PID == 1) { std::cout << " Nazwa: " << kid->process_name << ", PID: " << kid->PID << std::endl; }
-		else { std::cout << " Nazwa: " << kid->process_name << ", PID: " << kid->PID << std::endl; }
+		if (kid->parent_proc->PID == 1) { std::cout << " Nazwa: " << kid->name << ", PID: " << kid->PID << std::endl; }
+		else { std::cout << " Nazwa: " << kid->name << ", PID: " << kid->PID << std::endl; }
 
 		if (!kid->child_vector.empty()) {
 			kid->display_allkids(1);
 		}
 	}
-
-	std::cout << std::endl;
 }
 void PCB::display_allkids(int a)
 {
@@ -88,14 +87,12 @@ void PCB::display_allkids(int a)
 		for (int i = 1; i < a; i++) {
 			std::cout << "\t";
 		}
-		std::cout << " - Nazwa: " << kid->process_name << ", PID: " << kid->PID << std::endl;
+		std::cout << " - Nazwa: " << kid->name << ", PID: " << kid->PID << std::endl;
 
-		if (!kid->child_vector.empty()) {
-			kid->display_allkids(a);
-		}
+		if (!kid->child_vector.empty()) { kid->display_allkids(a); }
 	}
 
-	std::cout << std::endl;
+	if (a == 2) { std::cout << std::endl; }
 }
 void proc_tree::fork(PCB* proc, int size) {
 	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
@@ -115,7 +112,7 @@ void proc_tree::fork(PCB* proc, int size) {
 	}
 	else {
 		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
-			int temp = proc->PID;
+			const int temp = proc->PID;
 
 			proc->parent_proc = this->proc.GET_kid(temp);
 			proc->PID = free_PID;
@@ -155,7 +152,7 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 	}
 	else {
 		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
-			int temp = proc->PID;
+			const int temp = proc->PID;
 
 			proc->parent_proc = this->proc.GET_kid(temp);
 			proc->PID = free_PID;
@@ -219,7 +216,7 @@ void proc_tree::fork(PCB* proc, std::vector<std::string> file_names)
 	}
 	else {
 		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
-			int temp = proc->PID;
+			const int temp = proc->PID;
 			for (const std::string& file_name : file_names) {
 				proc->open_files.push_back(file_name);
 			}
@@ -275,7 +272,7 @@ void proc_tree::exit(const unsigned& pid)
 
 void proc_tree::display_tree()
 {
-	std::cout << " Nazwa: " << proc.process_name << ", PID: " << proc.PID << std::endl;
+	std::cout << " Nazwa: " << proc.name << ", PID: " << proc.PID << std::endl;
 	proc.display_allkids();
 }
 
@@ -291,7 +288,7 @@ PCB *proc_tree::find_proc(const unsigned& PID)
 PCB * proc_tree::find_proc(const std::string& nazwa)
 {
 	{
-		if (nazwa == this->proc.process_name) {
+		if (nazwa == this->proc.name) {
 			return &this->proc;// do sprawdzenia czy tak zadzia³a (sprawdzone)
 		}
 		else return this->proc.GET_kid(nazwa);
