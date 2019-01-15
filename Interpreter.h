@@ -39,12 +39,12 @@ public:
 	Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_);
 
 	void stan_rejestrow() const;
-	void execute_program(const int& PID);
-	bool execute_instruction(const std::string& instructionWhole, const int& PID);
+	void execute_program(const std::string& procName);
+	bool execute_instruction(const std::string& instructionWhole, const std::string& procName);
 
 private:
 	static std::array<std::string, 3> instruction_separate(const std::string& instructionWhole);
-	void jump_pos_set(const int& PID);
+	void jump_pos_set(const std::string& procName);
 };
 
 //static Interpreter interpreter;

@@ -41,19 +41,9 @@ std::ostream& operator << (std::ostream& os, const tm& time) {
 	return os;
 }
 bool operator == (const tm& time1, const tm& time2) {
-	if (time1.tm_hour == time2.tm_hour  &&
-		time1.tm_isdst == time2.tm_isdst &&
-		time1.tm_mday == time2.tm_mday  &&
-		time1.tm_min == time2.tm_min   &&
-		time1.tm_mon == time2.tm_mon   &&
-		time1.tm_sec == time2.tm_sec   &&
-		time1.tm_wday == time2.tm_wday  &&
-		time1.tm_yday == time2.tm_yday  &&
-		time1.tm_year == time2.tm_year)
-	{
-		return true;
-	}
-	else { return false; }
+	return time1.tm_hour == time2.tm_hour && time1.tm_isdst == time2.tm_isdst && time1.tm_mday == time2.tm_mday && time1
+		.tm_min == time2.tm_min && time1.tm_mon == time2.tm_mon && time1.tm_sec == time2.tm_sec && time1.tm_wday ==
+		time2.tm_wday && time1.tm_yday == time2.tm_yday && time1.tm_year == time2.tm_year;
 }
 
 
@@ -72,9 +62,9 @@ FileManager::FileSystem::FileSystem() {
 	}
 }
 
-const unsigned FileManager::FileSystem::get_free_inode_id() {
+unsigned FileManager::FileSystem::get_free_inode_id() {
 	for (u_int i = 0; i < inodeBitVector.size(); i++) {
-		if (inodeBitVector[i] == false) { return i; }
+		if (!inodeBitVector[i]) { return i; }
 	}
 	return -1;
 }
@@ -95,7 +85,7 @@ void FileManager::FileSystem::reset() {
 
 //-------------------------- I-wêzê³ ------------------------
 
-FileManager::Inode::Inode() : creationTime(), modificationTime(), sem(nullptr, 99) {
+FileManager::Inode::Inode() : creationTime(), modificationTime(), sem(nullptr, nullptr, 99) {
 	//Wype³nienie indeksów bloków dyskowych wartoœci¹ -1 (pusty indeks)
 	directBlocks.fill(-1);
 	singleIndirectBlocks = -1;
@@ -166,7 +156,7 @@ const std::string FileManager::Disk::read_str(const u_int& begin) const {
 
 const std::array<u_int, FileManager::BLOCK_SIZE / 2> FileManager::Disk::read_arr(const u_int& begin) const {
 	const u_int end = begin + BLOCK_SIZE;		//Odczytywany jest jeden blok
-	std::array<u_int, BLOCK_SIZE / 2> result;	//Jedna liczba zajmuje 2 bajty
+	std::array<u_int, BLOCK_SIZE / 2> result{};	//Jedna liczba zajmuje 2 bajty
 	std::string data;
 
 	result.fill(-1);
@@ -214,7 +204,7 @@ void FileManager::FileIO::buffer_update(const int8_t& blockNumber) {
 		buffer = disk->read_str(file->directBlocks[blockNumber] * BLOCK_SIZE);
 	}
 	else if (file->singleIndirectBlocks != -1) {
-		std::array<u_int, BLOCK_SIZE / 2>blocks;
+		std::array<u_int, BLOCK_SIZE / 2>blocks{};
 		blocks.fill(-1);
 		blocks = disk->read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
 
@@ -224,7 +214,7 @@ void FileManager::FileIO::buffer_update(const int8_t& blockNumber) {
 }
 
 std::string FileManager::FileIO::read(const u_short_int& byteNumber) {
-	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
+	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks{};
 
 	indirectBlocks.fill(-1);
 
@@ -263,7 +253,7 @@ void FileManager::FileIO::write(const std::vector<std::string>& dataFragments, c
 
 	bool indirect = false;
 
-	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
+	std::array<u_int, BLOCK_SIZE / 2>indirectBlocks{};
 	indirectBlocks.fill(-1);
 	if (file->singleIndirectBlocks != -1) {
 		indirectBlocks = disk->read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
@@ -357,7 +347,7 @@ int FileManager::file_write(const std::string& name, const std::string& procName
 		if (!inode->opened) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error6
-		if (accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
+		if (!accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG]) { return FILE_ERROR_NOT_W_MODE; }
 
 		//Error7
 		if (fileSemaphores.find(std::pair(name, procName)) != fileSemaphores.end()) { return FILE_ERROR_SYNC; }
@@ -397,7 +387,7 @@ int FileManager::file_append(const std::string& name, const std::string& procNam
 		if (!inode->opened) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error5
-		if (accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG] != true) { return FILE_ERROR_NOT_W_MODE; }
+		if (!accessedFiles[std::pair(name, procName)].get_flags()[WRITE_FLAG]) { return FILE_ERROR_NOT_W_MODE; }
 
 		//Error6
 		if (inode->realSize + data.size() > MAX_DATA_SIZE) { return FILE_ERROR_DATA_TOO_BIG; }
@@ -428,7 +418,7 @@ int FileManager::file_read(const std::string& name, const std::string& procName,
 		if (accessedFiles.find(std::pair(name, procName)) == accessedFiles.end()) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error5
-		if (accessedFiles[std::pair(name, procName)].get_flags()[READ_FLAG] != true) { return FILE_ERROR_NOT_R_MODE; }
+		if (!accessedFiles[std::pair(name, procName)].get_flags()[READ_FLAG]) { return FILE_ERROR_NOT_R_MODE; }
 
 		//Error6
 		if (fileSemaphores.find(std::pair(name, procName)) != fileSemaphores.end()) { return FILE_ERROR_SYNC; }
@@ -514,8 +504,8 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 		if (!inode->opened) {
 			int semVal = 0;
 			if (mode == FILE_OPEN_R_MODE) { semVal = 2; } //Tak ma³o, ¿eby mo¿na pokazaæ, ¿e dzia³a dla dwóch a potem nie
-			else if (mode == FILE_OPEN_W_MODE) { semVal = 2; }
-			inode->sem = Semaphore(p, semVal);
+			else if (mode == FILE_OPEN_W_MODE) { semVal = 1; }
+			inode->sem = Semaphore(p, nullptr, semVal);
 		}
 
 		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {
@@ -523,14 +513,14 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 		}
 
 		if (tree->find_proc(procName + "_" + name) == nullptr) {
-			tree->fork(PCB(procName + "_" + name, tree->find_proc(procName)->PID));
-			p->AddProces(*tree->find_proc(procName + "_" + name));
+			tree->fork(new PCB(procName + "_" + name, tree->find_proc(procName)->PID));
+			p->AddProces(tree->find_proc(procName + "_" + name));
 		}
 
 		accessedFiles[std::pair(name, procName)] = FileIO(&disk, inode, mode_);
 
 		if (inode->sem.is_blocked()) {
-			fileSemaphores.insert(std::pair(std::pair(name, procName), Semaphore(p, inode->sem.get_value())));
+			fileSemaphores.insert(std::pair(std::pair(name, procName), Semaphore(p, tree->find_proc(procName + '_' + name), inode->sem.get_value())));
 		}
 
 		inode->sem.Wait(); //Obni¿enie wartoœci semafora
@@ -694,7 +684,7 @@ int FileManager::display_file_info(const std::string& name) {
 			std::cout << file->singleIndirectBlocks << ' ';
 			std::cout << '\n';
 			std::cout << "Indirect block indexes: ";
-			std::array<u_int, BLOCK_SIZE / 2>blocks;
+			std::array<u_int, BLOCK_SIZE / 2>blocks{};
 			blocks.fill(-1);
 			blocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
 			for (const u_int& block : blocks) {
@@ -756,24 +746,20 @@ void FileManager::display_bit_vector() {
 
 //------------------- Metody Sprawdzaj¹ce -------------------
 
-const bool FileManager::check_if_name_used(const std::string& name) {
+bool FileManager::check_if_name_used(const std::string& name) {
 	//Przeszukuje podany katalog za plikiem o tej samej nazwie
-	if (fileSystem.rootDirectory.find(name) != fileSystem.rootDirectory.end()) {
-		return true;
-	}
-	else { return false; }
+	return fileSystem.rootDirectory.find(name) != fileSystem.rootDirectory.end();
 }
 
-const bool FileManager::check_if_enough_space(const u_int& dataSize) const {
-	if (dataSize <= fileSystem.freeSpace) { return true; }
-	return false;
+bool FileManager::check_if_enough_space(const u_int& dataSize) const {
+	return dataSize <= fileSystem.freeSpace;
 }
 
 
 
 //-------------------- Metody Obliczaj¹ce -------------------
 
-const u_int FileManager::calculate_needed_blocks(const size_t& dataSize) {
+u_int FileManager::calculate_needed_blocks(const size_t& dataSize) {
 	/*
 	Przybli¿enie w górê rozmiaru pliku przez rozmiar bloku.
 	Jest tak, poniewa¿, jeœli zape³nia chocia¿ o jeden bajt
@@ -782,7 +768,7 @@ const u_int FileManager::calculate_needed_blocks(const size_t& dataSize) {
 	return int(ceil(double(dataSize) / double(BLOCK_SIZE)));
 }
 
-const size_t FileManager::calculate_directory_size_on_disk() {
+size_t FileManager::calculate_directory_size_on_disk() {
 	//Rozmiar katalogu
 	size_t size = 0;
 
@@ -793,7 +779,7 @@ const size_t FileManager::calculate_directory_size_on_disk() {
 	return size;
 }
 
-const size_t FileManager::calculate_directory_size() {
+size_t FileManager::calculate_directory_size() {
 	//Rzeczywisty rozmiar katalogu
 	size_t realSize = 0;
 
@@ -834,7 +820,7 @@ void FileManager::file_add_indexes(Inode* file, const std::vector<u_int>& blocks
 				file->blocksOccupied++;
 				file->singleIndirectBlocks = index;
 
-				std::array<u_int, BLOCK_SIZE / 2> indirectBlocks;
+				std::array<u_int, BLOCK_SIZE / 2> indirectBlocks{};
 				indirectBlocks.fill(-1);
 
 				for (size_t i = 0; i < BLOCK_SIZE / 2 && blocksIndex < blocks.size(); i++) {
@@ -867,7 +853,7 @@ void FileManager::file_allocation_increase(Inode* file, const u_int& neededBlock
 			}
 		}
 		else {
-			std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
+			std::array<u_int, BLOCK_SIZE / 2>indirectBlocks{};
 			indirectBlocks.fill(-1);
 			indirectBlocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
 
@@ -907,7 +893,7 @@ void FileManager::file_deallocate(Inode* file) {
 		u_int indexNumber = 0;
 		bool indirect = false;
 
-		std::array<u_int, BLOCK_SIZE / 2>indirectBlocks;
+		std::array<u_int, BLOCK_SIZE / 2>indirectBlocks{};
 		indirectBlocks.fill(-1);
 		if (file->singleIndirectBlocks != -1) {
 			indirectBlocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
@@ -1042,6 +1028,10 @@ const std::vector<u_int> FileManager::find_unallocated_blocks(const u_int& block
 	return blockList;
 }
 
+
+
+//----------------------- Metody Inne -----------------------
+
 void FileManager::update_file_proc_semaphores(const std::string& fileName) {
 	for (auto it = fileSemaphores.begin(); it != fileSemaphores.end();) {
 		if (it->first.first == fileName) {
@@ -1083,10 +1073,8 @@ void FileManager::sem_wait_all(const std::string& fileName) {
 	for (auto& elem : fileSemaphores) {
 		if (elem.first.first == fileName) { elem.second.Signal(); }
 	}
+
 }
-
-
-//----------------------- Metody Inne -----------------------
 
 std::string FileManager::get_file_data_block(Inode* file, const int8_t& indexNumber) const {
 	std::string data;
@@ -1095,7 +1083,7 @@ std::string FileManager::get_file_data_block(Inode* file, const int8_t& indexNum
 		data = disk.read_str(file->directBlocks[indexNumber] * BLOCK_SIZE);
 	}
 	else if (file->singleIndirectBlocks != -1) {
-		std::array<u_int, BLOCK_SIZE / 2>blocks;
+		std::array<u_int, BLOCK_SIZE / 2>blocks{};
 		blocks.fill(-1);
 		blocks = disk.read_arr(file->singleIndirectBlocks*BLOCK_SIZE);
 

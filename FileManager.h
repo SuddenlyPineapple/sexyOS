@@ -87,7 +87,7 @@ private:
 		//Podstawowe informacje
 		uint8_t blocksOccupied = 0;  //Iloœæ zajmowanych bloków
 		u_short_int realSize = 0;    //Rzeczywisty rozmiar pliku (rozmiar danych)
-		std::array<u_int, BLOCK_INDEX_NUMBER> directBlocks;	//Bezpoœrednie indeksy
+		std::array<u_int, BLOCK_INDEX_NUMBER> directBlocks{};	//Bezpoœrednie indeksy
 		u_int singleIndirectBlocks; //Indeks bloku indeksowego, zpisywanego na dysku
 
 		//Dodatkowe informacje
@@ -107,7 +107,7 @@ private:
 
 	struct Disk {
 		//Tablica reprezentuj¹ca przestrzeñ dyskow¹ (jeden indeks - jeden bajt)
-		std::array<char, DISK_CAPACITY> space;
+		std::array<char, DISK_CAPACITY> space{};
 
 		//----------------------- Konstruktor -----------------------
 		Disk();
@@ -135,7 +135,7 @@ private:
 
 		FileSystem();
 
-		const u_int get_free_inode_id();
+		u_int get_free_inode_id();
 
 		void reset();
 	} fileSystem; //System plików
@@ -394,19 +394,19 @@ public:
 private:
 	//------------------- Metody Sprawdzaj¹ce -------------------
 
-	const bool check_if_name_used(const std::string& name);
+	bool check_if_name_used(const std::string& name);
 
-	const bool check_if_enough_space(const u_int& dataSize) const;
+	bool check_if_enough_space(const u_int& dataSize) const;
 
 
 
 	//-------------------- Metody Obliczaj¹ce -------------------
 
-	static const u_int calculate_needed_blocks(const size_t& dataSize);
+	static u_int calculate_needed_blocks(const size_t& dataSize);
 
-	const size_t calculate_directory_size();
+	size_t calculate_directory_size();
 
-	const size_t calculate_directory_size_on_disk();
+	size_t calculate_directory_size_on_disk();
 
 
 
