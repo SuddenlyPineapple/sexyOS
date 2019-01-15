@@ -1,6 +1,7 @@
 ﻿#include "Shell.h"
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 Shell::Shell()
 {
@@ -106,13 +107,13 @@ void Shell::loop(/*Interpreter inter,....., ProcessManager procmem*/) //Pętla s
 void Shell::boot() //Funckja startująca pętlę shella
 {
 	logo();
-	Interpreter inter;
-	.
-	.
-	.
-	.
-	ProcessManager procmem;
-	loop(/*inter,....,procmem*/);
+//	Interpreter inter;
+//	.
+//	.
+//	.
+//	.
+//	ProcessManager procmem;
+//	loop(/*inter,....,procmem*/);
 }
 
 //Commands functions
@@ -146,6 +147,14 @@ void Shell::lp(/*ProcessManager procmem*/) //Lista PCB wszystkich procesów
 		procmem.display_pcbs();
 	}
 	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+}
+
+void Shell::lt() {
+
+}
+
+void Shell::dp() {
+
 }
 
 void Shell::ls(/*HDD hdd*/) //Listowanie katalogu
@@ -246,3 +255,27 @@ void Shell::logo() {
 	std::cout << "                                                                                                                          " << std::endl;
 
 }
+
+void Shell::rf() {
+
+}
+
+void Shell::wf() {
+
+}
+
+void Shell::fo() {
+
+}
+
+void Shell::fc() {
+
+}
+
+void Shell::dmem() {
+
+}
+
+
+
+
