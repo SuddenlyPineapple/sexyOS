@@ -94,7 +94,7 @@ public:
 	void fork(PCB* proc, int size); 
 	
 	//dodaje kopieprocesu(dzieciaka) procesu do drzewa
-	void fork(PCB* proc);
+	//void fork(PCB* proc);
 
 	//to samo co wyzej tylko z vectorem plik�w ktore moze otworzyc
 	//tutaj memory management z przydzielaniem pamieci

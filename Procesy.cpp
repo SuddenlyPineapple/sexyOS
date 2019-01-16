@@ -101,9 +101,9 @@ void PCB::delete_pipe(Pipeline &pp)
 	for (PCB* kid : this->child_vector) {
 		if (pp.existPipe(this->name, kid->name)) {}
 		pp.deletePipe(this->name, kid->name);
-	
+
 	}
-	
+
 }
 
 
@@ -111,7 +111,7 @@ void PCB::delete_pipe(Pipeline &pp)
 proc_tree::proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) {
 	mm->memoryInit();
 	this->proc = PCB();
-	proc.pageList = mm->createPageList(16,1);
+	proc.pageList = mm->createPageList(16, 1);
 	p->AddProces(&proc);
 	proc.change_state(READY);
 	p->Check();
@@ -132,7 +132,7 @@ void proc_tree::fork(PCB* proc, int size) {
 
 
 		this->proc.child_vector.push_back(proc);
-
+		p->AddProces(proc);
 
 	}
 	else {
@@ -148,7 +148,7 @@ void proc_tree::fork(PCB* proc, int size) {
 			proc->pageList = mm->createPageList(size, proc->PID);
 			proc->change_state(READY);
 			proc->proces_size = pages * 16;
-
+			p->AddProces(proc);
 
 		}
 		else {
@@ -196,7 +196,7 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 			proc->change_state(READY);
 			proc->proces_size = pages * 16;
 			proc->add_file_to_proc(file_name);
-
+			p->AddProces(proc);
 
 		}
 		else {
@@ -207,29 +207,29 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 
 }
 
-void proc_tree::fork(PCB* proc)
-{
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
-		proc->PID = free_PID;
-		free_PID++;
-		proc->parent_proc = &this->proc;
-		this->proc.child_vector.push_back(proc);
-	}
-	else {
-		if (this->find_proc(proc->PID) != nullptr) {
-			auto parent = this->find_proc(proc->PID);
-			proc->parent_proc = parent;
-			proc->PID = free_PID;
-			parent->child_vector.push_back(proc);
-			//std::cout << " znaleziono ojca" << std::endl;
-			free_PID++;
-		}
-		else {
-			std::cout << "nie znaleziono ojca" << std::endl;
-		}
-	}
-
-}
+//void proc_tree::fork(PCB* proc)
+//{
+//	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
+//		proc->PID = free_PID;
+//		free_PID++;
+//		proc->parent_proc = &this->proc;
+//		this->proc.child_vector.push_back(proc);
+//	}
+//	else {
+//		if (this->find_proc(proc->PID) != nullptr) {
+//			auto parent = this->find_proc(proc->PID);
+//			proc->parent_proc = parent;
+//			proc->PID = free_PID;
+//			parent->child_vector.push_back(proc);
+//			//std::cout << " znaleziono ojca" << std::endl;
+//			free_PID++;
+//		}
+//		else {
+//			std::cout << "nie znaleziono ojca" << std::endl;
+//		}
+//	}
+//
+//}
 
 void proc_tree::fork(PCB* proc, std::vector<std::string> file_names)
 {
@@ -299,7 +299,7 @@ void proc_tree::exit(const unsigned& pid)
 	}
 }
 
-void proc_tree::exit(const unsigned& pid,Pipeline &pp)
+void proc_tree::exit(const unsigned& pid, Pipeline &pp)
 {
 	if (pid == this->proc.PID) { // kiedy damy id=1 
 		std::cout << "nie mo�na usun�� inita/systemd" << std::endl;
@@ -325,7 +325,7 @@ void proc_tree::exit(const unsigned& pid,Pipeline &pp)
 					temp->change_state(TERMINATED);
 					p->Check();
 					mm->kill(pid);
-					
+
 					parent->child_vector.erase(parent->child_vector.begin() + i);
 					delete temp;
 					break;
