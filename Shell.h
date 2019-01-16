@@ -1,6 +1,15 @@
 ﻿#pragma once
 #include <vector>
 #include <string>
+#include <windows.h>
+#include "FileManager.h"
+#include "Interpreter.h"
+#include "MemoryManager.h"
+#include "Procesy.h"
+#include "Planista.h"
+#include "pipe.h"
+
+#pragma comment(lib, "Winmm.lib")
 
 using namespace std;
 
@@ -9,40 +18,49 @@ private:
 	bool status;														//Status uzależniający działanie pętli shella
 	string line;														//Dane odczytane z bufora
 	vector<string> parsed;												//Tablica z podzielonym poleceniem
-	enum spis_funkcji {													//Lista poleceń
-		HELP, CP, LP, LS, CF, DF, LD, EXIT
-	};												
+
+	//Modules
+	MemoryManager mm;
+	Planista p;
+	proc_tree tree;
+	FileManager fm;
+	Pipeline pipel;
+	Interpreter inter;
+
 public:
-	Shell::Shell() {
+	Shell::Shell() : mm(), p(), tree(&mm, &p), fm(&p, &tree), pipel(&tree), inter(&fm, &mm, &tree, &pipel) {
 		this->status = true;
 		this->parsed.resize(0);
 		this->line.clear();
+
+		this->tree = tree;
+
+
 	}
 	//Metody pracy shella
-	void execute(/*Interpreter inter, ....., ProcessManager procmem*/); //Wykonywanie
-	void parse();														//Parsowanie
-	void read_line();													//Odczyt surowych danych
-	void loop(/*Interpreter inter, ....., ProcessManager procmem*/);	//Pętla shella
 	void boot();														//Funckja startująca pętlę shella
 	void logo();														//Wyświetlanie loga systemu
+	void loop();														//Pętla shella
+	void read_line();													//Odczyt surowych danych
+	void parse();														//Parsowanie
+	void execute(); 													//Wykonywanie
 
 	//Commands functions declarations
-
-    //Metody shella
+	//Metody interpretera
+	void go(); 													        //Nastepny krok pracy krokowej
+	//Metody shella
 	void help();														//Wyswietalnie listy poleceń
     void exit();														//Kończenie pracy
-    //Metody interpretera
-    void go();															//Nastepny krok pracy krokowej
 	//Metody zarzadzania procesami
-	void cp(/*ProcessManager procmem*/);								//Tworzenie procesu
-	void lp(/*ProcessManager procmem*/);								//Lista PCB wszystkich procesów
+	void cp();															//Tworzenie procesu
+	void lp();															//Lista PCB wszystkich procesów
 	void lt();                                                        //Drzewo procesow
 	void dp();                                                        //Usuwanie procesu
 	//Metody dyskowe
-	void ls(/*HDD hdd*/);												//Listowanie katalogu
-	void cf(/*HDD hdd*/);												//Utworzenie pliku
-	void df(/*HDD hdd*/);												//Usunięcie pliku
-	void ld(/*HDD hdd*/);												//Listowanie zawartości wskazanego bloku dyskowego
+	void ls();															//Listowanie katalogu
+	void cf();															//Utworzenie pliku
+	void df();															//Usunięcie pliku
+	void ld();															//Listowanie zawartości wskazanego bloku dyskowego
     void rf();                                                        //Zmiana nazwy pliku
     void wf();                                                        //Zapis do pliku
     void fo();                                                        //Otwarcie pliku

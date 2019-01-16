@@ -4,187 +4,12 @@
 #include <algorithm>
 
 
-//Shell work functions
-void Shell::execute(/*Interpreter inter,....., ProcessManager procmem*/) {
-
-	if (parsed[0] == "help")					//Wyswietalnie listy poleceń
-	{
-		help();
-	}
-
-	else if (parsed[0] == "cp")					//Tworzenie procesu
-	{
-		cp(/*procmem*/);
-	}
-
-	else if (parsed[0] == "lp")					//Lista PCB wszystkich procesów
-	{
-		lp(/*procmem)*/);
-	}
-
-	else if (parsed[0] == "ls")					//Listowanie katalogu
-	{
-		ls(/*hdd)*/);
-	}
-
-	else if (parsed[0] == "cf")					//Utworzenie pliku
-	{
-		cf();
-	}
-
-	else if (parsed[0] == "df")					//Usunięcie pliku
-	{
-        df();
-	}
-
-	else if (parsed[0] == "ld")					//Listowanie zawartości wskazanego bloku dyskowego
-	{
-        ld();
-	}
-	else if (parsed[0] == "exit")				//Kończenie pracy
-	{
-		exit();
-	}
-	else if(parsed[0]==""){
-		go();
-	}
-	else
-		cout << "Command not found! Type \"help\" for more information" << endl;
-}
-
-void Shell::go(){
-		cout << "Nastepny krok" << endl; //to tylko pomocnicze, poki nie ma menadzera procesow
-}
-
-void Shell::parse() //Parsowanie
-{
-	transform(line.begin(), line.end(), line.begin(), ::tolower);
-	parsed.resize(0);
-	line = line + ' ';
-	int space_pos = -1;
-	for (int i = 0; i < line.size(); i++) {
-		if (line[i] == ' ') {
-			string pom = line.substr(space_pos + 1, i);
-			parsed.push_back(pom);
-			space_pos = i;
-		}
-	}
-}
-
-void Shell::read_line() //Odczyt surowych danych
-{
-	cout << "$ ";
-	getline(cin, line);
-	parse();
-}
-
-void Shell::loop(/*Interpreter inter,....., ProcessManager procmem*/) //Pętla shella
-{
-	do {
-		read_line();
-		execute(/*inter, ....., procmem*/);
-
-		//Czyszczenie 
-		line.clear();
-		parsed.resize(0);
-
-	} while (status == true);
-
-}
-
+//Metody pracy shella
 void Shell::boot() //Funckja startująca pętlę shella
 {
 	logo();
+	//PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
 	loop();
-//	Interpreter inter;
-//	.
-//	.
-//	.
-//	.
-//	ProcessManager procmem;
-//	loop(/*inter,....,procmem*/);
-}
-
-//Commands functions
-
-void Shell::help() //Wyświetlenie listy poleceń
-{
-	cout << "cp [name] [program]          Tworzenie procesu				                  " << endl;
-	cout << "lp                           Lista PCB wszystkich procesów                   " << endl;
-	cout << "ls                           Listowanie katalogu                             " << endl;
-	cout << "cf [name]                    Utworzenie pliku                                " << endl;
-	cout << "df [name]                    Usuniecie pliku                                 " << endl;
-	cout << "ld [block_number]            Listowanie zawartosci wskazanego bloku dyskowego" << endl;
-	cout << "exit                         Konczenie pracy                                 " << endl;
-}
-
-void Shell::cp(/*ProcessManager procmem*/) //Tworzenie procesu
-{
-	if (parsed.size() == 3) 
-	{
-		//procmem.create_process(parsed[1], parsed[2]);
-		
-	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
-
-}
-
-void Shell::lp(/*ProcessManager procmem*/) //Lista PCB wszystkich procesów
-{
-	if (parsed.size() == 1) 
-	{
-//		procmem.display_pcbs();
-	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
-}
-
-void Shell::lt() {
-
-}
-
-void Shell::dp() {
-
-}
-
-void Shell::ls(/*HDD hdd*/) //Listowanie katalogu
-{
-	if (parsed.size() == 1) 
-	{
-//		FileManager.display_directory();
-	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
-}
-
-void Shell::cf/*HDD hdd*/() //Utworzenie pliku
-{
-	if (parsed.size() == 2)
-	{
-//		file_write(parsed[1]);
-	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
-}
-
-void Shell::df(/*HDD hdd*/) //Usunięcie pliku
-{
-	if (parsed.size() == 2) 
-	{
-//		file_delete(parsed[1]);
-	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
-}
-
-void Shell::ld(/*HDD hdd*/) //Listowanie zawartości wskazanego bloku dyskowego
-{
-	if (parsed.size() == 2)
-	{
-//		display_root_directory_info();
-	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
-}
-
-void Shell::exit() //Kończenie pracy
-{
-	status = false;
 }
 
 void Shell::logo() {
@@ -243,6 +68,212 @@ void Shell::logo() {
 	std::cout << "                 ,`:/+`                                                                     ```/////////::-               " << std::endl;
 	std::cout << "                                                                                                                          " << std::endl;
 
+} //Wyswietlanie loga systemu
+
+void Shell::loop() //Pętla shella
+{
+	do {
+		read_line();
+		execute();
+
+		//Czyszczenie
+		line.clear();
+		parsed.resize(0);
+
+	} while (status == true);
+
+}
+
+void Shell::read_line() //Odczyt surowych danych
+{
+	cout << "$ ";
+	getline(cin, line);
+	parse();
+}
+
+void Shell::parse() //Parsowanie
+{
+	transform(line.begin(), line.end(), line.begin(), ::tolower);
+	parsed.resize(0);
+	line = line + ' ';
+	int space_pos = -1;
+	for (int i = 0; i < line.size(); i++) {
+		if (line[i] == ' ') {
+			string pom = line.substr(space_pos + 1, i);
+			parsed.push_back(pom);
+			space_pos = i;
+		}
+	}
+}
+
+void Shell::execute() {
+
+	if (parsed[0] == "go")						//Nastepny krok pracy krokowej
+	{
+		go();
+	}
+
+	if (parsed[0] == "help")					//Wyswietalnie listy poleceń
+	{
+		help();
+	}
+
+	else if (parsed[0] == "exit")				//Kończenie pracy
+	{
+		exit();
+	}
+
+	else if (parsed[0] == "cp")					//Tworzenie procesu
+	{
+		cp();
+	}
+
+	else if (parsed[0] == "lp")					//Lista PCB wszystkich procesów
+	{
+		lp();
+	}
+
+	else if (parsed[0] == "lt")					//Drzewo procesow
+	{
+		lt();
+	}
+
+	else if (parsed[0] == "dp")					//Usuwanie procesu
+	{
+		dp();
+	}
+
+	else if (parsed[0] == "ls")					//Listowanie katalogu
+	{
+		ls();
+	}
+
+	else if (parsed[0] == "cf")					//Utworzenie pliku
+	{
+		cf();
+	}
+
+	else if (parsed[0] == "df")					//Usunięcie pliku
+	{
+        df();
+	}
+
+	else if (parsed[0] == "ld")					//Listowanie zawartości wskazanego bloku dyskowego
+	{
+        ld();
+	}
+
+	else if (parsed[0] == "rf")					//Zmiana nazwy pliku
+	{
+		rf();
+	}
+
+	else if (parsed[0] == "wf")					//Zapisywanie do pliku
+	{
+		wf();
+	}
+
+	else if (parsed[0] == "fo")					//Otwarcie pliku
+	{
+		fo();
+	}
+
+	else if (parsed[0] == "fc")					//Zamkniecie pliku
+	{
+		fc();
+	}
+
+
+	else if(parsed[0]==""){
+		go();
+	}
+	else
+		cout << "Command not found! Type \"help\" for more information" << endl;
+}
+
+//Commands functions
+//Metody interpretera;
+void Shell::go(){
+		cout << "Nastepny krok" << endl; //to tylko pomocnicze, poki nie ma menadzera procesow
+}
+//Metody shella
+void Shell::help() //Wyświetlenie listy poleceń
+{
+	cout << "cp [name] [program]          Tworzenie procesu				                  " << endl;
+	cout << "lp                           Lista PCB wszystkich procesów                   " << endl;
+	cout << "ls                           Listowanie katalogu                             " << endl;
+	cout << "cf [name]                    Utworzenie pliku                                " << endl;
+	cout << "df [name]                    Usuniecie pliku                                 " << endl;
+	cout << "ld [block_number]            Listowanie zawartosci wskazanego bloku dyskowego" << endl;
+	cout << "exit                         Konczenie pracy                                 " << endl;
+}
+void Shell::exit() //Kończenie pracy
+{
+	status = false;
+}
+//Metody zarzadzania procesami
+void Shell::cp() //Tworzenie procesu
+{
+	if (parsed.size() == 3) 
+	{
+		//procmem.create_process(parsed[1], parsed[2]);
+		
+	}
+	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+
+}
+
+void Shell::lp() //Lista PCB wszystkich procesów
+{
+	if (parsed.size() == 1) 
+	{
+//		procmem.display_pcbs();
+	}
+	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+}
+
+void Shell::lt() {
+
+}
+
+void Shell::dp() {
+
+}
+//Metody dyskowe
+void Shell::ls() //Listowanie katalogu
+{
+	if (parsed.size() == 1) 
+	{
+//		FileManager.display_directory();
+	}
+	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+}
+
+void Shell::cf() //Utworzenie pliku
+{
+	if (parsed.size() == 2)
+	{
+//		file_write(parsed[1]);
+	}
+	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+}
+
+void Shell::df() //Usunięcie pliku
+{
+	if (parsed.size() == 2) 
+	{
+//		file_delete(parsed[1]);
+	}
+	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+}
+
+void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
+{
+	if (parsed.size() == 2)
+	{
+//		display_root_directory_info();
+	}
+	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
 }
 
 void Shell::rf() {
@@ -260,7 +291,7 @@ void Shell::fo() {
 void Shell::fc() {
 
 }
-
+//Metody pamieci
 void Shell::dmem() {
 
 }
