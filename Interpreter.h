@@ -35,14 +35,18 @@ private:
 	//Mapa pocz¹tków instrukcji
 	//Klucz	  - numer rozkazu
 	//Wartoœæ - address pierwszego bajtu rozkazu
-	std::map<int, int> instrBeginMap;
+	std::map<std::string, std::map<int, int>> instrBeginMap;
 
 public:
-	Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_,Pipeline* pipeline_);
+	Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_, Pipeline* pipeline_);
+
+	void take_from_proc(const std::string& procName);
+	void update_proc(const std::string& procName);
 
 	void stan_rejestrow() const;//praca krokowa
 	void execute_program(const std::string& procName);
 	bool execute_instruction(const std::string& instructionWhole, const std::string& procName);
+	bool execute_line(const std::string& procName);
 
 private:
 	static std::array<std::string, 3> instruction_separate(const std::string& instructionWhole);

@@ -46,7 +46,7 @@ class proc_tree;
 #define FILE_ERROR_NOT_R_MODE		10
 #define FILE_ERROR_NOT_W_MODE		11
 
-#define FILE_SYNC_WAITING 30	
+#define FILE_SYNC_WAITING 30
 
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
