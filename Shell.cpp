@@ -249,11 +249,11 @@ void Shell::execute() {
 //Metody interpretera;
 void Shell::go(){
 		cout << "Nastepny krok" << endl;
-		if(!p.ReadyPCB.empty()){
-			if(!inter.execute_line(p.ReadyPCB.front()->name)){
-				PCB* tempProc = p.ReadyPCB.front();
-				tree.exit(tempProc->PID);
-				p.Check();
+		if(!p.ReadyPCB.empty()){ //Sprawdza czy kolejka procesów READY nie jest pusta (powinien być zawsze conajmniej dummy)
+			if(!inter.execute_line(p.ReadyPCB.front()->name)){ //Wykonanie procesu, jeśli false to zakończył działanie
+				PCB* tempProc = p.ReadyPCB.front(); //Tymczasowe ściągnięte PCB
+				tree.exit(tempProc->PID); //zabicie procesu
+				p.Check(); //aktualizacja planisty (kolejki procesów do wykonania i procesów czekających)
 			}
 		}
 }
@@ -385,9 +385,12 @@ void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
 }
 
 void Shell::wf() {
-	if (parsed.size() == 3)
+	if (parsed.size() == 2)
 	{
-		fm.file_write(parsed[1], "shell", parsed[2]);
+		string data;
+		cout << "Dane do wprowadzenia: ";
+		getline(cin, data);
+		fm.file_write(parsed[1], "shell", data);
 	}
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
