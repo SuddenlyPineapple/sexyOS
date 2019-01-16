@@ -109,8 +109,12 @@ void PCB::delete_pipe(Pipeline &pp)
 
 
 proc_tree::proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) {
+	mm->memoryInit();
 	this->proc = PCB();
+	proc.pageList = mm->createPageList(16,1);
 	p->AddProces(&proc);
+	proc.change_state(READY);
+	p->Check();
 }
 
 

@@ -30,8 +30,6 @@ private:
 public:
 	Shell::Shell() : mm(), p(), pipel(nullptr), tree(&mm, &p, &pipel), fm(&p, &tree), inter(&fm, &mm, &tree, &pipel) {
 		this->pipel.tree = &tree;
-        this->mm.memoryInit();
-
         this->status = true;
 		this->parsed.resize(0);
 		this->line.clear();
