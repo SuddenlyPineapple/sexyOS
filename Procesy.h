@@ -33,7 +33,7 @@ public:
 	unsigned int proces_size;		//rozmiar procesu w stronicach(chyba).
 	int A = 0, B = 0, C = 0, D = 0;	//Rejestry dla interpretera
 	std::vector<std::string> open_files; //otwarte plik
-	int comand_counter = 0;			//licznik rozkazów
+	int instruction_counter = 0;			//licznik rozkazów
 
 
 	PCB() {//kontruktor dla systemd
@@ -70,7 +70,7 @@ public:
 	void change_state(Process_state x);//zmiana stanu procesu
 	void add_file_to_proc(const std::string& open_file);
 	void kill_all_childrens(MemoryManager &mm);
-	void deletepipe(Pipeline &pp);
+	void delete_pipe(Pipeline &pp);
 
 
 
@@ -81,6 +81,7 @@ class proc_tree {
 private:
 	MemoryManager* mm;
 	Planista* p;
+	Pipeline* pip;
 	unsigned int free_PID = 2;
 
 public:
@@ -115,8 +116,8 @@ public:
 	PCB* find_proc(const std::string& nazwa);
 
 	//Konstruktory
-	proc_tree(MemoryManager* mm_, Planista* p_) : mm(mm_), p(p_) { this->proc = PCB(); }
-	proc_tree(MemoryManager* mm_, PCB proc, Planista* p_) : mm(mm_), p(p_) { this->proc = proc; };
+	proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) { this->proc = PCB(); }
+	proc_tree(MemoryManager* mm_, PCB proc, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) { this->proc = proc; };
 };
 
 #endif  //SEXYOS_PROCESY_H

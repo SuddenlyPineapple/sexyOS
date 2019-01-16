@@ -96,13 +96,11 @@ void PCB::display_allkids(int a)
 	if (a == 2) { std::cout << std::endl; }
 }
 
-void PCB::deletepipe(Pipeline &pp)
+void PCB::delete_pipe(Pipeline &pp)
 {
 	for (PCB* kid : this->child_vector) {
 		if (pp.existPipe(this->name, kid->name)) {}
-
 		pp.deletePipe(this->name, kid->name);
-	
 	
 	}
 	
@@ -275,6 +273,9 @@ void proc_tree::exit(const unsigned& pid)
 					temp->change_state(TERMINATED);
 					p->Check();
 					mm->kill(pid);
+
+					//for()
+
 					parent->child_vector.erase(parent->child_vector.begin() + i);
 					delete temp;
 					break;
@@ -283,6 +284,7 @@ void proc_tree::exit(const unsigned& pid)
 		}
 	}
 }
+
 void proc_tree::exit(const unsigned& pid,Pipeline &pp)
 {
 	if (pid == this->proc.PID) { // kiedy damy id=1 
@@ -298,7 +300,7 @@ void proc_tree::exit(const unsigned& pid,Pipeline &pp)
 			if (!temp->child_vector.empty()) { //kiedy ma dzieci
 				//kiedy dziecko ma dzieci
 				for (auto& i : temp->child_vector) {
-					i->deletepipe(pp);
+					i->delete_pipe(pp);
 					i->kill_all_childrens(*mm);
 					exit(i->PID);
 				}
