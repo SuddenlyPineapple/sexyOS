@@ -98,12 +98,14 @@ void Shell::parse() //Parsowanie
 	transform(line.begin(), line.end(), line.begin(), ::tolower);
 	parsed.resize(0);
 	line = line + ' ';
-	int space_pos = -1;
+	string pom;
 	for (int i = 0; i < line.size(); i++) {
-		if (line[i] == ' ') {
-			string pom = line.substr(space_pos + 1, i);
+		if (line[i] != ' ') {
+			pom += line[i];
+		}
+		else { //Jeśli spacja
 			parsed.push_back(pom);
-			space_pos = i;
+			pom.clear();
 		}
 	}
 }
@@ -185,6 +187,10 @@ void Shell::execute() {
 		fc();
 	}
 
+	else if (parsed[0] == "dmem")					//Wyswietlenie pamieci
+	{
+		dmem();
+	}
 
 	else if(parsed[0]==""){
 		go();
@@ -196,7 +202,8 @@ void Shell::execute() {
 //Commands functions
 //Metody interpretera;
 void Shell::go(){
-		cout << "Nastepny krok" << endl; //to tylko pomocnicze, poki nie ma menadzera procesow
+		cout << "Nastepny krok" << endl;
+		//inter.exe;
 }
 //Metody shella
 void Shell::help() //Wyświetlenie listy poleceń
@@ -220,7 +227,7 @@ void Shell::cp() //Tworzenie procesu
 		cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
 		return;
 	}
-	if (parsed.size() == 3)
+	 else if (parsed.size() == 3)
 	{
 		tree.fork(new PCB(parsed[1], 2), parsed[2], 128);
 		p.AddProces(tree.find_proc(parsed[1]));
@@ -284,7 +291,7 @@ void Shell::df() //Usunięcie pliku
 {
 	if (parsed.size() == 2) 
 	{
-//		file_delete(parsed[1]);
+		fm.file_delete(parsed[1], "shell");
 	}
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
@@ -292,32 +299,60 @@ void Shell::df() //Usunięcie pliku
 
 void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
 {
-	if (parsed.size() == 2)
+	if (parsed.size() == 1)
 	{
-//		display_root_directory_info();
+		fm.display_root_directory();
 	}
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::rf() {
-
+	if (parsed.size() == 3)
+	{
+		//fm.
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::wf() {
-
+	if (parsed.size() == 3)
+	{
+		fm.file_write(parsed[1], "shell", parsed[2]);
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::fo() {
-
+	if (parsed.size() == 3)
+	{
+		unsigned int arg;
+		if(parsed[2]=="-r") arg = FILE_OPEN_R_MODE;
+		if(parsed[2] =="-w") arg = FILE_OPEN_W_MODE;
+		fm.file_open(parsed[1], "shell", arg);
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::fc() {
-
+	if (parsed.size() == 2)
+	{
+		fm.file_close(parsed[1], "shell");
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 //Metody pamieci
 void Shell::dmem() {
-
+	if (parsed.size() == 1)
+	{
+		mm.showMem();
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 

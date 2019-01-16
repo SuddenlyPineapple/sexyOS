@@ -21,7 +21,7 @@ public:
 	void Check();
 	void AddProces(PCB* Proces);
 	void RemoveProces(PCB* Proces);
-	void SetPriority(PCB* Proces);
+	void SetPriority(PCB& Proces);
 
 	void displayPCBLists();
 };
