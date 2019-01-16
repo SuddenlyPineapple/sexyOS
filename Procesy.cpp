@@ -162,6 +162,7 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 		proc->proces_size = pages * 16;
 		proc->add_file_to_proc(file_name);
 		this->proc.child_vector.push_back(proc);
+		p->AddProces(proc);
 	}
 	else {
 		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
