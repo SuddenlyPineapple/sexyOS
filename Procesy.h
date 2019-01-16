@@ -26,14 +26,14 @@ public:
 	std::vector<PCB*> child_vector;	//vector dzieci
 	std::vector<PageTableData> *pageList;//wska?nik wektora stronic
 
-	//Mapa deskryptorów dla krzysia
+	//Mapa deskryptorï¿½w dla krzysia
 	//Klucz to nazwa procesu (z dodatkiem)
 	std::map<std::string, std::array<int, 2>>  FD;
 
 	unsigned int proces_size;		//rozmiar procesu w stronicach(chyba).
 	int A = 0, B = 0, C = 0, D = 0;	//Rejestry dla interpretera
 	std::vector<std::string> open_files; //otwarte plik
-	int instruction_counter = 0;			//licznik rozkazów
+	int instruction_counter = 0;			//licznik rozkazï¿½w
 
 
 	PCB() {//kontruktor dla systemd
@@ -65,8 +65,8 @@ public:
 	PCB *GET_kid(const std::string& nazwa);// funckja pomocnicza do znalezienia procesu po nazwie
 	bool find_kid(const unsigned int& PID) const;
 
-	void display_allkids();//funkcja która pokazuje dzieci procesu i dzieci dzieci
-	void display_allkids(int a);//funkcja pomocnicza do tej wy¿ej
+	void display_allkids();//funkcja ktï¿½ra pokazuje dzieci procesu i dzieci dzieci
+	void display_allkids(int a);//funkcja pomocnicza do tej wyï¿½ej
 	void change_state(Process_state x);//zmiana stanu procesu
 	void add_file_to_proc(const std::string& open_file);
 	void kill_all_childrens(MemoryManager &mm);
@@ -76,7 +76,7 @@ public:
 
 };
 
-//klasa pomocniczna inicjujemy j¹ na poczatku konstruktorem domyslny i zawiera systemd czyli g³owny proces
+//klasa pomocniczna inicjujemy jï¿½ na poczatku konstruktorem domyslny i zawiera systemd czyli gï¿½owny proces
 class proc_tree {
 private:
 	MemoryManager* mm;
@@ -87,7 +87,7 @@ private:
 public:
 	PCB proc;
 
-	//tu fork tworz¹cy z jakiegos pliku
+	//tu fork tworzï¿½cy z jakiegos pliku
 	void fork(PCB* proc, const std::string& file_name, int size);
 
 	// tu jest funckja tworzaca proces z memory managera takze marcin uzywaj go
@@ -96,14 +96,14 @@ public:
 	//dodaje kopieprocesu(dzieciaka) procesu do drzewa
 	void fork(PCB* proc);
 
-	//to samo co wyzej tylko z vectorem plików ktore moze otworzyc
+	//to samo co wyzej tylko z vectorem plikï¿½w ktore moze otworzyc
 	//tutaj memory management z przydzielaniem pamieci
 	void fork(PCB* proc, std::vector<std::string> file_names);
 
-	//usuwanie procesów 
+	//usuwanie procesï¿½w 
 	void exit(const unsigned& pid);
 
-	//usuwanie procesów z pipeline
+	//usuwanie procesï¿½w z pipeline
 	void exit(const unsigned& pid, Pipeline &pp);
 
 	//wyswietla cale drzewa
@@ -116,7 +116,7 @@ public:
 	PCB* find_proc(const std::string& nazwa);
 
 	//Konstruktory
-	proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) { this->proc = PCB(); }
+	proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_);
 	proc_tree(MemoryManager* mm_, PCB proc, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) { this->proc = proc; };
 };
 

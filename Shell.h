@@ -29,14 +29,12 @@ private:
 
 public:
 	Shell::Shell() : mm(), p(), pipel(nullptr), tree(&mm, &p, &pipel), fm(&p, &tree), inter(&fm, &mm, &tree, &pipel) {
-		pipel.tree = &tree;
-		this->status = true;
+		this->pipel.tree = &tree;
+        this->mm.memoryInit();
+
+        this->status = true;
 		this->parsed.resize(0);
 		this->line.clear();
-
-		this->tree = tree;
-
-
 	}
 	//Metody pracy shella
 	void boot();														//Funckja startująca pętlę shella

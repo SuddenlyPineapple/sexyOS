@@ -22,7 +22,7 @@ void PCB::kill_all_childrens(MemoryManager & mm)
 		i->change_state(TERMINATED);
 		mm.kill(i->PID);
 	}
-	this->child_vector.clear(); //Tu nastêpuje usuniêcie wszystkich dzieci
+	this->child_vector.clear(); //Tu nastï¿½puje usuniï¿½cie wszystkich dzieci
 
 }
 
@@ -39,7 +39,7 @@ PCB* PCB::GET_kid(const unsigned int& PID)
 		if (kid->PID == PID) { return kid; }
 	}
 	for (PCB* kid : this->child_vector) {
-		PCB* foundKid = kid->GET_kid(PID); //U¿y³em rekurencji
+		PCB* foundKid = kid->GET_kid(PID); //Uï¿½yï¿½em rekurencji
 		if (foundKid != nullptr) { return foundKid; }
 	}
 	return nullptr;
@@ -51,7 +51,7 @@ PCB* PCB::GET_kid(const std::string& nazwa)
 		if (kid->name == nazwa) { return kid; }
 	}
 	for (PCB* kid : this->child_vector) {
-		PCB* foundKid = kid->GET_kid(nazwa); //U¿y³em rekurencji
+		PCB* foundKid = kid->GET_kid(nazwa); //Uï¿½yï¿½em rekurencji
 		if (foundKid != nullptr) { return foundKid; }
 	}
 
@@ -106,8 +106,17 @@ void PCB::delete_pipe(Pipeline &pp)
 	
 }
 
+
+
+proc_tree::proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) {
+	this->proc = PCB();
+	p->AddProces(&proc);
+}
+
+
+
 void proc_tree::fork(PCB* proc, int size) {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siï¿½ zgadza i jestli tak przypisuje go do niego.
 
 		proc->PID = free_PID;
 		free_PID++;
@@ -146,7 +155,7 @@ void proc_tree::fork(PCB* proc, int size) {
 
 }
 void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siï¿½ zgadza i jestli tak przypisuje go do niego.
 		proc->PID = free_PID;
 		free_PID++;
 		proc->parent_proc = &this->proc;
@@ -196,7 +205,7 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 
 void proc_tree::fork(PCB* proc)
 {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siï¿½ zgadza i jestli tak przypisuje go do niego.
 		proc->PID = free_PID;
 		free_PID++;
 		proc->parent_proc = &this->proc;
@@ -220,7 +229,7 @@ void proc_tree::fork(PCB* proc)
 
 void proc_tree::fork(PCB* proc, std::vector<std::string> file_names)
 {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
+	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siï¿½ zgadza i jestli tak przypisuje go do niego.
 		for (const std::string& file_name : file_names) {
 			proc->open_files.push_back(file_name);
 		}
@@ -252,7 +261,7 @@ void proc_tree::fork(PCB* proc, std::vector<std::string> file_names)
 void proc_tree::exit(const unsigned& pid)
 {
 	if (pid == this->proc.PID) { // kiedy damy id=1 
-		std::cout << "nie mo¿na usun¹æ inita/systemd" << std::endl;
+		std::cout << "nie moï¿½na usunï¿½ï¿½ inita/systemd" << std::endl;
 	}
 	else {
 		PCB* temp = this->find_proc(pid);
@@ -289,7 +298,7 @@ void proc_tree::exit(const unsigned& pid)
 void proc_tree::exit(const unsigned& pid,Pipeline &pp)
 {
 	if (pid == this->proc.PID) { // kiedy damy id=1 
-		std::cout << "nie mo¿na usun¹æ inita/systemd" << std::endl;
+		std::cout << "nie moï¿½na usunï¿½ï¿½ inita/systemd" << std::endl;
 	}
 	else {
 		PCB* temp = this->find_proc(pid);
@@ -333,7 +342,7 @@ void proc_tree::display_tree()
 PCB *proc_tree::find_proc(const unsigned& PID)
 {
 	if (PID == this->proc.PID) {
-		return &this->proc;// do sprawdzenia czy tak zadzia³a (sprawdzone)
+		return &this->proc;// do sprawdzenia czy tak zadziaï¿½a (sprawdzone)
 	}
 	else return this->proc.GET_kid(PID);
 
@@ -343,7 +352,7 @@ PCB * proc_tree::find_proc(const std::string& nazwa)
 {
 	{
 		if (nazwa == this->proc.name) {
-			return &this->proc;// do sprawdzenia czy tak zadzia³a (sprawdzone)
+			return &this->proc;// do sprawdzenia czy tak zadziaï¿½a (sprawdzone)
 		}
 		else return this->proc.GET_kid(nazwa);
 	}

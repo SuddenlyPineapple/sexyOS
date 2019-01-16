@@ -126,6 +126,11 @@ void Shell::execute() {
 		exit();
 	}
 
+	else if (parsed[0] == "cls")				//Kończenie pracy
+	{
+		cls();
+	}
+
 	else if (parsed[0] == "cp")					//Tworzenie procesu
 	{
 		cp();
@@ -244,7 +249,13 @@ void Shell::execute() {
 //Metody interpretera;
 void Shell::go(){
 		cout << "Nastepny krok" << endl;
-		//inter.exe;
+		if(!p.ReadyPCB.empty()){
+			if(!inter.execute_line(p.ReadyPCB.front()->name)){
+				PCB* tempProc = p.ReadyPCB.front();
+				tree.exit(tempProc->PID);
+				p.Check();
+			}
+		}
 }
 //Metody shella
 void Shell::ver(){
