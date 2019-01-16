@@ -44,11 +44,11 @@ public:
 	void read_line();													//Odczyt surowych danych
 	void parse();														//Parsowanie
 	void execute(); 													//Wykonywanie
-
 	//Commands functions declarations
 	//Metody interpretera
 	void go(); 													        //Nastepny krok pracy krokowej
 	//Metody shella
+    void ver();                                                       //Creditsy
 	void help();														//Wyswietalnie listy poleceń
     void exit();														//Kończenie pracy
 	//Metody zarzadzania procesami
@@ -66,7 +66,11 @@ public:
     void fo();                                                        //Otwarcie pliku
     void fc();                                                        //Zamkniecie pliku
     //Metody pamieci
-    void dmem();                                                      //Wyswietlanie zawartosci pamieci
+    void showmem();                                                      //Wyswietlanie zawartosci pamieci
+    void showpagefile();
+    void showpagetable();
+    void showstack();
+    void showframes();
 
 
 

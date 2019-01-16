@@ -187,10 +187,35 @@ void Shell::execute() {
 		fc();
 	}
 
-	else if (parsed[0] == "dmem")					//Wyswietlenie pamieci
+	else if (parsed[0] == "showmem")					//Wyswietlenie pamieci
 	{
-		dmem();
+		showmem();
 	}
+
+	else if (parsed[0] == "showpagefile")					//Wyswietlenie pliku stronicowania
+	{
+		showpagefile();
+	}
+
+	else if (parsed[0] == "showpagetable")					//Wyswietlenie page table
+	{
+		showpagetable();
+	}
+
+	else if (parsed[0] == "showstack")					//Wyswietlenie stosu
+	{
+		showstack();
+	}
+
+	else if (parsed[0] == "showframes")					//Wyswietlenie ramek
+	{
+		showframes();
+	}
+
+    else if (parsed[0] == "ver")					//Creditsy
+    {
+        ver();
+    }
 
 	else if(parsed[0]==""){
 		go();
@@ -206,6 +231,21 @@ void Shell::go(){
 		//inter.exe;
 }
 //Metody shella
+void Shell::ver(){
+	logo();
+	std::cout << "sexySO - Version 1.01.185 \n";
+	std::cout << "<c> 2018 sexySO PUT Labolatory Group. All Rights Reserved. \n\n";
+	std::cout << "Created by:\n";
+	std::cout << "Tomasz Kiljanczyk \t File and directory management \n";
+	std::cout << "Wojciech Kasperski \t RAM management \n";
+	std::cout << "Michal Kalinowski \t Interface \n";
+	std::cout << "Juliusz Horowski \t Process management \n";
+	std::cout << "Marcin Jasinski \t Assembler commands and interpreter \n";
+	std::cout << "Norbert Mlynarski \t CPU management \n";
+	std::cout << "Krzysztof Kretkowski \t Inter-process communication \n";
+	std::cout << "Aleksandra Laskowska \t Synchronization mechanisms \n";
+	std::cout << "Alicja Gratkowska \t Virtual memory management \n\n\n";
+}
 void Shell::help() //Wyświetlenie listy poleceń
 {
 	cout << "cp [name] [program]          Tworzenie procesu				                  " << endl;
@@ -218,6 +258,7 @@ void Shell::help() //Wyświetlenie listy poleceń
 }
 void Shell::exit() //Kończenie pracy
 {
+    ver();
 	status = false;
 }
 //Metody zarzadzania procesami
@@ -346,15 +387,53 @@ void Shell::fc() {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 //Metody pamieci
-void Shell::dmem() {
+void Shell::showmem() {
 	if (parsed.size() == 1)
 	{
 		mm.showMem();
+	}
+	else if(parsed.size() == 3){
+		int begin = stoi(parsed[1]);
+		int bytes = stoi(parsed[2]);
+		mm.showMem(begin, bytes);
 	}
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 
+void Shell::showpagefile() {
+	if (parsed.size() == 1)
+	{
+		mm.showPageFile();
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
 
+void Shell::showpagetable() {
+	if (parsed.size() == 2)
+	{
+		mm.showPageTable(tree.find_proc(parsed[1])->pageList);
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
 
+void Shell::showstack() {
+	if (parsed.size() == 1)
+	{
+		mm.showStack();
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+
+void Shell::showframes() {
+	if (parsed.size() == 1)
+	{
+		mm.showFrames();
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
