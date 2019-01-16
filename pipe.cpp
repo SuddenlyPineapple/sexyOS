@@ -76,15 +76,13 @@ void Pipeline::deletePipe(const std::string& p1, const std::string& p2) {//usuwa
 		proc1->FD[p2 + "_W"][1] = UNUSED;
 		proc2->FD[p1 + "_R"][0] = UNUSED;
 		proc2->FD[p1 + "_R"][1] = UNUSED;
-
-
 	}
 	else {
 		std::cout << "Nie istnieje taki potok" << std::endl;
 	}
 }
 
-bool Pipeline::existPipe(const std::string& p1, const std::string& p2) { //sprawdzanie czy istnieje
+bool Pipeline::existPipe(const std::string& p1, const std::string& p2) {//sprawdzanie czy istnieje
 	PCB* proc1 = tree->find_proc(p1);
 	PCB* proc2 = tree->find_proc(p2);
 

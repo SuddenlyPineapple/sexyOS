@@ -10,12 +10,11 @@ class Pipe;
 
 class Pipeline {
 private:
+	proc_tree* tree;
 	std::vector<Pipe*> pipes;
 
 
 public:
-	proc_tree* tree;
-
 	Pipeline(proc_tree* tree_) : tree(tree_){}
 
 	void createPipe(const std::string& p1, const std::string& p2);
