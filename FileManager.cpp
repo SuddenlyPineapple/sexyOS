@@ -107,7 +107,7 @@ void FileManager::Inode::clear() {
 
 FileManager::Disk::Disk() {
 	//Zape³nanie naszego dysku zerowymi bajtami (symbolizuje pusty dysk)
-	space.fill(NULL);
+	space.fill(0);
 }
 
 void FileManager::Disk::write(const u_short_int& begin, const std::string& data) {
@@ -121,9 +121,9 @@ void FileManager::Disk::write(const u_short_int& begin, const std::string& data)
 		space[index] = data[i];
 		index++;
 	}
-	//Zapisywanie NULL, jeœli dane nie wype³ni³y ostatniego bloku
+	//Zapisywanie 0, jeœli dane nie wype³ni³y ostatniego bloku
 	//for (; index <= end; index++) {
-	//	space[index] = NULL;
+	//	space[index] = 0;
 	//}
 }
 
@@ -149,7 +149,7 @@ const std::string FileManager::Disk::read_str(const u_int& begin) const {
 	//Odczytaj przestrzeñ dyskow¹ od indeksu begin do indeksu end
 	for (u_int index = begin; index < end; index++) {
 		//Dodaj znak zapisany na dysku do danych
-		if (space[index] != NULL) { data += space[index]; }
+		if (space[index] != 0) { data += space[index]; }
 	}
 	return data;
 }
@@ -164,13 +164,13 @@ const std::array<u_int, FileManager::BLOCK_SIZE / 2> FileManager::Disk::read_arr
 	//Odczytaj przestrzeñ dyskow¹ od indeksu begin do indeksu end
 	for (u_int index = begin; index < end; index++) {
 		//Dodaj znak zapisany na dysku do danych
-		if (space[index] != NULL) { data += space[index]; }
+		if (space[index] != 0) { data += space[index]; }
 	}
 
 	std::string num;
 	u_int arrIndex = 0;
 	for (const char& c : data) {
-		if (c == NULL) { break; }
+		if (c == 0) { break; }
 		num += c;
 		if (num.length() == 2) {
 			result[arrIndex] = std::stoi(num);
@@ -334,7 +334,7 @@ int FileManager::file_write(const std::string& name, const std::string& procName
 		if (!inode->opened) { return FILE_ERROR_NOT_OPENED; }
 
 		//Error6
-		if(accessedFiles.find(std::pair(name,procName)) == accessedFiles.end()) {
+		if (accessedFiles.find(std::pair(name, procName)) == accessedFiles.end()) {
 			return FILE_ERROR_NOT_OPENED;
 		}
 
@@ -424,10 +424,12 @@ int FileManager::file_read(const std::string& name, const std::string& procName,
 
 	//Czêœæ dzia³aj¹ca ----------------------
 	PCB* proc = tree->find_proc(procName);
-	while (proc->state != RUNNING ) {
-		if (detailedMessages) { std::cout << "Czekanie na przydzielenie procesora . . . (" << procName <<", prio: " << proc->priority << ")\n"; }
+	proc->change_state(READY);
+	while (proc->state != RUNNING) {
+		if (detailedMessages) { std::cout << "Czekanie na przydzielenie procesora . . . (" << procName << ", prio: " << proc->priority << ")\n"; }
 
 		p->Check();
+		p->displayPCBLists();
 	}
 	result = accessedFiles[std::pair(name, procName)].read(byteNumber);
 	return FILE_ERROR_NONE;
@@ -496,31 +498,26 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 
 		inode = &fileSystem.inodeTable[fileIterator->second];
 
-
-		//Error9
-		if (fileSystem.inodeTable[fileSystem.rootDirectory[name]].sem.is_blocked()) { return FILE_ERROR_SYNC; }
-
-		//Sync
-		PCB* proc = tree->find_proc(procName);
-		if (inode->sem.is_blocked()) {
-			proc->change_state(WAITING);
+		//Error3
+		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {}
+		else if (inode->sem.is_blocked()) {
+			tree->find_proc(procName)->change_state(WAITING);
 			p->Check();
 			return FILE_ERROR_SYNC;
 		}
-		else { proc->change_state(RUNNING); p->Check(); }
 	}
 
 	//Czêœæ dzia³aj¹ca
 	{
+		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {
+			if (const int result = file_close(name, procName) != FILE_ERROR_NONE) { return result; };
+		}
+
 		if (!inode->opened) {
 			int semVal = 0;
 			if (mode == FILE_OPEN_R_MODE) { semVal = 2; } //Tak ma³o, ¿eby mo¿na pokazaæ, ¿e dzia³a dla dwóch a potem nie
 			else if (mode == FILE_OPEN_W_MODE) { semVal = 1; }
 			inode->sem = Semaphore(p, semVal);
-		}
-
-		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {
-			if (const int result = file_close(name, procName) != FILE_ERROR_NONE) { return result; };
 		}
 
 		inode->sem.Wait(nullptr); //Obni¿enie wartoœci semafora
@@ -558,17 +555,18 @@ int FileManager::file_close(const std::string& name, const std::string& procName
 				fileSystem.inodeTable[fileIterator->second].sem.Signal(nullptr);
 			}
 		}
-		else {
-			if (fileSystem.inodeTable[fileIterator->second].sem.get_value() < 2) {
-				fileSystem.inodeTable[fileIterator->second].sem.Signal(nullptr);
-			}
+		else if (fileSystem.inodeTable[fileIterator->second].sem.get_value() < 2) {
+			fileSystem.inodeTable[fileIterator->second].sem.Signal(nullptr);
 		}
-
-		if (file_accessing_proc_count(name) == 0) { fileSystem.inodeTable[fileIterator->second].opened = false; }
-
-		if (messages) { std::cout << "Zamknieto plik o nazwie '" << name << "' przez proces " << procName << ".\n"; }
-		return FILE_ERROR_NONE;
 	}
+
+	if (file_accessing_proc_count(name) == 0) {
+		fileSystem.inodeTable[fileIterator->second].opened = false;
+		fileSystem.inodeTable[fileIterator->second].sem = Semaphore(nullptr, 99);
+	}
+
+	if (messages) { std::cout << "Zamknieto plik o nazwie '" << name << "' przez proces " << procName << ".\n"; }
+	return FILE_ERROR_NONE;
 }
 
 
@@ -604,6 +602,7 @@ int FileManager::file_close_all() {
 	for (const auto& elem : accessedFiles) { fileNames.push_back(elem.first); }
 	for (const std::pair<std::string, std::string>& fileName : fileNames) {
 		if (const int result = file_close(fileName.first, fileName.second) != 0) { return result; }
+		fileSystem.inodeTable[fileSystem.rootDirectory[fileName.first]].sem = Semaphore(nullptr, 99);
 	}
 
 	return FILE_ERROR_NONE;

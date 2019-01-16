@@ -6,7 +6,7 @@
 
 
 void Planista::Check() {
-	if (trial == ReadyPCB.size() / 2) {
+	if (trial >= ReadyPCB.size() / 2) {
 		trial = 0;
 	}
 	trial++;
@@ -14,14 +14,14 @@ void Planista::Check() {
 		if ((*Rpcb)->state == TERMINATED) {
 			Rpcb = ReadyPCB.erase(Rpcb);
 		}
-		else if ((*Rpcb)->state != READY) {
+		else if ((*Rpcb)->state != READY && (*Rpcb)->state != RUNNING) {
 			WaitingPCB.push_back(*Rpcb);
 			Rpcb = ReadyPCB.erase(Rpcb);
 		}
 		else {
 			++Rpcb;
 			if (Rpcb == ReadyPCB.end()) { break; }
-			SetPriority(*Rpcb);
+			SetPriority(**Rpcb);
 		}
 	}
 	SortReadyPCB();
@@ -106,27 +106,26 @@ void Planista::SortReadyPCB() {
 	}
 }
 
-void Planista::SetPriority(PCB* Proces) {
-	Proces->last_counter = Proces->comand_counter - Proces->last_counter;
-	//			USTALENIE MNOZNIKA od najwiekszego skoku
-	if (Proces->last_counter > CounterMax) {
-		CounterMax = Proces->last_counter;
+void Planista::SetPriority(PCB& Proces) {
+	Proces.last_counter = Proces.comand_counter - Proces.last_counter;
+	//	USTALENIE MNOZNIKA od najwiekszego skoku
+	if (Proces.last_counter > CounterMax) {
+		CounterMax = Proces.last_counter;
 	}
-	if (Proces->last_counter > 0) {
-		const int x = int((Proces->priority + Proces->last_counter * 30.0 / CounterMax) / 4.0);
-		Proces->priority = x;
+	if (Proces.last_counter > 0) {
+		Proces.priority = (Proces.priority + Proces.last_counter * 30.0 / CounterMax) / 4.0;
 	}
-	if (Proces->priority >= 10) {
-		Proces->priority = 9;
+	if (Proces.priority >= 10) {
+		Proces.priority = 9;
 	}
-	if (Proces->priority < 0) {
-		Proces->priority = 0;
+	else if (Proces.priority < 0) {
+		Proces.priority = 0;
 	}
-	//			POSTARZANIE, jesli proces nie otrzymał przydzialu do procesora w kilku ostatnich sesjach
-	if (Proces->priority > 1 && trial == ReadyPCB.size() / 2 && Proces->last_counter == 0) {
-		Proces->priority--;
+	//	POSTARZANIE, jesli proces nie otrzymał przydzialu do procesora w kilku ostatnich sesjach
+	if (Proces.priority > 1 && trial == ReadyPCB.size() / 2 && Proces.last_counter <= 0) {
+		Proces.priority--;
 	}
-	Proces->last_counter = Proces->comand_counter;
+	Proces.last_counter = Proces.comand_counter;
 }
 
 void Planista::displayPCBLists() {
