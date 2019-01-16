@@ -28,7 +28,7 @@ private:
 	Interpreter inter;
 
 public:
-	Shell::Shell() : mm(), p(), pipel(nullptr), tree(&mm, &p, &pipel), fm(&p, &tree), inter(&fm, &mm, &tree, &pipel) {
+	Shell() : mm(), p(), pipel(nullptr), tree(&mm, &p, &pipel), fm(&p, &tree), inter(&fm, &mm, &tree, &pipel) {
 		this->pipel.tree = &tree;
         this->status = true;
 		this->parsed.resize(0);
@@ -81,7 +81,7 @@ public:
 
 
 
-	Shell::~Shell() {}
+	~Shell() {}
 };
 
 

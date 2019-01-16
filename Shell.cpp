@@ -275,13 +275,48 @@ void Shell::ver(){
 }
 void Shell::help() //Wyświetlenie listy poleceń
 {
-	cout << "cp [name] [program]          Tworzenie procesu				                  " << endl;
-	cout << "lp                           Lista PCB wszystkich procesów                   " << endl;
-	cout << "ls                           Listowanie katalogu                             " << endl;
-	cout << "cf [name]                    Utworzenie pliku                                " << endl;
-	cout << "df [name]                    Usuniecie pliku                                 " << endl;
-	cout << "ld [block_number]            Listowanie zawartosci wskazanego bloku dyskowego" << endl;
-	cout << "exit                         Konczenie pracy                                 " << endl;
+	printf(R"EOF(
+
+Metody interpretera
+ go - Nastepny krok pracy krokowej
+
+Metody shella
+ ver - Wersja systemu, prawa autorskie i autorzy
+ help - Wyswietalnie listy poleceń
+ exit - Konczenie pracy
+ cls - Czyszczenie ekranu
+
+Metody zarzadzania procesami
+ cp - Tworzenie procesu np. CP [nazwa_procesu] [nazwa_pliku.txt]
+ lp - Lista PCB wszystkich procesow
+ lt - Drzewo procesow
+ dp - Usuwanie procesu np. DP [nazwa_procesu]
+
+Metody dyskowe
+ ls - Listowanie katalogu
+ cf - Utworzenie pliku np. CF [nazwa_pliku]
+ df - Usuniecie pliku np. DF [nazwa_pliku]
+ ld - Listowanie zawartości wskazanego bloku dyskowego
+ wf - Zapis do pliku np. WF [nazwa_pliku] [tresc]
+ fo - Otwarcie pliku np.
+ fc - Zamkniecie pliku
+ finfo - Wyswietla informacje o pliku
+ dinfo - Wyswietla informacje o katalogu
+ dskchar - Wyswietla zawartosc dysku jako znaki
+ fsysparam - Wyswietla parametry systemu plikow
+ bitvector - Wyswietla wektor bitowy
+
+Metody pamieci
+ showmem - Wyswietlanie zawartosci pamieci
+ showpagefile - Wyswietla plik stronicowania
+ showpagetable - Wyswietla tablice wymiany stronic
+ showstack - Pokazuje kolejke FIFO wymiany stronic
+ showframes - Pokazuje ramki w pamieci RAM wraz ze szczegolami
+
+Specials
+ thanks - check it in the end ;-)
+
+	)EOF");
 }
 void Shell::exit() //Kończenie pracy
 {

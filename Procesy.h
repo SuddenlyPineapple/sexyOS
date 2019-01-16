@@ -117,7 +117,7 @@ public:
 
 	//Konstruktory
 	proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_);
-	proc_tree(MemoryManager* mm_, PCB proc, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) { this->proc = proc; };
+	proc_tree(MemoryManager* mm_, PCB proc, Planista* p_, Pipeline* pip_);
 };
 
 #endif  //SEXYOS_PROCESY_H
