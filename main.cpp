@@ -1,14 +1,16 @@
 #include <iostream>
 #include "Procesy.h"
+#include <windows.h>
 #include "MemoryManager.h"
 //#include "Shell.h"
-
-proc_tree Drzewo = proc_tree();
+#pragma comment(lib, "Winmm.lib")
+//proc_tree Drzewo = proc_tree();
 MemoryManager mm = MemoryManager();
 
 int main() {
     //Shell shell;
     //shell.boot();
+    PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
 
     //MemoryManager memoryManager;
     //memoryManager.memoryInit();
