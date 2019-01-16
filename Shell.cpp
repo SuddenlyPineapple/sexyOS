@@ -7,6 +7,8 @@
 //Metody pracy shella
 void Shell::boot() //Funckja startująca pętlę shella
 {
+	tree.fork(new PCB("shell", 1));
+	p.AddProces(tree.find_proc("shell"));
 	logo();
 	//PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
 	loop();
@@ -188,7 +190,7 @@ void Shell::execute() {
 		go();
 	}
 	else
-		cout << "Command not found! Type \"help\" for more information" << endl;
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 //Commands functions
@@ -214,12 +216,17 @@ void Shell::exit() //Kończenie pracy
 //Metody zarzadzania procesami
 void Shell::cp() //Tworzenie procesu
 {
-	if (parsed.size() == 3) 
-	{
-		//procmem.create_process(parsed[1], parsed[2]);
-		
+	if(parsed[1] == "shell" || parsed[1] == "systemd"){
+		cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
+		return;
 	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+	if (parsed.size() == 3)
+	{
+		tree.fork(new PCB(parsed[1], 2), parsed[2], 128);
+		p.AddProces(tree.find_proc(parsed[1]));
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 
 }
 
@@ -227,35 +234,50 @@ void Shell::lp() //Lista PCB wszystkich procesów
 {
 	if (parsed.size() == 1) 
 	{
-//		procmem.display_pcbs();
+		tree.display_tree();
 	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::lt() {
-
+	//Drzewo procesow
 }
 
 void Shell::dp() {
-
+	if(parsed[1] == "shell" || parsed[1] == "systemd") {
+		std::cout << "Odmowa dostepu!" << endl;
+		return;
+	}
+	else {
+		PCB* tempProc = tree.find_proc(parsed[1]);
+		if(tempProc != nullptr) {
+			tree.exit(tempProc->PID);
+		}
+		else {
+			std::cout << "Nie znaleziono procesu!\n";
+		}
+	}
 }
 //Metody dyskowe
 void Shell::ls() //Listowanie katalogu
 {
 	if (parsed.size() == 1) 
 	{
-//		FileManager.display_directory();
+		fm.display_root_directory();
 	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::cf() //Utworzenie pliku
 {
 	if (parsed.size() == 2)
 	{
-//		file_write(parsed[1]);
+		fm.file_create(parsed[1], "shell");
 	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::df() //Usunięcie pliku
@@ -264,7 +286,8 @@ void Shell::df() //Usunięcie pliku
 	{
 //		file_delete(parsed[1]);
 	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
@@ -273,7 +296,8 @@ void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
 	{
 //		display_root_directory_info();
 	}
-	else cout << "Wrong command construction! Type \"help\" for more information" << endl;
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::rf() {
