@@ -278,6 +278,15 @@ void Shell::exit() //Kończenie pracy
     ver();
 	status = false;
 }
+void Shell::cls(){
+    if (parsed.size() == 2)
+    {
+        system('cls');
+    }
+    else
+        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+}
 //Metody zarzadzania procesami
 void Shell::cp() //Tworzenie procesu
 {
@@ -453,7 +462,6 @@ void Shell::showmem() {
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
-
 
 void Shell::showpagefile() {
 	if (parsed.size() == 1)

@@ -51,7 +51,8 @@ public:
     void ver();                                                       //Creditsy
 	void help();														//Wyswietalnie listy poleceń
     void exit();														//Kończenie pracy
-	//Metody zarzadzania procesami
+	void cls();															//Czyszczenie ekranu
+    //Metody zarzadzania procesami
 	void cp();															//Tworzenie procesu
 	void lp();															//Lista PCB wszystkich procesów
 	void lt();                                                        //Drzewo procesow
