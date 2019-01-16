@@ -72,6 +72,8 @@ public:
     void showstack();
     void showframes();
 
+    //Specials
+    void thanks();
 
 
 
