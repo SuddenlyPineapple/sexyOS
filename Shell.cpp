@@ -178,7 +178,7 @@ void Shell::execute() {
 
 	else if (parsed[0] == "finfo")					//Informacje o pliku
 	{
-		fileinfo();
+		finfo();
 	}
 
 	else if (parsed[0] == "dinfo")					//informacje o katalogu
@@ -278,14 +278,14 @@ void Shell::exit() //Kończenie pracy
 	status = false;
 }
 void Shell::cls(){
-    if (parsed.size() == 2)
+    if (parsed.size() == 1)
     {
-        system('cls');
+        system("cls");
     }
     else
         cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
-}
+
 //Metody zarzadzania procesami
 void Shell::cp() //Tworzenie procesu
 {
