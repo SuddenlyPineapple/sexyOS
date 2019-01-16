@@ -13,7 +13,11 @@ private:
 		HELP, CP, LP, LS, CF, DF, LD, EXIT
 	};												
 public:
-
+	Shell::Shell() {
+		this->status = true;
+		this->parsed.resize(0);
+		this->line.clear();
+	}
 	//Metody pracy shella
 	void execute(/*Interpreter inter, ....., ProcessManager procmem*/); //Wykonywanie
 	void parse();														//Parsowanie
@@ -51,7 +55,7 @@ public:
 
 
 
-
+	Shell::~Shell() {}
 };
 
 
