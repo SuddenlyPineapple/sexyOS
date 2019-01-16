@@ -167,11 +167,6 @@ void Shell::execute() {
         ld();
 	}
 
-	else if (parsed[0] == "rf")					//Zmiana nazwy pliku
-	{
-		rf();
-	}
-
 	else if (parsed[0] == "wf")					//Zapisywanie do pliku
 	{
 		wf();
@@ -182,11 +177,24 @@ void Shell::execute() {
 		fo();
 	}
 
-	else if (parsed[0] == "fc")					//Zamkniecie pliku
+	else if (parsed[0] == "finfo")					//Informacje o pliku
 	{
-		fc();
+		fileinfo();
 	}
 
+	else if (parsed[0] == "dinfo")					//informacje o katalogu
+	{
+		dinfo();
+	}
+
+	else if (parsed[0] == "dskchar")					//Wyswietlanie dysku
+	{
+		dskchar();
+	}
+    else if (parsed[0] == "fsysparam")					//Parametry systemu plików
+    {
+        fsysparam();
+    }
 	else if (parsed[0] == "showmem")					//Wyswietlenie pamieci
 	{
 		showmem();
@@ -287,14 +295,14 @@ void Shell::lp() //Lista PCB wszystkich procesów
 {
 	if (parsed.size() == 1) 
 	{
-		tree.display_tree();
+		p.displayPCBLists();
 	}
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
 void Shell::lt() {
-	//Drzewo procesow
+	tree.display_tree();
 }
 
 void Shell::dp() {
@@ -353,15 +361,6 @@ void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
-void Shell::rf() {
-	if (parsed.size() == 3)
-	{
-		//fm.
-	}
-	else
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-}
-
 void Shell::wf() {
 	if (parsed.size() == 3)
 	{
@@ -390,6 +389,42 @@ void Shell::fc() {
 	}
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+
+void Shell::finfo(){
+	if (parsed.size() == 2)
+	{
+		fm.display_file_info(parsed[1]);
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+
+void Shell::dinfo(){
+	if (parsed.size() == 1)
+	{
+		fm.display_root_directory_info();
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+
+void Shell::dskchar(){
+    if (parsed.size() == 1)
+    {
+        fm.display_disk_content_char();
+    }
+    else
+        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+
+void Shell::fsysparam(){
+    if (parsed.size() == 1)
+    {
+        fm.display_file_system_params();
+    }
+    else
+        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 //Metody pamieci
 void Shell::showmem() {

@@ -61,10 +61,13 @@ public:
 	void cf();															//Utworzenie pliku
 	void df();															//Usunięcie pliku
 	void ld();															//Listowanie zawartości wskazanego bloku dyskowego
-    void rf();                                                        //Zmiana nazwy pliku
     void wf();                                                        //Zapis do pliku
     void fo();                                                        //Otwarcie pliku
     void fc();                                                        //Zamkniecie pliku
+    void finfo();
+    void dinfo();
+    void dskchar();
+	void fsysparam();
     //Metody pamieci
     void showmem();                                                      //Wyswietlanie zawartosci pamieci
     void showpagefile();
