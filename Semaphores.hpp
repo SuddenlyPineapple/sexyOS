@@ -22,6 +22,7 @@ public:
 
 	const bool& is_blocked() const;
 	const int& get_value() const;
+	void show_value() const;
 };
 
 

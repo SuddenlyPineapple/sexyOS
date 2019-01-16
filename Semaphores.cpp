@@ -44,3 +44,6 @@ const bool& Semaphore::is_blocked() const {
 const int& Semaphore::get_value() const {
 	return this->value;
 }
+void Semaphore::show_value() const{
+	std::cout<<"Aktualna wartosc zmiennej semaforowej: << get_value() << std::endl;
+}
