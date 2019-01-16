@@ -2,6 +2,7 @@
 #include "Planista.h"
 #include <list>
 #include <sstream>
+#include <iostream>
 
 
 void Planista::Check() {
@@ -129,17 +130,19 @@ void Planista::SetPriority(PCB* Proces) {
 }
 
 void Planista::displayPCBLists() {
-	std::cout << "\nProcesy gotowe: \n";
+	std::cout << "\nProcesy gotowe: " << (ReadyPCB.empty()? "EMPTY" : "") << "\n";
 	for(const auto& elem : ReadyPCB) {
-		std::cout << " - " << elem->process_name << ' ' << elem->PID;
-		if (elem->state == RUNNING) { std::cout << " (RUNNING)"; }
-		else if (elem->state == READY) { std::cout << " (READY)"; }
-		else if (elem->state == WAITING) { std::cout << " (WAITING)"; }
-		std::cout << '\n';
+		std::cout << " - " << elem->name << ", PID: " << elem->PID;
+		std::cout << "	(prio: " << elem->priority;
+		if (elem->state == RUNNING) { std::cout << ", RUNNING"; }
+		else if (elem->state == READY) { std::cout << ", READY"; }
+		else if (elem->state == WAITING) { std::cout << ", WAITING"; }
+		std::cout << ")\n";
 	}
-	std::cout << "\nProcesy czekajace: \n";
+	std::cout << "\nProcesy czekajace: " << (WaitingPCB.empty() ? "EMPTY" : "") << "\n";
 	for(const auto& elem : WaitingPCB) {
-		std::cout << " - " << elem->process_name << ' ' << elem->PID;
+		std::cout << " - " << elem->name << ", PID: " << elem->PID;
+		std::cout << "	(prio: " << elem->priority;
 		if (elem->state == RUNNING) { std::cout << " (RUNNING)"; }
 		else if (elem->state == READY) { std::cout << " (READY)"; }
 		else if (elem->state == WAITING) { std::cout << " (WAITING)"; }

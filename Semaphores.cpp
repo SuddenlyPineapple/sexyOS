@@ -1,41 +1,36 @@
 #include "Procesy.h"
 #include "Semaphores.hpp"
 #include "Planista.h"
-#include <list>
 
-Semaphore::Semaphore(Planista* plan, PCB* pcb_) : p(plan), pcb(pcb_) {
+Semaphore::Semaphore(Planista* plan) : p(plan) {
 	this->value = 999;
 }
 
-Semaphore::Semaphore(Planista* plan, PCB* pcb_, const int& n) : p(plan), pcb(pcb_) {
+Semaphore::Semaphore(Planista* plan, const int& n) : p(plan) {
 	this->value = n;
-	if (this->value <= 0) {
-		this->blocked = true;
-		block();
-	}
 }
-void Semaphore::Wait() {
+void Semaphore::Wait(PCB* pcb) {
 	this->value--;
 	if (this->value <= 0 && !this->blocked) {
 		this->blocked = true;
-		block();
+		block(pcb);
 	}
 }
-void Semaphore::Signal() {
+void Semaphore::Signal(PCB* pcb) {
 	this->value++;
 
 	if (this->value > 0 && this->blocked) {
 		this->blocked = false;
-		wakeup();
+		wakeup(pcb);
 	}
 }
-void Semaphore::block() const {
+void Semaphore::block(PCB* pcb) const {
 	if (pcb != nullptr) {
 		pcb->change_state(WAITING);
 		p->Check();
 	}
 }
-void Semaphore::wakeup() const {
+void Semaphore::wakeup(PCB* pcb) const {
 	if (pcb != nullptr) {
 		pcb->change_state(RUNNING);
 		p->Check();
@@ -49,4 +44,3 @@ const bool& Semaphore::is_blocked() const {
 const int& Semaphore::get_value() const {
 	return this->value;
 }
-

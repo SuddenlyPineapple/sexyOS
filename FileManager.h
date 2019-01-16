@@ -28,12 +28,6 @@
 class Planista;
 class proc_tree;
 
-/*
-	TODO:
-	- dodaæ semafory
-	- dorobiæ stuff z ³adowaniem bufora do RAMu przy odczycie (opcjonalne)
-*/
-
 //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
 #define FILE_OPEN_R_MODE  1 //01
 #define FILE_OPEN_W_MODE  2 //10
@@ -52,6 +46,8 @@ class proc_tree;
 #define FILE_ERROR_NOT_R_MODE		10
 #define FILE_ERROR_NOT_W_MODE		11
 
+#define FILE_SYNC_WAITING 30	
+
 //Klasa zarz¹dcy przestrzeni¹ dyskow¹ i systemem plików
 class FileManager {
 private:
@@ -63,11 +59,11 @@ private:
 
 	//--------------- Definicje sta³ych statycznych -------------
 
-	static const uint8_t BLOCK_SIZE = 32;	   	   //Rozmiar bloku (bajty)
-	static const u_short_int DISK_CAPACITY = 1024; //Pojemnoœæ dysku (bajty)
-	static const uint8_t BLOCK_INDEX_NUMBER = 3;   //Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect
-	static const uint8_t INODE_NUMBER_LIMIT = 32;  //Maksymalna iloœæ elementów w katalogu
-	static const uint8_t MAX_FILENAME_LENGTH = 16; //Maksymalna d³ugoœæ œcie¿ki
+	static const uint8_t BLOCK_SIZE = 32;	   		//Rozmiar bloku (bajty)
+	static const u_short_int DISK_CAPACITY  = 1024;	//Pojemnoœæ dysku (bajty)
+	static const uint8_t BLOCK_INDEX_NUMBER  = 3;	//Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect
+	static const uint8_t INODE_NUMBER_LIMIT	 = 32;	//Maksymalna iloœæ elementów w katalogu
+	static const uint8_t MAX_FILENAME_LENGTH = 16;	//Maksymalna d³ugoœæ œcie¿ki
 
 	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
@@ -140,6 +136,7 @@ private:
 		void reset();
 	} fileSystem; //System plików
 
+	//Klasa odczytu/zapisu
 	class FileIO {
 	private:
 #define READ_FLAG 0
@@ -174,21 +171,16 @@ private:
 	//------------------- Definicje zmiennych -------------------
 	bool messages = false; //Zmienna do w³¹czania/wy³¹czania powiadomieñ
 	bool detailedMessages = false; //Zmienna do w³¹czania/wy³¹czania szczegó³owych powiadomieñ
-	//std::unordered_map<std::string, u_int> usedFiles;
 
 	//Mapa dostêpu dla poszczególnych plików i procesów
 	//Klucz   - para nazwa pliku, nazwa procesu
 	//Wartoœæ - semafor przypisany danemu procesowi
 	std::map<std::pair<std::string, std::string>, FileIO> accessedFiles;
 
-	//Mapa semaforów dla poszczególnych procesów
-	//Klucz   - para nazwa pliku, nazwa procesu
-	//Wartoœæ - semafor przypisany danemu procesowi
-	std::map<std::pair<std::string, std::string>, Semaphore> fileSemaphores;
-
 	//Inne modu³y
 	Planista* p;
 	proc_tree* tree;
+
 
 
 public:
@@ -290,14 +282,6 @@ public:
 	//--------------------- Dodatkowe metody --------------------
 
 	/**
-		Formatuje dysk. Zeruje wektor bitowy, usuwa wszystkie i-wêz³y,
-		tworzy nowy katalog g³ówny.
-
-		@return void.
-	*/
-	bool disk_format();
-
-	/**
 		Tworzy plik o podanej nazwie w obecnym katalogu i zapisuje w nim podane dane.
 		Po stworzeniu plik jest otwarty w trybie do zapisu.
 
@@ -390,6 +374,7 @@ public:
 	void display_bit_vector();
 
 
+
 	//------ KOLEJNE METODY MA£O KOGO POWINNY OBCHODZIÆ ---------
 private:
 	//------------------- Metody Sprawdzaj¹ce -------------------
@@ -432,15 +417,9 @@ private:
 
 	//----------------------- Metody Inne -----------------------
 
-	void update_file_proc_semaphores(const std::string& fileName);
-
 	bool is_file_opened_write(const std::string& fileName);
 
 	int file_accessing_proc_count(const std::string& fileName);
-
-	void sem_signal_all(const std::string& fileName);
-
-	void sem_wait_all(const std::string& fileName);
 
 	std::string get_file_data_block(Inode* file, const int8_t& indexNumber) const;
 
