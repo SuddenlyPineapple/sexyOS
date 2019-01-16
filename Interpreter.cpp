@@ -8,13 +8,9 @@
 
 //				Uwagi:
 //pamietaj by usunac kiedys te komentarze.																					-- Marcin
-//MOV	-- wpisanie danych pod adres MOVem zrobic? nie wiem																	-- Marcin
-//RF	-- jak MOV, problem wybór lokalizacji zapisu, daj nic, albo adres													-- Marcin
-//te moje komendy krokowe na koncu i execute program to usunac pozniej, ale moze jak shell je zobaczy to sie zainspiruje	-- Kalin
-//CP	-- dziecko ma byc rodzicem? no i forc wywala mi program																-- Julek
-//UP	-- proces rodzica czy dziecka dawac?																				-- Krzys
-//SM RM	-- nie ma deskryptorów w pcb, a chyba sa w pipach, wiec jak odniesc sie trzeba przez nie do pcb?					-- Krzys
-//OF	-- gdy otwieram otwarty plik, by zmienic jego tryb odczytu, nie zmienia sie on. Tomek? Co powiesz?					-- Tomek
+//RF,MOV-- wpisanie danych pod adres MOVem zrobic?  wybór lokalizacji zapisu, daj nic, albo adres							-- Marcin
+//RM	-- read meesage z potokow jeszcze nie ok.																			-- Krzys
+//OF	-- gdy otwieram otwarty plik, by zmienic jego tryb odczytu, nie zmienia sie on.										-- Tomek
 
 
 void display_file_error_text(const int &outcome) { //komunikaty o bledach (w sumie tylko do plikow)
@@ -273,7 +269,7 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//Rozkazy procesy
 		else if (instruction == "CP") //tworzenie procesu
 		{
-			tree->fork(runningProc, nazwa, runningProc->proces_size);//Pid rodzica,nazwa dziecka,rozmiar programu rodzica
+			tree->fork(new PCB(nazwa,runningProc->PID),runningProc->proces_size);
 		}
 		else if (instruction == "DP") //zabijanie procesu
 		{
@@ -284,42 +280,21 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//Rozkazy potoki
 		else if (instruction == "SP") //stworz potok
 		{
-		//pipeline->createPipe(*runningProc,*tree->find_proc(nazwa) );//rodzic,dziecko  
+		pipeline->createPipe(runningProc->name,nazwa );//rodzic,dziecko  
 		}
 		else if (instruction == "UP") //usun potok
 		{
-		//pipeline->deletePipe(*tree->find_proc(nazwa));
+		pipeline->deletePipe(runningProc->name, nazwa);
 		}
 		else if (instruction == "SM")//send message 
 		{
-		/*PCB *p1 = runningProc;
-		if (p1->Descriptor[0] >= 0)
-		{
-			pipeline->pipes[p1->Descriptor[0]]->write(rej1);
-		}
-		else std::cout << "Proces nie przypisany do potoku" << std::endl;*/
+			//size_t t = *rej1;
+			pipeline->write(runningProc->name, nazwa,std::to_string(*reg1 ));
 		}
 
 		else if (instruction == "RM") //read message 
 		{
-		/*
-		int dlugosc = number;
-		PCB* p1=runningProc;
-		std::string wiadomosc;
-		if (p1->Descriptor[0] >= 0)
-		{
-			wiadomosc = pipeline.pipes[p1->Descriptor[0]]->read(dlugosc);
-			if (mm.Write(&p1, adr, rej1) == -1)
-			{
-				planista.make_zombie(p1, tree, mm);
-				std::cout << "Pamiec pelna!" << std::endl;
-			}
-			else {
-				std::cout << "Odczytana wiadomosc: " << wiadomosc;
-			}
-		}
-		else	std::cout << "Proces nie przypisany do potoku" << std::endl;
-		*/
+		std::cout<<"odczytana wiadomosc: "<<pipeline->read( nazwa, runningProc->name, *reg1)<<'\n';//wysylajacy, odbierajacy
 		}
 
 
@@ -351,6 +326,7 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		else if (krok == "dd") fileManager->display_disk_content_char(); //Displau disk
 		else if (krok == "dbv") fileManager->display_bit_vector();		 //Displau bit vector
 		else if (krok == "drd") fileManager->display_root_directory();   //Displau root directory
+		else if (krok == "st") tree->display_tree();   //Displau root directory
 		else { break; }
 	}
 
