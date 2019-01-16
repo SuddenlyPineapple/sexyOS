@@ -174,17 +174,31 @@ bool Interpreter::execute_line(const std::string& procName) {
 		RAM_pos += instructionWhole.length();
 	}
 
-	std::cout << "Rozkaz (IC " << instruction_counter << "): " << instructionWhole << '\n';
+	std::cout << "Rozkaz (IC " << instruction_counter << "): " << instructionWhole << "\n";
 
 	if (!execute_instruction(instructionWhole, procName)) {
  		instrBeginMap.erase(procName);
 		update_proc(procName);
+
+		std::cout << " | PID Procesu : " << runningProc->PID << '\n';
+		std::cout << " | Licznik Instrukcji : " << instruction_counter << '\n';
+		std::cout << " | A : " << A << '\n';
+		std::cout << " | B : " << B << '\n';
+		std::cout << " | C : " << C << '\n';
+		std::cout << " | D : " << D << "\n\n";
 
 		return false;
 	} // Jesli napotkano na hlt, to konczymy program
 
 	instruction_counter++;
 	update_proc(procName);
+
+	std::cout << " | PID Procesu : " << runningProc->PID << '\n';
+	std::cout << " | Licznik Instrukcji : " << instruction_counter << '\n';
+	std::cout << " | A : " << A << '\n';
+	std::cout << " | B : " << B << '\n';
+	std::cout << " | C : " << C << '\n';
+	std::cout << " | D : " << D << "\n\n";
 
 	return true;
 }
