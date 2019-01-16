@@ -9,8 +9,7 @@
 //				Uwagi:
 //pamietaj by usunac kiedys te komentarze.																					-- Marcin
 //RF,MOV-- wpisanie danych pod adres MOVem zrobic?  wybór lokalizacji zapisu, daj nic, albo adres							-- Marcin
-//RM	-- read meesage z potokow jeszcze nie ok.																			-- Krzys
-//OF	-- gdy otwieram otwarty plik, by zmienic jego tryb odczytu, nie zmienia sie on.										-- Tomek
+//MF	-- nieskonczona petla																								-- Tomek
 
 
 void display_file_error_text(const int &outcome) { //komunikaty o bledach (w sumie tylko do plikow)
@@ -137,7 +136,8 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 
 	//registers_state();
 	number = -1; address = -1;
-	std::string nazwa = "dzialaj"; //nazwa pliku
+	std::string nazwa1 = ""; //string w ""
+	std::string nazwa2 = ""; //string w ""
 
 	int *reg1 = &A;
 	int *reg2 = reg1;
@@ -158,14 +158,14 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		{
 			instructionParts[1].erase(instructionParts[1].begin());
 			instructionParts[1].pop_back();
-			nazwa = instructionParts[1];
+			nazwa1 = instructionParts[1];
 		}
 		else { number = std::stoi(instructionParts[2]); reg1 = &number; }
 	}
 
 	//Wpisywanie wartoœci do rej2 (drugi wyraz rozkazu)
 	if (!instructionParts[2].empty()) {
-		if (instructionParts[2] == "A") reg2 = &A;
+			 if (instructionParts[2] == "A") reg2 = &A;
 		else if (instructionParts[2] == "B") reg2 = &B;
 		else if (instructionParts[2] == "C") reg2 = &C;
 		else if (instructionParts[2] == "D") reg2 = &D;
@@ -181,7 +181,7 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		{
 			instructionParts[2].erase(instructionParts[2].begin());
 			instructionParts[2].pop_back();
-			nazwa = instructionParts[2];
+			nazwa2 = instructionParts[2];
 		}
 		else { number = std::stoi(instructionParts[2]); reg2 = &number; }
 	}
@@ -237,30 +237,30 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//Rozkazy pliki
 		else if (instruction == "MF")// stworzenie pliku
 		{
-			display_file_error_text(fileManager->file_create(nazwa,runningProc->name));
+			display_file_error_text(fileManager->file_create(nazwa1,runningProc->name));
 		}
 		else if (instruction == "OF") // otwarcie pliku, ma flage ze jest otwarty
 		{
-			if (fileManager->file_open(nazwa, runningProc->name, *reg2) != FILE_ERROR_NONE) {
+			if (fileManager->file_open(nazwa1, runningProc->name, *reg2) != FILE_ERROR_NONE) {
 				std::cout << "Blad!\n";
 			}
 		}
 		else if (instruction == "WF")//nadpisz do pliku
 		{
-			display_file_error_text(fileManager->file_write(nazwa,runningProc->name, std::to_string(*reg2)));
+			display_file_error_text(fileManager->file_write(nazwa1,runningProc->name, std::to_string(*reg2)));
 		}
 		else if (instruction == "AF")//dopisz do pliku
 		{
-			display_file_error_text(fileManager->file_append(nazwa,runningProc->name, std::to_string(*reg2)));
+			display_file_error_text(fileManager->file_append(nazwa1,runningProc->name, std::to_string(*reg2)));
 		}
 		else if (instruction == "CF")//ZAMKNIJ plik
 		{
-			display_file_error_text(fileManager->file_close(nazwa,runningProc->name));
+			display_file_error_text(fileManager->file_close(nazwa1,runningProc->name));
 		}
 		else if (instruction == "RF")//CZYTANIE Z PLIKU
 		{
 			std::string temp;
-			display_file_error_text(fileManager->file_read_all(nazwa,runningProc->name, temp));
+			display_file_error_text(fileManager->file_read_all(nazwa1,runningProc->name, temp));
 			std::cout << "\na prog to " << temp;
 
 		}
@@ -269,32 +269,35 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//Rozkazy procesy
 		else if (instruction == "CP") //tworzenie procesu
 		{
-			tree->fork(new PCB(nazwa,runningProc->PID),runningProc->proces_size);
+			tree->fork(new PCB(nazwa1,runningProc->PID),runningProc->proces_size);
 		}
 		else if (instruction == "DP") //zabijanie procesu
 		{
-			tree->exit(tree->find_proc(nazwa)->PID);
+			tree->exit(tree->find_proc(nazwa1)->PID);
 		}
 
 
 		//Rozkazy potoki
 		else if (instruction == "SP") //stworz potok
 		{
-		pipeline->createPipe(runningProc->name,nazwa );//rodzic,dziecko  
+		pipeline->createPipe(runningProc->name,nazwa1 );//rodzic,dziecko  
 		}
 		else if (instruction == "UP") //usun potok
 		{
-		pipeline->deletePipe(runningProc->name, nazwa);
+		pipeline->deletePipe(runningProc->name, nazwa1);
 		}
-		else if (instruction == "SM")//send message 
+		else if (instruction == "SM") //send message 
 		{
-			//size_t t = *rej1;
-			pipeline->write(runningProc->name, nazwa,std::to_string(*reg1 ));
+			
+				if (nazwa2.size() > 0) pipeline->write(runningProc->name, nazwa1, nazwa2);
+				else
+					pipeline->write(runningProc->name, nazwa1, std::to_string(*reg2));
+			
 		}
-
 		else if (instruction == "RM") //read message 
 		{
-		std::cout<<"odczytana wiadomosc: "<<pipeline->read( nazwa, runningProc->name, *reg1)<<'\n';//wysylajacy, odbierajacy
+		if(pipeline->existPipe(runningProc->name,nazwa1))
+		std::cout<<"odczytana wiadomosc: "<<pipeline->read( nazwa1, runningProc->name, *reg2)<<'\n';//wysylajacy, odbierajacy, dlugosc plku
 		}
 
 
