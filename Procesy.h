@@ -5,9 +5,11 @@
 #include <array>
 #include <map>
 
+
 struct PageTableData;
 class MemoryManager;
 class Planista;
+class Pipeline;
 
 enum Process_state {
 	NEW, READY, RUNNING, WAITING, TERMINATED, ZOMBIE, ORPHAN
@@ -68,6 +70,7 @@ public:
 	void change_state(Process_state x);//zmiana stanu procesu
 	void add_file_to_proc(const std::string& open_file);
 	void kill_all_childrens(MemoryManager &mm);
+	void deletepipe(Pipeline &pp);
 
 
 
@@ -98,6 +101,9 @@ public:
 
 	//usuwanie procesów 
 	void exit(const unsigned& pid);
+
+	//usuwanie procesów z pipeline
+	void exit(const unsigned& pid, Pipeline &pp);
 
 	//wyswietla cale drzewa
 	void display_tree();

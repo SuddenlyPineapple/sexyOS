@@ -1,6 +1,7 @@
 #include "Procesy.h"
 #include "Planista.h"
 #include "MemoryManager.h"
+#include "pipe.h"
 #include <iostream>
 
 
@@ -94,6 +95,19 @@ void PCB::display_allkids(int a)
 
 	if (a == 2) { std::cout << std::endl; }
 }
+
+void PCB::deletepipe(Pipeline &pp)
+{
+	for (PCB* kid : this->child_vector) {
+		if (pp.existPipe(this->name, kid->name)) {}
+
+		pp.deletePipe(this->name, kid->name);
+	
+	
+	}
+	
+}
+
 void proc_tree::fork(PCB* proc, int size) {
 	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca siê zgadza i jestli tak przypisuje go do niego.
 
@@ -141,13 +155,14 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 
 		const auto pages = static_cast<unsigned int>(ceil(size / 16.0));
 		if (mm->loadProgram(file_name, size, proc->PID) == -1) {
-			//exit()
+			exit(proc->PID);
 			throw 1;// rzucam cos rzeby funckeje przerwac
 
 		}
 		proc->pageList = mm->createPageList(size, proc->PID);
 		proc->change_state(READY);
 		proc->proces_size = pages * 16;
+		proc->add_file_to_proc(file_name);
 		this->proc.child_vector.push_back(proc);
 	}
 	else {
@@ -161,13 +176,14 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 			free_PID++;
 			const auto pages = static_cast<unsigned int>(ceil(size / 16.0));
 			if (mm->loadProgram(file_name, size, proc->PID) != 1) {
-				//exit()
+				exit(proc->PID);
 				throw 1;// rzucam cos rzeby funckeje przerwac
 
 			}
 			proc->pageList = mm->createPageList(size, proc->PID);
 			proc->change_state(READY);
 			proc->proces_size = pages * 16;
+			proc->add_file_to_proc(file_name);
 
 
 		}
@@ -259,6 +275,41 @@ void proc_tree::exit(const unsigned& pid)
 					temp->change_state(TERMINATED);
 					p->Check();
 					mm->kill(pid);
+					parent->child_vector.erase(parent->child_vector.begin() + i);
+					delete temp;
+					break;
+				}
+			}
+		}
+	}
+}
+void proc_tree::exit(const unsigned& pid,Pipeline &pp)
+{
+	if (pid == this->proc.PID) { // kiedy damy id=1 
+		std::cout << "nie mo¿na usun¹æ inita/systemd" << std::endl;
+	}
+	else {
+		PCB* temp = this->find_proc(pid);
+		if (temp == nullptr) {//jak nie znajdzie dziecka
+			std::cout << "nie ma takiego procesu" << std::endl;
+		}
+		else {
+
+			if (!temp->child_vector.empty()) { //kiedy ma dzieci
+				//kiedy dziecko ma dzieci
+				for (auto& i : temp->child_vector) {
+					i->deletepipe(pp);
+					i->kill_all_childrens(*mm);
+					exit(i->PID);
+				}
+			}
+			PCB* parent = temp->parent_proc;
+			for (size_t i = 0; i < parent->child_vector.size(); i++) {
+				if (parent->child_vector.at(i)->PID == pid) {
+					temp->change_state(TERMINATED);
+					p->Check();
+					mm->kill(pid);
+					
 					parent->child_vector.erase(parent->child_vector.begin() + i);
 					delete temp;
 					break;
