@@ -3,5 +3,6 @@ CP "proc1"
 SP "proc1"
 SM  A
 RM  B 1
+UP "proc1"
 DP "proc1"
 HLT

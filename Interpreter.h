@@ -8,6 +8,7 @@
 class proc_tree;
 class FileManager;
 class MemoryManager;
+class Pipeline;
 class PCB;
 
 class Interpreter
@@ -16,6 +17,7 @@ private:
 	FileManager* fileManager;
 	MemoryManager* memoryManager;
 	proc_tree* tree;
+	Pipeline* pipeline;
 
 	void registers_state();
 
@@ -36,15 +38,13 @@ private:
 	std::map<int, int> instrBeginMap;
 
 public:
-	Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_);
+	Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_,Pipeline* pipeline_);
 
-	void stan_rejestrow() const;
+	void stan_rejestrow() const;//praca krokowa
 	void execute_program(const std::string& procName);
 	bool execute_instruction(const std::string& instructionWhole, const std::string& procName);
 
 private:
 	static std::array<std::string, 3> instruction_separate(const std::string& instructionWhole);
-	void jump_pos_set(const std::string& procName);
+	void jump_pos_set(const std::string& procName);//sok do adresu
 };
-
-//static Interpreter interpreter;
