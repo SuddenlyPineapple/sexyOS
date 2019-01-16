@@ -68,6 +68,7 @@ public:
     void dinfo();
     void dskchar();
 	void fsysparam();
+	void bitvector();
     //Metody pamieci
     void showmem();                                                      //Wyswietlanie zawartosci pamieci
     void showpagefile();

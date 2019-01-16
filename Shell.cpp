@@ -195,6 +195,10 @@ void Shell::execute() {
     {
         fsysparam();
     }
+	else if (parsed[0] == "bitvector")					//Parametry systemu plików
+	{
+		bitvector();
+	}
 	else if (parsed[0] == "showmem")					//Wyswietlenie pamieci
 	{
 		showmem();
@@ -425,6 +429,15 @@ void Shell::fsysparam(){
     }
     else
         cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+
+void Shell::bitvector(){
+	if (parsed.size() == 1)
+	{
+		fm.display_bit_vector();
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 //Metody pamieci
 void Shell::showmem() {
