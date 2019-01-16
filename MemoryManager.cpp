@@ -104,7 +104,7 @@ void MemoryManager::memoryInit() {
 	for (char &cell : RAM) {
 		cell = ' ';
 	}
-	std::string data = "JP 0";
+	std::string data = "JMP [0]";
 	std::vector<Page> pageVector{ Page(data) };
 	PageFile.insert(std::make_pair(1, pageVector));
 }
