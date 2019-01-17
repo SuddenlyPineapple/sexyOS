@@ -346,7 +346,6 @@ void Shell::cp() //Tworzenie procesu
 	 else if (parsed.size() == 3)
 	{
 		tree.fork(new PCB(parsed[1], 2), parsed[2], 128);
-		p.AddProces(tree.find_proc(parsed[1]));
 	}
     else {
         cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
