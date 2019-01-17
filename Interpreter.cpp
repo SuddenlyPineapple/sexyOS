@@ -80,8 +80,7 @@ void Interpreter::jump_pos_set(const std::string& procName) {
 		instruction_counter = address - 1;
 		RAM_pos = instrBeginMap[procName][address];//skok do adr jesli adr juz zmapowany
 	}
-	else
-	{
+	else {
 		//Szukanie najdajszej zmapowanej pozycji
 		while (true)
 		{//idzie do nast rozkazu, i jesli go nie zna to mapuje w 2gim while

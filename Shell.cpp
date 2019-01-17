@@ -8,7 +8,8 @@
 void Shell::boot() //Funckja startująca pętlę shella
 {
 	tree.fork(new PCB("shell", 1));
-	tree.find_proc("shell")->priority = 12;
+	tree.find_proc("shell")->priority = 21;
+	p.Check();
 	logo();
 	PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
 	loop();

@@ -107,6 +107,8 @@ void Planista::SortReadyPCB() {
 }
 
 void Planista::SetPriority(PCB& Proces) {
+	if (Proces.PID == 1 || Proces.PID == 2) { return; }
+
 	Proces.last_counter = Proces.instruction_counter - Proces.last_counter;
 	//	USTALENIE MNOZNIKA od najwiekszego skoku
 	if (Proces.last_counter > CounterMax) {
