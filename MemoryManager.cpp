@@ -132,7 +132,7 @@ std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
 	}
 
 	//Załadowanie pierszej stronicy naszego programu do Pamięci RAM
-	//PageFile[PID].emplace_back();
+	PageFile[PID].emplace_back();
 	loadToMemory(PageFile.at(PID).at(0), 0, PID, pageList);
 	//PageFile[PID].pop_back();
 
