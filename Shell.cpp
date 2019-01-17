@@ -3,15 +3,17 @@
 #include <string>
 #include <algorithm>
 #include <filesystem>
+#include <thread>
+
+void sound_startup() {
+	PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
+}
 
 //Metody pracy shella
 void Shell::boot() //Funckja startująca pętlę shella
 {
-	tree.fork(new PCB("shell", 1));
-	tree.find_proc("shell")->priority = 21;
-	p.Check();
+	std::thread(sound_startup).detach();
 	logo();
-	PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
 	loop();
 }
 
@@ -340,17 +342,16 @@ void Shell::cls() {
 //Metody zarzadzania procesami
 void Shell::cp() //Tworzenie procesu
 {
-	if (parsed[1] == "shell" || parsed[1] == "systemd") {
-		cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
-		return;
+	if (parsed.size() == 3) {
+		if (parsed[1] == "shell" || parsed[1] == "systemd") {
+			cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
+			return;
+		}
+		tree.fork(new PCB(parsed[1], 1), parsed[2], 128);
 	}
 	else if (!std::filesystem::exists(parsed[2])) {
 		std::cout << "Nie znaleziono pliku!\n";
 		return;
-	}
-	else if (parsed.size() == 3)
-	{
-		tree.fork(new PCB(parsed[1], 2), parsed[2], 128);
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
@@ -413,7 +414,9 @@ void Shell::cf() //Utworzenie pliku
 {
 	if (parsed.size() == 2)
 	{
-		fm.file_create(parsed[1], "shell");
+		if (fm.file_create(parsed[1], "") != 0) {
+			cout << "Blad operacji!\n";
+		}
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
@@ -425,7 +428,9 @@ void Shell::df() //Usunięcie pliku
 {
 	if (parsed.size() == 2)
 	{
-		fm.file_delete(parsed[1], "shell");
+		if (fm.file_delete(parsed[1], "") != 0) {
+			cout << "Blad operacji!\n";
+		}
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
@@ -451,7 +456,7 @@ void Shell::wf() {
 		string data;
 		cout << "Dane do wprowadzenia: ";
 		getline(cin, data);
-		fm.file_write(parsed[1], "shell", data);
+		fm.file_write(parsed[1], "", data);
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
@@ -465,7 +470,7 @@ void Shell::fo() {
 		unsigned int arg;
 		if (parsed[2] == "-r") arg = FILE_OPEN_R_MODE;
 		if (parsed[2] == "-w") arg = FILE_OPEN_W_MODE;
-		fm.file_open(parsed[1], "shell", arg);
+		fm.file_open(parsed[1], "", arg);
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
@@ -478,7 +483,7 @@ void Shell::fr() {
 	{
 		string data;
 
-		fm.file_read(parsed[1], "shell", stoi(parsed[2]), data);
+		fm.file_read(parsed[1], "", stoi(parsed[2]), data);
 		cout << data << endl;
 	}
 	else {
@@ -490,7 +495,7 @@ void Shell::fr() {
 void Shell::fc() {
 	if (parsed.size() == 2)
 	{
-		fm.file_close(parsed[1], "shell");
+		fm.file_close(parsed[1], "");
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;

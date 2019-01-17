@@ -429,7 +429,6 @@ int FileManager::file_read(const std::string& name, const std::string& procName,
 		if (detailedMessages) { std::cout << "Czekanie na przydzielenie procesora . . . (" << procName << ", prio: " << proc->priority << ")\n"; }
 
 		p->Check();
-		p->displayPCBLists();
 	}
 	result = accessedFiles[std::pair(name, procName)].read(byteNumber);
 	return FILE_ERROR_NONE;
@@ -456,15 +455,21 @@ int FileManager::file_delete(const std::string& name, const std::string& procNam
 
 	//Czêœæ sprawdzaj¹ca
 	{
-		//Error1
-		if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
+		if (!procName.empty()) {
+			//Error1
+			if (name.empty()) { return FILE_ERROR_EMPTY_NAME; }
 
-		//Error2
-		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
+			//Error2
+			if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 
-		//Error3
-		if (file_accessing_proc_count(name) == 1 && accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()){}
-		else if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) { return FILE_ERROR_OPENED; }
+			//Error3
+			if (file_accessing_proc_count(name) == 1 && accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {}
+			else if (file_accessing_proc_count(name) == 0) {}
+			else if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) { return FILE_ERROR_OPENED; }
+		}
+		else {
+			if (file_accessing_proc_count(name) != 0) { return FILE_ERROR_OPENED; }
+		}
 	}
 
 	//Czêœæ dzia³aj¹ca
@@ -496,8 +501,10 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 
 		//Error2
 		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
-
 		inode = &fileSystem.inodeTable[fileIterator->second];
+
+		//ErrorShell
+		if (inode->sem.is_blocked() && procName.empty()) { return FILE_ERROR_SYNC; }
 
 		//Error3
 		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) {}
