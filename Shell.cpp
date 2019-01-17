@@ -313,7 +313,7 @@ Metody dyskowe
  ls - Listowanie katalogu
  cf - Utworzenie pliku np. CF [nazwa_pliku]
  df - Usuniecie pliku np. DF [nazwa_pliku]
- ld - Listowanie zawartości wskazanego bloku dyskowego
+ ld - Listowanie zawartosci wskazanego bloku dyskowego
  wf - Zapis do pliku np. WF [nazwa_pliku] [tresc]
  fo - Otwarcie pliku np. FO [nazwa_pliku] [parametr]
                 parametry: -r(do odczytu) -w(do zapisu)
