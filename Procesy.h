@@ -48,7 +48,7 @@ public:
 	};
 
 	PCB(const std::string& name, const int& father_PID) {//kontruktor innych
-		this->priority = 12;
+		this->priority = 5;
 		this->last_counter = 0;
 		this->name = name;
 		this->PID = father_PID;
