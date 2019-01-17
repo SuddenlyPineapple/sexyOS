@@ -93,7 +93,7 @@ class MemoryManager {
         //Tworzy proces bezczynności systemu umieszczany w pamięci RAM przy starcie systemu
         void memoryInit();
 
-        //Metoda ładująca program do pamięci - ładuje pierwsza stronicę programu do pamięci RAM
+        //Metoda ładująca program do pliku wymiany
         /* path - ścieżka do programu na dysku twardym
          * mem - potrzebna ilość pamięci
          * PID - ID procesu
