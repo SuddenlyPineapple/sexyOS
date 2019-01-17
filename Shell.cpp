@@ -111,11 +111,6 @@ void Shell::parse() //Parsowanie
 
 void Shell::execute() {
 
-	if (parsed[0] == "go")						//Nastepny krok pracy krokowej
-	{
-		go();
-	}
-
 	if (parsed[0] == "help")					//Wyswietalnie listy poleceń
 	{
 		help();
@@ -238,7 +233,7 @@ void Shell::execute() {
 		thanks();
 	}
 
-	else if(parsed[0]==""){
+	else if(parsed[0]=="" || parsed[0]=="go"){
 		go();
 	}
 	else
