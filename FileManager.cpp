@@ -306,6 +306,7 @@ int FileManager::file_create(const std::string& name, const std::string& procNam
 	}
 }
 
+//Zabezpieczone
 int FileManager::file_write(const std::string& name, const std::string& procName, const std::string& data) {
 	Inode* inode;
 
@@ -329,6 +330,7 @@ int FileManager::file_write(const std::string& name, const std::string& procName
 		//Error4
 		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 		inode = &fileSystem.inodeTable[fileIterator->second];
+
 
 		//Error5
 		if (!inode->opened) { return FILE_ERROR_NOT_OPENED; }
@@ -359,6 +361,7 @@ int FileManager::file_write(const std::string& name, const std::string& procName
 	return FILE_ERROR_NONE;
 }
 
+//Zabezpieczone
 int FileManager::file_append(const std::string& name, const std::string& procName, const std::string& data) {
 	Inode* inode;
 
@@ -403,6 +406,7 @@ int FileManager::file_append(const std::string& name, const std::string& procNam
 	return FILE_ERROR_NONE;
 }
 
+//Zabezpieczone
 int FileManager::file_read(const std::string& name, const std::string& procName, const u_short_int& byteNumber, std::string& result) {
 	//Iterator zwracany podczas przeszukiwania za plikiem o podanej nazwie
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
@@ -434,6 +438,7 @@ int FileManager::file_read(const std::string& name, const std::string& procName,
 	return FILE_ERROR_NONE;
 }
 
+//Zabezpieczone
 int FileManager::file_read_all(const std::string& name, const std::string& procName, std::string& result) {
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
@@ -450,6 +455,7 @@ int FileManager::file_read_all(const std::string& name, const std::string& procN
 	return file_read(name, procName, fileSystem.inodeTable[fileSystem.rootDirectory[name]].realSize, result);
 }
 
+//Zabezpieczone
 int FileManager::file_delete(const std::string& name, const std::string& procName) {
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 
@@ -487,6 +493,7 @@ int FileManager::file_delete(const std::string& name, const std::string& procNam
 	}
 }
 
+//Zabezpieczone
 int FileManager::file_open(const std::string& name, const std::string& procName, const unsigned int& mode) {
 	Inode* inode;
 	std::bitset<2>mode_(mode);
@@ -544,6 +551,7 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 	}
 }
 
+//Zabezpieczone
 int FileManager::file_close(const std::string& name, const std::string& procName) {
 	const auto fileIterator = fileSystem.rootDirectory.find(name);
 

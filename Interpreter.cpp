@@ -114,9 +114,12 @@ void Interpreter::registers_state()
 	instruction_counter = tree->proc.instruction_counter;
 }
 
-void Interpreter::stan_rejestrow() const
-{
-	std::cout << "\nA: " << A << "\nB: " << B << "\nC: " << C << "\nD: " << D << "\nilosc rozkazow: " << instruction_counter << "\n\n";
+void Interpreter::stan_rejestrow() const {
+	std::cout << " | Licznik Instrukcji : " << instruction_counter << '\n';
+	std::cout << " | A : " << A << '\n';
+	std::cout << " | B : " << B << '\n';
+	std::cout << " | C : " << C << '\n';
+	std::cout << " | D : " << D << "\n\n";
 }
 
 
