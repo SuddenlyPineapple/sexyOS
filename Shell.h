@@ -61,6 +61,7 @@ public:
 	void ld();															//Listowanie zawartości wskazanego bloku dyskowego
     void wf();                                                        //Zapis do pliku
     void fo();                                                        //Otwarcie pliku
+    void fr();                                                        //Odczyt pliku
     void fc();                                                        //Zamkniecie pliku
     void finfo();
     void dinfo();

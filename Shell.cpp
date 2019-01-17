@@ -8,8 +8,9 @@
 void Shell::boot() //Funckja startująca pętlę shella
 {
 	tree.fork(new PCB("shell", 1));
+	tree.find_proc("shell")->priority = 12;
 	logo();
-	//PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
+	PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
 	loop();
 }
 
@@ -295,6 +296,7 @@ Metody dyskowe
  wf - Zapis do pliku np. WF [nazwa_pliku] [tresc]
  fo - Otwarcie pliku np. FO [nazwa_pliku] [parametr]
                 parametry: -r(do odczytu) -w(do zapisu)
+ fr - Odczyt danych z pliku np. [nazwa_pliku] [ilosc_bajtow_do_odczytu]
  fc - Zamkniecie pliku np. FC [nazwa_pliku]
  finfo - Wyswietla informacje o pliku np. FINFO [nazwa_pliku]
  dinfo - Wyswietla informacje o katalogu
@@ -439,6 +441,18 @@ void Shell::fo() {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
 }
 
+void Shell::fr() {
+	if (parsed.size() == 3)
+	{
+		string data;
+
+		fm.file_read(parsed[1], "shell", stoi(parsed[2]), data);
+		cout << data << endl;
+	}
+	else
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+}
+
 void Shell::fc() {
 	if (parsed.size() == 2)
 	{
@@ -519,7 +533,8 @@ void Shell::showpagefile() {
 void Shell::showpagetable() {
 	if (parsed.size() == 2)
 	{
-		mm.showPageTable(tree.find_proc(parsed[1])->pageList);
+		if(parsed[1]=="shell") cout << "Odmowa dostepu!" << endl;
+		else mm.showPageTable(tree.find_proc(parsed[1])->pageList);
 	}
 	else
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
