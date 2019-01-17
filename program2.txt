@@ -1,8 +1,8 @@
 MOV A 5
 MF "plik1"
-WF "plik1" A
-CF "plik1"
+WF "plik1" "Tekst_testowy" 
 OF "plik1" R
-RF "plik1" B 1
+RF "plik1" 6
+RF "plik1" 7
 CF "plik1"
 HLT

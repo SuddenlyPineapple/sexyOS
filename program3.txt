@@ -1,10 +1,7 @@
 MOV A 5
 CP "proc1"
 SP "proc1"
-SM "proc1" A
-RM "proc1" 1
-SM "proc1" "hello."
+SM "proc1" "wiadomosc"
 RM "proc1" 6
-UP "proc1"
 DP "proc1"
 HLT
