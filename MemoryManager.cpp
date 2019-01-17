@@ -44,7 +44,7 @@ void MemoryManager::showMem() {
 			std::cout << "\nFrame no." << i / 16 << ": \t";
 		else if (i % 16 == 0)
 			std::cout << "Frame no." << i / 16 << ": \t";
-		RAM[i] != ' ' ? std::cout << RAM[i] : std::cout << '#';
+		RAM[i] != ' ' ? std::cout << RAM[i] : std::cout << '_';
 	}
 	std::cout << std::endl;
 }
