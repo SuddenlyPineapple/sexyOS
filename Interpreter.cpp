@@ -346,7 +346,7 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//Rozkazy procesy
 		else if (instruction == "CP") //tworzenie procesu
 		{
-			tree->fork(new PCB(nazwa1, runningProc->PID), runningProc->proces_size);
+			tree->fork(new PCB(nazwa1, runningProc->PID),15);
 		}
 		else if (instruction == "DP") //zabijanie procesu
 		{

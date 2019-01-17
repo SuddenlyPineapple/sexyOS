@@ -126,9 +126,9 @@ void proc_tree::fork(PCB* proc, int size) {
 		free_PID++;
 		proc->parent_proc = &this->proc;
 		const auto pages = static_cast<unsigned int>(ceil(size / 16.0));
+		proc->proces_size = size;
 		proc->pageList = mm->createPageList(size, proc->PID);
 		proc->change_state(READY);
-		proc->proces_size = pages * 16;
 
 
 		this->proc.child_vector.push_back(proc);
