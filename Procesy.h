@@ -37,7 +37,7 @@ public:
 
 
 	PCB() {//kontruktor dla systemd
-		this->priority = 12;
+		this->priority = 20;
 		this->last_counter = 0;
 		this->state = NEW;
 		this->name = "systemd";

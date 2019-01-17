@@ -2,20 +2,21 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
-
+#include <filesystem>
 
 //Metody pracy shella
 void Shell::boot() //Funckja startująca pętlę shella
 {
 	tree.fork(new PCB("shell", 1));
-	tree.find_proc("shell")->priority = 12;
+	tree.find_proc("shell")->priority = 21;
+	p.Check();
 	logo();
 	PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
 	loop();
 }
 
 void Shell::logo() {
-    system("cls");
+	system("cls");
 	std::cout << "                                                                                                                          " << std::endl;
 	std::cout << "                                                                                                                          " << std::endl;
 	std::cout << "                                                                  `:ossss+-       .+syys+.                                " << std::endl;
@@ -99,9 +100,9 @@ void Shell::parse() //Parsowanie
 	parsed.resize(0);
 	line = line + ' ';
 	string pom;
-	for (int i = 0; i < line.size(); i++) {
-		if (line[i] != ' ') {
-			pom += line[i];
+	for (const char& i : line) {
+		if (i != ' ') {
+			pom += i;
 		}
 		else { //Jeśli spacja
 			parsed.push_back(pom);
@@ -159,12 +160,12 @@ void Shell::execute() {
 
 	else if (parsed[0] == "df")					//Usunięcie pliku
 	{
-        df();
+		df();
 	}
 
 	else if (parsed[0] == "ld")					//Listowanie zawartości wskazanego bloku dyskowego
 	{
-        ld();
+		ld();
 	}
 
 	else if (parsed[0] == "wf")					//Zapisywanie do pliku
@@ -191,10 +192,10 @@ void Shell::execute() {
 	{
 		dskchar();
 	}
-    else if (parsed[0] == "fsysparam")					//Parametry systemu plików
-    {
-        fsysparam();
-    }
+	else if (parsed[0] == "fsysparam")					//Parametry systemu plików
+	{
+		fsysparam();
+	}
 	else if (parsed[0] == "bitvector")					//Parametry systemu plików
 	{
 		bitvector();
@@ -224,39 +225,39 @@ void Shell::execute() {
 		showframes();
 	}
 
-    else if (parsed[0] == "ver")					//Creditsy
-    {
-        ver();
-    }
+	else if (parsed[0] == "ver")					//Creditsy
+	{
+		ver();
+	}
 
 	else if (parsed[0] == "thanks")					//Creditsy
 	{
 		thanks();
 	}
 
-	else if(parsed[0]=="" || parsed[0]=="go"){
+	else if (parsed[0] == "" || parsed[0] == "go") {
 		go();
 	}
 	else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 //Commands functions
 //Metody interpretera;
-void Shell::go(){
-		cout << "Nastepny krok" << endl;
-		if(!p.ReadyPCB.empty()){ //Sprawdza czy kolejka procesów READY nie jest pusta (powinien być zawsze conajmniej dummy)
-			if(!inter.execute_line(p.ReadyPCB.front()->name)){ //Wykonanie procesu, jeśli false to zakończył działanie
-				PCB* tempProc = p.ReadyPCB.front(); //Tymczasowe ściągnięte PCB
-				tree.exit(tempProc->PID); //zabicie procesu
-				p.Check(); //aktualizacja planisty (kolejki procesów do wykonania i procesów czekających)
-			}
+void Shell::go() {
+	cout << "Nastepny krok" << endl;
+	if (!p.ReadyPCB.empty()) { //Sprawdza czy kolejka procesów READY nie jest pusta (powinien być zawsze conajmniej dummy)
+		if (!inter.execute_line(p.ReadyPCB.front()->name)) { //Wykonanie procesu, jeśli false to zakończył działanie
+			PCB* tempProc = p.ReadyPCB.front(); //Tymczasowe ściągnięte PCB
+			tree.exit(tempProc->PID); //zabicie procesu
+			p.Check(); //aktualizacja planisty (kolejki procesów do wykonania i procesów czekających)
 		}
+	}
 }
 //Metody shella
-void Shell::ver(){
+void Shell::ver() {
 	logo();
 	std::cout << "sexySO - Version 1.01.185 \n";
 	std::cout << "<c> 2018 sexySO PUT Laboratory Group. All Rights Reserved. \n\n";
@@ -320,88 +321,92 @@ Specials
 }
 void Shell::exit() //Kończenie pracy
 {
-    system("cls");
-    ver();
-    PlaySound(TEXT("Exit_Windows.wav"), NULL, SND_ALIAS);
+	system("cls");
+	ver();
+	PlaySound(TEXT("Exit_Windows.wav"), NULL, SND_ALIAS);
 	status = false;
 }
-void Shell::cls(){
-    if (parsed.size() == 1)
-    {
-        system("cls");
-    }
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+void Shell::cls() {
+	if (parsed.size() == 1)
+	{
+		system("cls");
+	}
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 //Metody zarzadzania procesami
 void Shell::cp() //Tworzenie procesu
 {
-	if(parsed[1] == "shell" || parsed[1] == "systemd"){
+	if (parsed[1] == "shell" || parsed[1] == "systemd") {
 		cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
 		return;
 	}
-	 else if (parsed.size() == 3)
+	else if (!std::filesystem::exists(parsed[2])) {
+		std::cout << "Nie znaleziono pliku!\n";
+		return;
+	}
+	else if (parsed.size() == 3)
 	{
 		tree.fork(new PCB(parsed[1], 2), parsed[2], 128);
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::lp() //Lista PCB wszystkich procesów
 {
-	if (parsed.size() == 1) 
+	if (parsed.size() == 1)
 	{
 		p.displayPCBLists();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::lt() {
-    if(parsed.size() == 1){
-        tree.display_tree();
-    }
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	if (parsed.size() == 1) {
+		tree.display_tree();
+	}
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::dp() {
-	if(parsed[1] == "shell" || parsed[1] == "systemd") {
+	if (parsed[1] == "shell" || parsed[1] == "systemd") {
 		std::cout << "Odmowa dostepu!" << endl;
 		return;
 	}
 	else {
 		PCB* tempProc = tree.find_proc(parsed[1]);
-		if(tempProc != nullptr) {
+		if (tempProc != nullptr) {
 			tree.exit(tempProc->PID);
 		}
 		else {
 			std::cout << "Nie znaleziono procesu!\n";
-            PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+			PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
 		}
 	}
 }
 //Metody dyskowe
 void Shell::ls() //Listowanie katalogu
 {
-	if (parsed.size() == 1) 
+	if (parsed.size() == 1)
 	{
 		fm.display_root_directory();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::cf() //Utworzenie pliku
@@ -410,22 +415,22 @@ void Shell::cf() //Utworzenie pliku
 	{
 		fm.file_create(parsed[1], "shell");
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::df() //Usunięcie pliku
 {
-	if (parsed.size() == 2) 
+	if (parsed.size() == 2)
 	{
 		fm.file_delete(parsed[1], "shell");
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
@@ -434,10 +439,10 @@ void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
 	{
 		fm.display_root_directory();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::wf() {
@@ -448,24 +453,24 @@ void Shell::wf() {
 		getline(cin, data);
 		fm.file_write(parsed[1], "shell", data);
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::fo() {
 	if (parsed.size() == 3)
 	{
 		unsigned int arg;
-		if(parsed[2]=="-r") arg = FILE_OPEN_R_MODE;
-		if(parsed[2] =="-w") arg = FILE_OPEN_W_MODE;
+		if (parsed[2] == "-r") arg = FILE_OPEN_R_MODE;
+		if (parsed[2] == "-w") arg = FILE_OPEN_W_MODE;
 		fm.file_open(parsed[1], "shell", arg);
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::fr() {
@@ -476,10 +481,10 @@ void Shell::fr() {
 		fm.file_read(parsed[1], "shell", stoi(parsed[2]), data);
 		cout << data << endl;
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::fc() {
@@ -487,65 +492,65 @@ void Shell::fc() {
 	{
 		fm.file_close(parsed[1], "shell");
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
-void Shell::finfo(){
+void Shell::finfo() {
 	if (parsed.size() == 2)
 	{
 		fm.display_file_info(parsed[1]);
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
-void Shell::dinfo(){
+void Shell::dinfo() {
 	if (parsed.size() == 1)
 	{
 		fm.display_root_directory_info();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
-void Shell::dskchar(){
-    if (parsed.size() == 1)
-    {
-        fm.display_disk_content_char();
-    }
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+void Shell::dskchar() {
+	if (parsed.size() == 1)
+	{
+		fm.display_disk_content_char();
+	}
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
-void Shell::fsysparam(){
-    if (parsed.size() == 1)
-    {
-        fm.display_file_system_params();
-    }
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+void Shell::fsysparam() {
+	if (parsed.size() == 1)
+	{
+		fm.display_file_system_params();
+	}
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
-void Shell::bitvector(){
+void Shell::bitvector() {
 	if (parsed.size() == 1)
 	{
 		fm.display_bit_vector();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 //Metody pamieci
 void Shell::showmem() {
@@ -553,15 +558,15 @@ void Shell::showmem() {
 	{
 		mm.showMem();
 	}
-	else if(parsed.size() == 3){
+	else if (parsed.size() == 3) {
 		int begin = stoi(parsed[1]);
 		int bytes = stoi(parsed[2]);
 		mm.showMem(begin, bytes);
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::showpagefile() {
@@ -569,22 +574,22 @@ void Shell::showpagefile() {
 	{
 		mm.showPageFile();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::showpagetable() {
 	if (parsed.size() == 2)
 	{
-		if(parsed[1]=="shell") cout << "Odmowa dostepu!" << endl;
+		if (parsed[1] == "shell") cout << "Odmowa dostepu!" << endl;
 		else mm.showPageTable(tree.find_proc(parsed[1])->pageList);
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::showstack() {
@@ -592,10 +597,10 @@ void Shell::showstack() {
 	{
 		mm.showStack();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::showframes() {
@@ -603,26 +608,26 @@ void Shell::showframes() {
 	{
 		mm.showFrames();
 	}
-    else {
-        cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-        PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
-    }
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
 }
 
 void Shell::thanks() {
-    system("cls");
-cout<<  "                                                                              \n"
-        "   //////// 	 //////  //////      //////   //    //////   ////  ////         \n"
+	system("cls");
+	cout << "                                                                              \n"
+		"   //////// 	 //////  //////      //////   //    //////   ////  ////         \n"
 		" ////        //    /// //    //    //   //  //     //     //    //             \n"
-        "///    //// //    /// //     //   //////   //     /////   ////  ////           \n"
+		"///    //// //    /// //     //   //////   //     /////   ////  ////           \n"
 		"///    /// //    /// //     //   //    // //     //         //    //           \n"
-        "/////////   ///////  ///////     //////   ///// //////  ///// /////            \n"
+		"/////////   ///////  ///////     //////   ///// //////  ///// /////            \n"
 		"                                                                               \n";
-cout << "                       ,,,/////#####(///,/%%%#)                                \n"
+	cout << "                       ,,,/////#####(///,/%%%#)                                \n"
 		"                     /*....                   .#&                              \n"
-  		"                  /*,...,....                  ..#&                            \n"
+		"                  /*,...,....                  ..#&                            \n"
 		"                (*,,,,...                       ..,#%&                         \n"
-  		"              (**,,....             ...,,,,....       #%                       \n"
+		"              (**,,....             ...,,,,....       #%                       \n"
 		"             (*,,....  .         ..,,,,,,.......       .#%                     \n"
 		"            (*,,,............ .,*/*,,.,..........        .%%                   \n"
 		"           (***,,....,..... .*/***,,,.....,.......         (%                  \n"
