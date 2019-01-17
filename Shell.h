@@ -44,6 +44,7 @@ public:
 	//Commands functions declarations
 	//Metody interpretera
 	void go(); 													        //Nastepny krok pracy krokowej
+	void regs();                                                      //Wyswietla stan rejestrow i licznik rozkazow
 	//Metody shella
     void ver();                                                       //Creditsy
 	void help();														//Wyswietalnie listy poleceń

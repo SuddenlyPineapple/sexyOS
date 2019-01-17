@@ -115,7 +115,12 @@ void Shell::parse() //Parsowanie
 
 void Shell::execute() {
 
-	if (parsed[0] == "help")					//Wyswietalnie listy poleceń
+	if (parsed[0] == "regs")					//Wyswietalnie zawartosci rejestrow i licznika rozkazow
+	{
+		regs();
+	}
+
+	else if (parsed[0] == "help")					//Wyswietalnie listy poleceń
 	{
 		help();
 	}
@@ -258,6 +263,16 @@ void Shell::go() {
 		}
 	}
 }
+void Shell::regs() {
+	if (parsed.size() == 1)
+	{
+		inter.stan_rejestrow();
+	}
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+	}
+}
 //Metody shella
 void Shell::ver() {
 	logo();
@@ -280,6 +295,7 @@ void Shell::help() //Wyświetlenie listy poleceń
 
 Metody interpretera
  go - Nastepny krok pracy krokowej
+ regs - Wyswietlanie zawartosci rejestrow i licznika rozkazow
 
 Metody shella
  ver - Wersja systemu, prawa autorskie i autorzy
