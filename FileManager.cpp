@@ -463,7 +463,8 @@ int FileManager::file_delete(const std::string& name, const std::string& procNam
 		if (fileIterator == fileSystem.rootDirectory.end()) { return FILE_ERROR_NOT_FOUND; }
 
 		//Error3
-		if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) { return FILE_ERROR_OPENED; }
+		if (file_accessing_proc_count(name) == 1 && accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()){}
+		else if (accessedFiles.find(std::pair(name, procName)) != accessedFiles.end()) { return FILE_ERROR_OPENED; }
 	}
 
 	//Czêœæ dzia³aj¹ca
@@ -474,7 +475,7 @@ int FileManager::file_delete(const std::string& name, const std::string& procNam
 		fileSystem.inodeTable[fileIterator->second].clear();
 
 		//Usuñ wpis o pliku z obecnego katalogu
-		fileSystem.rootDirectory.erase(fileIterator);
+		fileSystem.rootDirectory.erase(name);
 
 		if (messages) { std::cout << "Usunieto plik o nazwie '" << name << "'.\n"; }
 		return FILE_ERROR_NONE;
@@ -503,7 +504,7 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 		else if (inode->sem.is_blocked()) {
 			tree->find_proc(procName)->change_state(WAITING);
 			p->Check();
-			
+
 			waitingProcesses[name].push(tree->find_proc(name)->PID);
 			return FILE_SYNC_WAITING;
 		}
@@ -561,7 +562,7 @@ int FileManager::file_close(const std::string& name, const std::string& procName
 			fileSystem.inodeTable[fileIterator->second].sem.Signal(nullptr);
 		}
 
-		if(!waitingProcesses.empty()) {
+		if (!waitingProcesses.empty()) {
 			PCB* tempProc = tree->find_proc(waitingProcesses[name].front());
 			tempProc->change_state(READY);
 		}
