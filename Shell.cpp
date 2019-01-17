@@ -359,15 +359,15 @@ void Shell::cls() {
 void Shell::cp() //Tworzenie procesu
 {
 	if (parsed.size() == 3) {
-		if (parsed[1] == "shell" || parsed[1] == "systemd") {
+		if (!std::filesystem::exists(parsed[2])) {
+			std::cout << "Nie znaleziono pliku!\n";
+			return;
+		}
+		else if (parsed[1] == "shell" || parsed[1] == "systemd") {
 			cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
 			return;
 		}
 		tree.fork(new PCB(parsed[1], 1), parsed[2], 128);
-	}
-	else if (!std::filesystem::exists(parsed[2])) {
-		std::cout << "Nie znaleziono pliku!\n";
-		return;
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
