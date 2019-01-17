@@ -155,6 +155,10 @@ void Shell::execute() {
 		dp();
 	}
 
+	else if (parsed[0] == "dispproc") {			//Informacje o PCB
+		dispproc();
+	}
+
 	else if (parsed[0] == "disppip") {			//Listowanie potoków
 		disppip();
 	}
@@ -354,9 +358,21 @@ void Shell::exit() //Kończenie pracy
 	status = false;
 }
 void Shell::cls() {
-	if (parsed.size() == 1)
-	{
+	if (parsed.size() == 1) {
 		system("cls");
+	}
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+	}
+}
+
+void Shell::dispproc() {
+	if (parsed.size() == 2) {
+		PCB* tempProc = tree.find_proc(parsed[1]);
+		if(tempProc != nullptr) {
+			tempProc->display();
+		}
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;

@@ -106,6 +106,29 @@ void PCB::delete_pipe(Pipeline &pp)
 
 }
 
+void PCB::display() {
+	std::cout << " | PID : " << PID << '\n';
+	std::cout << " | NAZWA : " << name << '\n';
+	if (parent_proc != nullptr) {
+		std::cout << " | RODZIC : " << parent_proc->name << " (PID : " << parent_proc->PID << ")\n";
+	}
+	std::cout << " | ROZMIAR : " << proces_size << '\n';
+	std::cout << " | LICZBA DZIECI : " << child_vector.size() << '\n';
+	std::cout << " | STAN : ";
+	switch (state) {
+	case RUNNING: std::cout << "RUNNING"; break;
+	case NEW: std::cout << "NEW"; break;
+	case WAITING: std::cout << "WAITING"; break;
+	case READY: std::cout << "READY"; break;
+	case TERMINATED: std::cout << "TERMINATED"; break;
+	default:;
+	}
+	std::cout << '\n';
+	std::cout << " | A : " << A << '\n';
+	std::cout << " | B : " << B << '\n';
+	std::cout << " | C : " << C << '\n';
+	std::cout << " | D : " << D << '\n';
+}
 
 
 proc_tree::proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) {

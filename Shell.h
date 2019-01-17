@@ -54,6 +54,7 @@ public:
 	void cls();															//Czyszczenie ekranu
 	
 	//Metody zarzadzania procesami
+	void dispproc();
 	void cp();															//Tworzenie procesu
 	void lp();															//Lista PCB wszystkich procesów
 	void lt();															//Drzewo procesow

@@ -384,7 +384,8 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 					runningProc->change_state(WAITING);
 					PCB* tempProc = runningProc->GET_kid(nazwa1);
 					tempProc->change_state(READY);
-					memoryManager->write(tempProc, 0, instructionParts[0] + " \"" + runningProc->name + "\" " + instructionParts[2] + ";");
+					std::string tempInstruction = instructionParts[0] + " \"" + runningProc->name + "\" " + instructionParts[2] + ";";
+					memoryManager->write(tempProc, 0, tempInstruction);
 				}
 				else if (runningProc->FD.find(nazwa1 + "_R") != runningProc->FD.end()) {
 					std::cout << "Odczytana wiadomosc: " << pipeline->read(nazwa1, runningProc->name, *reg2) << '\n';//wysylajacy, odbierajacy, dlugosc plku

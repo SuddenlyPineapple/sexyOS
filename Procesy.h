@@ -71,7 +71,7 @@ public:
 	void kill_all_childrens(MemoryManager &mm);
 	void delete_pipe(Pipeline &pp);
 
-
+	void display();
 
 };
 
