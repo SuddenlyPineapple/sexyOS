@@ -289,7 +289,7 @@ void Shell::regs() {
 //Metody shella
 void Shell::ver() {
 	logo();
-	std::cout << "sexySO - Version 1.01.185 \n";
+	std::cout << "sexySO - Version 1.19.245 \n";
 	std::cout << "<c> 2018 sexySO PUT Laboratory Group. All Rights Reserved. \n\n";
 	std::cout << "Created by:\n";
 	std::cout << "Tomasz Kiljanczyk \t File and directory management \n";

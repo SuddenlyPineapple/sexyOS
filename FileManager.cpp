@@ -352,10 +352,6 @@ int FileManager::file_write(const std::string& name, const std::string& procName
 	if (!procName.empty()) {
 		proc->change_state(READY);
 		p->Check();
-		while (proc->state != RUNNING) {
-			std::cout << "Czekanie na przydzielenie procesora . . . " << procName << "\n";
-			p->Check();
-		}
 	}
 	file_deallocate(inode);
 	file_write(inode, &accessedFiles[std::pair(name, procName)], data);
@@ -399,10 +395,6 @@ int FileManager::file_append(const std::string& name, const std::string& procNam
 
 	//Czêœæ dzia³aj¹ca
 	PCB* proc = tree->find_proc(procName);
-	while (proc->state != RUNNING) {
-		if (detailedMessages) { std::cout << "Czekanie na przydzielenie procesora . . . (" << procName << ")\n"; }
-		p->Check();
-	}
 	file_append(inode, &accessedFiles[std::pair(name, procName)], data);
 	if (messages) { std::cout << "Wpisano dane do pliku o nazwie '" << name << "'.\n"; }
 	return FILE_ERROR_NONE;
@@ -431,11 +423,6 @@ int FileManager::file_read(const std::string& name, const std::string& procName,
 	//Czêœæ dzia³aj¹ca ----------------------
 	PCB* proc = tree->find_proc(procName);
 	proc->change_state(READY);
-	while (proc->state != RUNNING) {
-		if (detailedMessages) { std::cout << "Czekanie na przydzielenie procesora . . . (" << procName << ", prio: " << proc->priority << ")\n"; }
-
-		p->Check();
-	}
 	result = accessedFiles[std::pair(name, procName)].read(byteNumber);
 	return FILE_ERROR_NONE;
 }
