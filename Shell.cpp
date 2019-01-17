@@ -367,7 +367,9 @@ void Shell::cp() //Tworzenie procesu
 			cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
 			return;
 		}
-		tree.fork(new PCB(parsed[1], 1), parsed[2], 128);
+		
+			const int sizeOfFile = std::filesystem::file_size("program1.txt");
+		tree.fork(new PCB(parsed[1], 1), parsed[2], sizeOfFile);
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
