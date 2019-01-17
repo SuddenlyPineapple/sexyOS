@@ -24,6 +24,7 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <queue>
 
 class Planista;
 class proc_tree;
@@ -60,9 +61,9 @@ private:
 	//--------------- Definicje sta³ych statycznych -------------
 
 	static const uint8_t BLOCK_SIZE = 32;	   		//Rozmiar bloku (bajty)
-	static const u_short_int DISK_CAPACITY  = 1024;	//Pojemnoœæ dysku (bajty)
-	static const uint8_t BLOCK_INDEX_NUMBER  = 3;	//Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect
-	static const uint8_t INODE_NUMBER_LIMIT	 = 32;	//Maksymalna iloœæ elementów w katalogu
+	static const u_short_int DISK_CAPACITY = 1024;	//Pojemnoœæ dysku (bajty)
+	static const uint8_t BLOCK_INDEX_NUMBER = 3;	//Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect
+	static const uint8_t INODE_NUMBER_LIMIT = 32;	//Maksymalna iloœæ elementów w katalogu
 	static const uint8_t MAX_FILENAME_LENGTH = 16;	//Maksymalna d³ugoœæ œcie¿ki
 
 	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
@@ -176,6 +177,7 @@ private:
 	//Klucz   - para nazwa pliku, nazwa procesu
 	//Wartoœæ - semafor przypisany danemu procesowi
 	std::map<std::pair<std::string, std::string>, FileIO> accessedFiles;
+	std::map<std::string, std::queue<int>> waitingProcesses;
 
 	//Inne modu³y
 	Planista* p;

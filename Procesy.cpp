@@ -133,7 +133,6 @@ void proc_tree::fork(PCB* proc, int size) {
 
 		this->proc.child_vector.push_back(proc);
 		p->AddProces(proc);
-
 	}
 	else {
 		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
@@ -207,29 +206,31 @@ void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
 
 }
 
-//void proc_tree::fork(PCB* proc)
-//{
-//	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
-//		proc->PID = free_PID;
-//		free_PID++;
-//		proc->parent_proc = &this->proc;
-//		this->proc.child_vector.push_back(proc);
-//	}
-//	else {
-//		if (this->find_proc(proc->PID) != nullptr) {
-//			auto parent = this->find_proc(proc->PID);
-//			proc->parent_proc = parent;
-//			proc->PID = free_PID;
-//			parent->child_vector.push_back(proc);
-//			//std::cout << " znaleziono ojca" << std::endl;
-//			free_PID++;
-//		}
-//		else {
-//			std::cout << "nie znaleziono ojca" << std::endl;
-//		}
-//	}
-//
-//}
+void proc_tree::fork(PCB* proc)
+{
+	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
+		proc->PID = free_PID;
+		free_PID++;
+		proc->parent_proc = &this->proc;
+		this->proc.child_vector.push_back(proc);
+		p->AddProces(proc);
+	}
+	else {
+		if (this->find_proc(proc->PID) != nullptr) {
+			auto parent = this->find_proc(proc->PID);
+			proc->parent_proc = parent;
+			proc->PID = free_PID;
+			parent->child_vector.push_back(proc);
+			//std::cout << " znaleziono ojca" << std::endl;
+			free_PID++;
+			p->AddProces(proc);
+		}
+		else {
+			std::cout << "nie znaleziono ojca" << std::endl;
+		}
+	}
+
+}
 
 void proc_tree::fork(PCB* proc, std::vector<std::string> file_names)
 {
