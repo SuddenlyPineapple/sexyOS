@@ -128,7 +128,7 @@ std::vector<PageTableData> *MemoryManager::createPageList(int mem, int PID) {
 	auto *pageList = new std::vector<PageTableData>();
 
 	for (int i = 0; i < pages; i++) {
-		pageList->push_back(PageTableData(-1, 0));
+		pageList->push_back(PageTableData(false, 0));
 	}
 
 	//Załadowanie pierszej stronicy naszego programu do Pamięci RAM
