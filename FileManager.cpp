@@ -505,7 +505,7 @@ int FileManager::file_open(const std::string& name, const std::string& procName,
 			p->Check();
 			
 			waitingProcesses[name].push(tree->find_proc(name)->PID);
-			return FILE_ERROR_SYNC;
+			return FILE_SYNC_WAITING;
 		}
 	}
 
@@ -559,6 +559,11 @@ int FileManager::file_close(const std::string& name, const std::string& procName
 		}
 		else if (fileSystem.inodeTable[fileIterator->second].sem.get_value() < 2) {
 			fileSystem.inodeTable[fileIterator->second].sem.Signal(nullptr);
+		}
+
+		if(!waitingProcesses.empty()) {
+			PCB* tempProc = tree->find_proc(waitingProcesses[name].front());
+			tempProc->change_state(READY);
 		}
 	}
 
