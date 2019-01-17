@@ -24,16 +24,20 @@ public:
 	std::string read(const std::string& p1, const std::string& p2, const size_t& rozmiar);
 
 	void deletePipe(const std::string& p1, const std::string& p2);
+	void deletePipe(const size_t& pos);
 	bool existPipe(const std::string& p1, const std::string& p2);
+
+	void displayPipes();
 };
 class Pipe {
 private:
-	std::queue<char> buffer;
-	PCB* p1;
-	PCB* p2;
 	Pipeline *p;
 
 public:
+	std::queue<char> buffer;
+	PCB* p1;
+	PCB* p2;
+
 	Pipe(PCB* p1, PCB* p2, Pipeline* potok);
 	~Pipe();
 	std::string read(size_t rozmiar);

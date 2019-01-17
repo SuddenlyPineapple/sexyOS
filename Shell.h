@@ -30,7 +30,7 @@ private:
 public:
 	Shell() : mm(), p(), pipel(nullptr), tree(&mm, &p, &pipel), fm(&p, &tree), inter(&fm, &mm, &tree, &pipel) {
 		this->pipel.tree = &tree;
-        this->status = true;
+		this->status = true;
 		this->parsed.resize(0);
 		this->line.clear();
 	}
@@ -41,43 +41,51 @@ public:
 	void read_line();													//Odczyt surowych danych
 	void parse();														//Parsowanie
 	void execute(); 													//Wykonywanie
+	
 	//Commands functions declarations
 	//Metody interpretera
 	void go(); 													        //Nastepny krok pracy krokowej
-	void regs();                                                      //Wyswietla stan rejestrow i licznik rozkazow
+	void regs();														//Wyswietla stan rejestrow i licznik rozkazow
+	
 	//Metody shella
-    void ver();                                                       //Creditsy
+	void ver();															//Creditsy
 	void help();														//Wyswietalnie listy poleceń
-    void exit();														//Kończenie pracy
+	void exit();														//Kończenie pracy
 	void cls();															//Czyszczenie ekranu
-    //Metody zarzadzania procesami
+	
+	//Metody zarzadzania procesami
 	void cp();															//Tworzenie procesu
 	void lp();															//Lista PCB wszystkich procesów
-	void lt();                                                        //Drzewo procesow
-	void dp();                                                        //Usuwanie procesu
+	void lt();															//Drzewo procesow
+	void dp();															//Usuwanie procesu
+	
+	//Metody potokowe
+	void disppip();
+
 	//Metody dyskowe
 	void ls();															//Listowanie katalogu
 	void cf();															//Utworzenie pliku
 	void df();															//Usunięcie pliku
 	void ld();															//Listowanie zawartości wskazanego bloku dyskowego
-    void wf();                                                        //Zapis do pliku
-    void fo();                                                        //Otwarcie pliku
-    void fr();                                                        //Odczyt pliku
-    void fc();                                                        //Zamkniecie pliku
-    void finfo();
-    void dinfo();
-    void dskchar();
+	void wf();															//Zapis do pliku
+	void af();															//Dopis do pliku
+	void fo();															//Otwarcie pliku
+	void fr();															//Odczyt pliku
+	void fc();															//Zamkniecie pliku
+	void finfo();
+	void dinfo();
+	void dskchar();
 	void fsysparam();
 	void bitvector();
-    //Metody pamieci
-    void showmem();                                                      //Wyswietlanie zawartosci pamieci
-    void showpagefile();
-    void showpagetable();
-    void showstack();
-    void showframes();
+	//Metody pamieci
+	void showmem();                                                      //Wyswietlanie zawartosci pamieci
+	void showpagefile();
+	void showpagetable();
+	void showstack();
+	void showframes();
 
-    //Specials
-    void thanks();
+	//Specials
+	void thanks();
 
 
 

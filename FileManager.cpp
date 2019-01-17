@@ -349,11 +349,13 @@ int FileManager::file_write(const std::string& name, const std::string& procName
 
 	//Czêœæ dzia³aj¹ca
 	PCB* proc = tree->find_proc(procName);
-	proc->change_state(READY);
-	p->Check();
-	while (proc->state != RUNNING) {
-		std::cout << "Czekanie na przydzielenie procesora . . . " << procName << "\n";
+	if (!procName.empty()) {
+		proc->change_state(READY);
 		p->Check();
+		while (proc->state != RUNNING) {
+			std::cout << "Czekanie na przydzielenie procesora . . . " << procName << "\n";
+			p->Check();
+		}
 	}
 	file_deallocate(inode);
 	file_write(inode, &accessedFiles[std::pair(name, procName)], data);
@@ -752,6 +754,19 @@ void FileManager::display_bit_vector() {
 	std::cout << '\n';
 }
 
+void FileManager::display_block_char(const unsigned& block) {
+	int i = block*BLOCK_SIZE;
+	if (block < fileSystem.bitVector.size()) {
+		std::cout << std::setfill('0') << std::setw(2) << block << ". ";
+		while (true) {
+			if (disk.space[i] >= 0 && disk.space[i] <= 32) { std::cout << "."; }
+			else { std::cout << disk.space[i]; }
+			i++;
+			if (i % BLOCK_SIZE == 0) { break; }
+		}
+	}
+	std::cout << '\n';
+}
 
 
 //------------------- Metody Sprawdzaj¹ce -------------------

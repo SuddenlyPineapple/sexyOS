@@ -3,6 +3,6 @@ MF "plik1"
 WF "plik1" A
 CF "plik1"
 OF "plik1" R
-RF "plik1" B
+RF "plik1" B 1
 CF "plik1"
 HLT

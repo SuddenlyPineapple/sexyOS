@@ -375,6 +375,8 @@ public:
 	*/
 	void display_bit_vector();
 
+	void display_block_char(const unsigned int& block);
+
 
 
 	//------ KOLEJNE METODY MA£O KOGO POWINNY OBCHODZIÆ ---------

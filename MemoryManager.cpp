@@ -202,7 +202,7 @@ int MemoryManager::loadProgram(std::string path, int mem, int PID) {
 	scrap.clear();
 
 	if (pagesAmount * 16 < 16 * pageVector.size()) {
-		std::cout << "Error: Program has not assigned enough memory!\n";
+		std::cout << "Error: proces nie ma przypisane wystarczajaco duzo pamieci!\n";
 		return -1;
 	}
 
@@ -289,7 +289,7 @@ std::string MemoryManager::get(PCB *process, int LADDR) {
 
 int MemoryManager::write(PCB *process, int adress, std::string data) {
 
-	if (data.size() == 0) return 1;
+	if (data.empty()) return 1;
 
 	if (adress + data.size() - 1 > process->pageList->size() * 16 - 1 || adress < 0) {
 		std::cout << "Error: Exceeded memory amount for this process! \n";

@@ -6,7 +6,7 @@
 #include <thread>
 
 void sound_startup() {
-	PlaySound(TEXT("Startup.wav"), NULL, SND_ALIAS);
+	PlaySound(TEXT("Startup.wav"), nullptr, SND_ALIAS);
 }
 
 //Metody pracy shella
@@ -155,6 +155,10 @@ void Shell::execute() {
 		dp();
 	}
 
+	else if (parsed[0] == "disppip") {			//Listowanie potoków
+		disppip();
+	}
+
 	else if (parsed[0] == "ls")					//Listowanie katalogu
 	{
 		ls();
@@ -176,6 +180,11 @@ void Shell::execute() {
 	}
 
 	else if (parsed[0] == "wf")					//Zapisywanie do pliku
+	{
+		wf();
+	}
+	
+	else if (parsed[0] == "af")					//Dopisywanie do pliku
 	{
 		wf();
 	}
@@ -242,12 +251,12 @@ void Shell::execute() {
 		thanks();
 	}
 
-	else if (parsed[0] == "" || parsed[0] == "go") {
+	else if (parsed[0].empty() || parsed[0] == "go") {
 		go();
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -259,8 +268,8 @@ void Shell::go() {
 		if (!inter.execute_line(p.ReadyPCB.front()->name)) { //Wykonanie procesu, jeśli false to zakończył działanie
 			PCB* tempProc = p.ReadyPCB.front(); //Tymczasowe ściągnięte PCB
 			tree.exit(tempProc->PID); //zabicie procesu
-			p.Check(); //aktualizacja planisty (kolejki procesów do wykonania i procesów czekających)
 		}
+		p.Check(); //aktualizacja planisty (kolejki procesów do wykonania i procesów czekających)
 	}
 }
 void Shell::regs() {
@@ -270,7 +279,7 @@ void Shell::regs() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 //Metody shella
@@ -341,7 +350,7 @@ void Shell::exit() //Kończenie pracy
 {
 	system("cls");
 	ver();
-	PlaySound(TEXT("Exit_Windows.wav"), NULL, SND_ALIAS);
+	PlaySound(TEXT("Exit_Windows.wav"), nullptr, SND_ALIAS);
 	status = false;
 }
 void Shell::cls() {
@@ -351,7 +360,7 @@ void Shell::cls() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -363,17 +372,17 @@ void Shell::cp() //Tworzenie procesu
 			std::cout << "Nie znaleziono pliku!\n";
 			return;
 		}
-		else if (parsed[1] == "shell" || parsed[1] == "systemd") {
+		else if (parsed[1] == "shell" || parsed[1] == "system_dummy") {
 			cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
 			return;
 		}
-		
-			const int sizeOfFile = std::filesystem::file_size("program1.txt");
+
+		const int sizeOfFile = std::filesystem::file_size(parsed[2]);
 		tree.fork(new PCB(parsed[1], 1), parsed[2], sizeOfFile);
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -385,7 +394,7 @@ void Shell::lp() //Lista PCB wszystkich procesów
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -395,12 +404,12 @@ void Shell::lt() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
 void Shell::dp() {
-	if (parsed[1] == "shell" || parsed[1] == "systemd") {
+	if (parsed[1] == "shell" || parsed[1] == "system_dummy") {
 		std::cout << "Odmowa dostepu!" << endl;
 		return;
 	}
@@ -411,9 +420,12 @@ void Shell::dp() {
 		}
 		else {
 			std::cout << "Nie znaleziono procesu!\n";
-			PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+			PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 		}
 	}
+}
+void Shell::disppip() {
+	pipel.displayPipes();
 }
 //Metody dyskowe
 void Shell::ls() //Listowanie katalogu
@@ -424,7 +436,7 @@ void Shell::ls() //Listowanie katalogu
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -438,7 +450,7 @@ void Shell::cf() //Utworzenie pliku
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -452,19 +464,23 @@ void Shell::df() //Usunięcie pliku
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
 void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
 {
-	if (parsed.size() == 1)
+	if (parsed.size() == 2)
 	{
-		fm.display_root_directory();
+		for (const char& c : parsed[1]) {
+			if (c >= '0' || c <= '9') {}
+			else { std::cout << "Zla liczba!\n"; return; }
+		}
+		fm.display_block_char(std::stoi(parsed[1]));
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -474,11 +490,29 @@ void Shell::wf() {
 		string data;
 		cout << "Dane do wprowadzenia: ";
 		getline(cin, data);
-		fm.file_write(parsed[1], "", data);
+		if (fm.file_write(parsed[1], "", data) != 0) {
+			std::cout << "Operacja niepowiodla sie!\n";
+		}
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+	}
+}
+
+void Shell::af() {
+	if (parsed.size() == 2)
+	{
+		string data;
+		cout << "Dane do dopisania: ";
+		getline(cin, data);
+		if (fm.file_append(parsed[1], "", data) != 0) {
+			std::cout << "Operacja niepowiodla sie!\n";
+		}
+	}
+	else {
+		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -492,7 +526,7 @@ void Shell::fo() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -501,12 +535,15 @@ void Shell::fr() {
 	{
 		string data;
 
-		fm.file_read(parsed[1], "", stoi(parsed[2]), data);
+		if (fm.file_read(parsed[1], "", stoi(parsed[2]), data) != 0) {
+			std::cout << "Operacja niepowiodla sie!" << endl;
+			return;
+		}
 		cout << data << endl;
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -517,7 +554,7 @@ void Shell::fc() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -528,7 +565,7 @@ void Shell::finfo() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -539,7 +576,7 @@ void Shell::dinfo() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -550,7 +587,7 @@ void Shell::dskchar() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -561,7 +598,7 @@ void Shell::fsysparam() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -572,7 +609,7 @@ void Shell::bitvector() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 //Metody pamieci
@@ -588,7 +625,7 @@ void Shell::showmem() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -599,7 +636,7 @@ void Shell::showpagefile() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -611,7 +648,7 @@ void Shell::showpagetable() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -622,7 +659,7 @@ void Shell::showstack() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 
@@ -633,7 +670,7 @@ void Shell::showframes() {
 	}
 	else {
 		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), NULL, SND_ALIAS);
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
 	}
 }
 

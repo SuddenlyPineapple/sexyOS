@@ -179,7 +179,7 @@ bool Interpreter::execute_line(const std::string& procName) {
 	std::cout << "Rozkaz (IC " << instruction_counter << "): " << instructionWhole << "\n";
 
 	if (!execute_instruction(instructionWhole, procName)) {
- 		instrBeginMap.erase(procName);
+		instrBeginMap.erase(procName);
 		update_proc(procName);
 
 		std::cout << " | PID Procesu : " << runningProc->PID << '\n';
@@ -188,7 +188,7 @@ bool Interpreter::execute_line(const std::string& procName) {
 		std::cout << " | B : " << B << '\n';
 		std::cout << " | C : " << C << '\n';
 		std::cout << " | D : " << D << "\n\n";
-
+		instrBeginMap.erase(procName);
 		return false;
 	} // Jesli napotkano na hlt, to konczymy program
 
@@ -263,6 +263,7 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		else { number = std::stoi(instructionParts[2]); reg2 = &number; }
 	}
 
+
 	//Rozkazy interpretacja
 	{
 		if (instruction == "ADD")
@@ -324,10 +325,17 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		}
 		else if (instruction == "WF")//nadpisz do pliku
 		{
-			display_file_error_text(fileManager->file_write(nazwa1, runningProc->name, std::to_string(*reg2)));
+			if (!nazwa1.empty()) {
+				display_file_error_text(fileManager->file_write(nazwa1, runningProc->name, nazwa2));
+			}
+			else display_file_error_text(fileManager->file_write(nazwa1, runningProc->name, std::to_string(*reg2)));
 		}
 		else if (instruction == "AF")//dopisz do pliku
 		{
+			if (!nazwa1.empty()) {
+				display_file_error_text(fileManager->file_append(nazwa1, runningProc->name, std::to_string(*reg2)));
+			}
+
 			display_file_error_text(fileManager->file_append(nazwa1, runningProc->name, std::to_string(*reg2)));
 		}
 		else if (instruction == "CF")//ZAMKNIJ plik
@@ -337,8 +345,8 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		else if (instruction == "RF")//CZYTANIE Z PLIKU
 		{
 			std::string temp;
-			display_file_error_text(fileManager->file_read_all(nazwa1, runningProc->name, temp));
-			std::cout << "\na prog to " << temp;
+			display_file_error_text(fileManager->file_read(nazwa1, runningProc->name, *reg2, temp));
+			std::cout << "Odczytano z pliku dane: " << temp << std::endl;
 
 		}
 
@@ -346,7 +354,8 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//Rozkazy procesy
 		else if (instruction == "CP") //tworzenie procesu
 		{
-			tree->fork(new PCB(nazwa1, runningProc->PID),15);
+			tree->fork(new PCB(nazwa1, runningProc->PID), 16);
+			tree->find_proc(nazwa1)->change_state(WAITING);
 		}
 		else if (instruction == "DP") //zabijanie procesu
 		{
@@ -365,16 +374,24 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		}
 		else if (instruction == "SM") //send message 
 		{
-
-			if (nazwa2.size() > 0) pipeline->write(runningProc->name, nazwa1, nazwa2);
-			else
-				pipeline->write(runningProc->name, nazwa1, std::to_string(*reg2));
-
+			if (!nazwa2.empty()) pipeline->write(runningProc->name, nazwa1, nazwa2);
+			else pipeline->write(runningProc->name, nazwa1, std::to_string(*reg2));
 		}
 		else if (instruction == "RM") //read message 
 		{
-			if (pipeline->existPipe(runningProc->name, nazwa1))
-				std::cout << "odczytana wiadomosc: " << pipeline->read(nazwa1, runningProc->name, *reg2) << '\n';//wysylajacy, odbierajacy, dlugosc plku
+			if (pipeline->existPipe(runningProc->name, nazwa1)) {
+				if (runningProc->FD.find(nazwa1 + "_W") != runningProc->FD.end()) {
+					runningProc->change_state(WAITING);
+					PCB* tempProc = runningProc->GET_kid(nazwa1);
+					tempProc->change_state(READY);
+					memoryManager->write(tempProc, 0, instructionParts[0] + " \"" + runningProc->name + "\" " + instructionParts[2] + ";");
+				}
+				else if (runningProc->FD.find(nazwa1 + "_R") != runningProc->FD.end()) {
+					std::cout << "Odczytana wiadomosc: " << pipeline->read(nazwa1, runningProc->name, *reg2) << '\n';//wysylajacy, odbierajacy, dlugosc plku
+					runningProc->change_state(WAITING);
+					tree->find_proc(nazwa1)->change_state(READY);
+				}
+			}
 		}
 
 
@@ -384,9 +401,6 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		//B³¹d
 		else { std::cout << "error\n"; }
 	}
-
-
-	//teraz zapisz rejestry
 
 
 

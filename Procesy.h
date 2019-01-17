@@ -20,7 +20,7 @@ public:
 	int priority;					// priorytet
 	int last_counter;				//dla procesora
 	std::string name;		//nazwa procesu
-	unsigned int PID;				//identyfikator nie bedzie ujemnych 1 JEST "DLA SYSTEMD"
+	unsigned int PID;				//identyfikator nie bedzie ujemnych 1 JEST "DLA system_dummy"
 	Process_state state;			//stan procesu
 	PCB *parent_proc;				//wskaznik na ojca procesu
 	std::vector<PCB*> child_vector;	//vector dzieci
@@ -36,11 +36,11 @@ public:
 	int instruction_counter = 0;			//licznik rozkaz�w
 
 
-	PCB() {//kontruktor dla systemd
+	PCB() {//kontruktor dla system_dummy
 		this->priority = 20;
 		this->last_counter = 0;
 		this->state = NEW;
-		this->name = "systemd";
+		this->name = "system_dummy";
 		this->PID = 1;
 		this->parent_proc = nullptr;
 		this->proces_size = 16;
@@ -56,7 +56,6 @@ public:
 		this->proces_size = 16;
 		this->parent_proc = nullptr;
 		this->pageList = nullptr;
-		// this->proces_size = 16;//nwm ile ma byc
 
 	};
 
@@ -76,7 +75,7 @@ public:
 
 };
 
-//klasa pomocniczna inicjujemy j� na poczatku konstruktorem domyslny i zawiera systemd czyli g�owny proces
+//klasa pomocniczna inicjujemy j� na poczatku konstruktorem domyslny i zawiera system_dummy czyli g�owny proces
 class proc_tree {
 private:
 	MemoryManager* mm;
@@ -91,8 +90,8 @@ public:
 	void fork(PCB* proc, const std::string& file_name, int size);
 
 	// tu jest funckja tworzaca proces z memory managera takze marcin uzywaj go
-	void fork(PCB* proc, int size); 
-	
+	void fork(PCB* proc, int size);
+
 	//dodaje kopieprocesu(dzieciaka) procesu do drzewa
 	void fork(PCB* proc);
 
@@ -102,9 +101,6 @@ public:
 
 	//usuwanie proces�w 
 	void exit(const unsigned& pid);
-
-	//usuwanie proces�w z pipeline
-	void exit(const unsigned& pid, Pipeline &pp);
 
 	//wyswietla cale drzewa
 	void display_tree();
