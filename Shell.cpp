@@ -298,9 +298,10 @@ Metody dyskowe
  df - Usuniecie pliku np. DF [nazwa_pliku]
  ld - Listowanie zawartości wskazanego bloku dyskowego
  wf - Zapis do pliku np. WF [nazwa_pliku] [tresc]
- fo - Otwarcie pliku np.
- fc - Zamkniecie pliku
- finfo - Wyswietla informacje o pliku
+ fo - Otwarcie pliku np. FO [nazwa_pliku] [parametr]
+                parametry: -r(do odczytu) -w(do zapisu)
+ fc - Zamkniecie pliku np. FC [nazwa_pliku]
+ finfo - Wyswietla informacje o pliku np. FINFO [nazwa_pliku]
  dinfo - Wyswietla informacje o katalogu
  dskchar - Wyswietla zawartosc dysku jako znaki
  fsysparam - Wyswietla parametry systemu plikow
@@ -309,7 +310,7 @@ Metody dyskowe
 Metody pamieci
  showmem - Wyswietlanie zawartosci pamieci
  showpagefile - Wyswietla plik stronicowania
- showpagetable - Wyswietla tablice wymiany stronic
+ showpagetable - Wyswietla tablice wymiany stronic np. [nazwa_procesu]
  showstack - Pokazuje kolejke FIFO wymiany stronic
  showframes - Pokazuje ramki w pamieci RAM wraz ze szczegolami
 
