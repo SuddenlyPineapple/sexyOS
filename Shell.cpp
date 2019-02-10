@@ -1,18 +1,46 @@
-﻿#include "Shell.h"
+﻿#include "MemoryManager.h"
+#include "Planist.h"
+#include "FileManager.h"
+#include "Interpreter.h"
+#include "Processes.h"
+#include "Pipe.h"
+#include "Shell.h"
+
 #include <iostream>
 #include <string>
 #include <algorithm>
 #include <filesystem>
-#include <thread>
+#include <windows.h>
 
-void sound_startup() {
-	PlaySound(TEXT("Startup.wav"), nullptr, SND_ALIAS);
+using namespace std;
+
+enum concol {
+	pink = 13,
+	white = 15
+};
+
+inline void set_color(int textcol, int backcol) {
+	textcol %= 16; backcol %= 16;
+	const unsigned short wAttributes = (static_cast<unsigned>(backcol) << 4) | static_cast<unsigned>(textcol);
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), wAttributes);
+}
+
+void sound_bootup() {
+	PlaySound(TEXT("Startup.wav"), nullptr, SND_ASYNC);
+}
+
+Shell::Shell() {
+	this->status = true;
+	this->parsed.clear();
+	this->line.clear();
+
+	tree.init();
 }
 
 //Metody pracy shella
-void Shell::boot() //Funckja startująca pętlę shella
-{
-	std::thread(sound_startup).detach();
+void Shell::boot() {
+	set_color(white, pink);
+	sound_bootup();
 	logo();
 	loop();
 }
@@ -75,8 +103,7 @@ void Shell::logo() {
 
 } //Wyswietlanie loga systemu
 
-void Shell::loop() //Pętla shella
-{
+void Shell::loop() {
 	do {
 		read_line();
 		execute();
@@ -89,17 +116,15 @@ void Shell::loop() //Pętla shella
 
 }
 
-void Shell::read_line() //Odczyt surowych danych
-{
+void Shell::read_line() {
 	cout << "$ ";
 	getline(cin, line);
 	parse();
 }
 
-void Shell::parse() //Parsowanie
-{
+void Shell::parse() {
 	transform(line.begin(), line.end(), line.begin(), ::tolower);
-	parsed.resize(0);
+	parsed.clear();
 	line = line + ' ';
 	string pom;
 	for (const char& i : line) {
@@ -114,178 +139,64 @@ void Shell::parse() //Parsowanie
 }
 
 void Shell::execute() {
-
-	if (parsed[0] == "regs")					//Wyswietalnie zawartosci rejestrow i licznika rozkazow
-	{
-		regs();
-	}
-
-	else if (parsed[0] == "help")					//Wyswietalnie listy poleceń
-	{
-		help();
-	}
-
-	else if (parsed[0] == "exit")				//Kończenie pracy
-	{
-		exit();
-	}
-
-	else if (parsed[0] == "cls")				//Kończenie pracy
-	{
-		cls();
-	}
-
-	else if (parsed[0] == "cp")					//Tworzenie procesu
-	{
-		cp();
-	}
-
-	else if (parsed[0] == "lp")					//Lista PCB wszystkich procesów
-	{
-		lp();
-	}
-
-	else if (parsed[0] == "lt")					//Drzewo procesow
-	{
-		lt();
-	}
-
-	else if (parsed[0] == "dp")					//Usuwanie procesu
-	{
-		dp();
-	}
-
-	else if (parsed[0] == "dispproc") {			//Informacje o PCB
-		dispproc();
-	}
-
-	else if (parsed[0] == "disppip") {			//Listowanie potoków
-		disppip();
-	}
-
-	else if (parsed[0] == "ls")					//Listowanie katalogu
-	{
-		ls();
-	}
-
-	else if (parsed[0] == "cf")					//Utworzenie pliku
-	{
-		cf();
-	}
-
-	else if (parsed[0] == "df")					//Usunięcie pliku
-	{
-		df();
-	}
-
-	else if (parsed[0] == "ld")					//Listowanie zawartości wskazanego bloku dyskowego
-	{
-		ld();
-	}
-
-	else if (parsed[0] == "wf")					//Zapisywanie do pliku
-	{
-		wf();
-	}
-	
-	else if (parsed[0] == "af")					//Dopisywanie do pliku
-	{
-		wf();
-	}
-
-	else if (parsed[0] == "fo")					//Otwarcie pliku
-	{
-		fo();
-	}
-
-	else if (parsed[0] == "finfo")					//Informacje o pliku
-	{
-		finfo();
-	}
-
-	else if (parsed[0] == "dinfo")					//informacje o katalogu
-	{
-		dinfo();
-	}
-
-	else if (parsed[0] == "dskchar")					//Wyswietlanie dysku
-	{
-		dskchar();
-	}
-	else if (parsed[0] == "fsysparam")					//Parametry systemu plików
-	{
-		fsysparam();
-	}
-	else if (parsed[0] == "bitvector")					//Parametry systemu plików
-	{
-		bitvector();
-	}
-	else if (parsed[0] == "showmem")					//Wyswietlenie pamieci
-	{
-		showmem();
-	}
-
-	else if (parsed[0] == "showpagefile")					//Wyswietlenie pliku stronicowania
-	{
-		showpagefile();
-	}
-
-	else if (parsed[0] == "showpagetable")					//Wyswietlenie page table
-	{
-		showpagetable();
-	}
-
-	else if (parsed[0] == "showstack")					//Wyswietlenie stosu
-	{
-		showstack();
-	}
-
-	else if (parsed[0] == "showframes")					//Wyswietlenie ramek
-	{
-		showframes();
-	}
-
-	else if (parsed[0] == "ver")					//Creditsy
-	{
-		ver();
-	}
-
-	else if (parsed[0] == "thanks")					//Creditsy
-	{
-		thanks();
-	}
-
-	else if (parsed[0].empty() || parsed[0] == "go") {
-		go();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	if (parsed[0] == "showregs") { showregs(); }
+	else if (parsed[0] == "help") { help(); }
+	else if (parsed[0] == "kill") { exit(); }
+	else if (parsed[0] == "cls") { cls(); }
+	else if (parsed[0] == "cp") { cp(); }
+	else if (parsed[0] == "showpcblist") { showpcblist(); }
+	else if (parsed[0] == "showtree") { showtree(); }
+	else if (parsed[0] == "dp") { dp(); }
+	else if (parsed[0] == "showpcb") { showpcb(); }
+	else if (parsed[0] == "showpipe") { showpipe(); }
+	else if (parsed[0] == "showroot") { showroot(); }
+	else if (parsed[0] == "cf") { cf(); }
+	else if (parsed[0] == "df") { df(); }
+	else if (parsed[0] == "showblock") { showblock(); }
+	else if (parsed[0] == "wf") { wf(); }
+	else if (parsed[0] == "af") { wf(); }
+	else if (parsed[0] == "fo") { fo(); }
+	else if (parsed[0] == "fc") { fc(); }
+	else if (parsed[0] == "finfo") { finfo(); }
+	else if (parsed[0] == "dinfo") { dinfo(); }
+	else if (parsed[0] == "showdisk") { showdisk(); }
+	else if (parsed[0] == "fsysparam") { fsysparam(); }
+	else if (parsed[0] == "bitvector") { bitvector(); }
+	else if (parsed[0] == "showmem") { showmem(); }
+	else if (parsed[0] == "showpagefile") { showpagefile(); }
+	else if (parsed[0] == "showpagetable") { showpagetable(); }
+	else if (parsed[0] == "showstack") { showstack(); }
+	else if (parsed[0] == "showframes") { showframes(); }
+	else if (parsed[0] == "ver") { ver(); }
+	else if (parsed[0] == "thanks") { thanks(); }
+	else if (parsed[0].empty() || parsed[0] == "go") { go(); }
+	else { notRecognized(); }
 }
 
-//Commands functions
-//Metody interpretera;
+void Shell::notRecognized() {
+	cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc\n\n";
+	PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ASYNC);
+}
+
+//Metody interpretera
 void Shell::go() {
-	cout << "Nastepny krok" << endl;
-	if (!p.ReadyPCB.empty()) { //Sprawdza czy kolejka procesów READY nie jest pusta (powinien być zawsze conajmniej dummy)
-		if (!inter.execute_line(p.ReadyPCB.front()->name)) { //Wykonanie procesu, jeśli false to zakończył działanie
-			PCB* tempProc = p.ReadyPCB.front(); //Tymczasowe ściągnięte PCB
-			tree.exit(tempProc->PID); //zabicie procesu
+	cout << "Nastepny krok\n";
+	if (!planist.ReadyPCB.empty()) { //Sprawdza czy kolejka procesów READY nie jest pusta (powinien być zawsze conajmniej dummy)
+		if (interpreter.execute_line(planist.ReadyPCB.front()->name) == -1) { //Wykonanie procesu, jeśli false to zakończył działanie
+			const shared_ptr<PCB> tempProc = planist.ReadyPCB.front(); //Tymczasowe ściągnięte PCB
+			cout << "Proces o nazwie \"" << tempProc->name << "\" zakonczyl swoje dzialanie\n\n";
+			tree.kill(tempProc->name); //zabicie procesu
 		}
-		p.Check(); //aktualizacja planisty (kolejki procesów do wykonania i procesów czekających)
+		planist.check(); //aktualizacja planisty (kolejki procesów do wykonania i procesów czekających)
 	}
 }
-void Shell::regs() {
-	if (parsed.size() == 1)
-	{
-		inter.stan_rejestrow();
+void Shell::showregs() const {
+	if (parsed.size() == 1) {
+		interpreter.display_registers();
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
+
 //Metody shella
 void Shell::ver() {
 	logo();
@@ -302,207 +213,192 @@ void Shell::ver() {
 	std::cout << "Aleksandra Laskowska \t Synchronization mechanisms \n";
 	std::cout << "Alicja Gratkowska \t Virtual memory management \n\n\n";
 }
-void Shell::help() //Wyświetlenie listy poleceń
+void Shell::help()
 {
 	printf(R"EOF(
 
 Metody interpretera
- go - Nastepny krok pracy krokowej
- regs - Wyswietlanie zawartosci rejestrow i licznika rozkazow
+ go - Wykonanie kolejnej instrukcji
 
 Metody shella
- ver - Wersja systemu, prawa autorskie i autorzy
+ ver  - Wersja systemu, prawa autorskie i autorzy
  help - Wyswietalnie listy poleceń
- exit - Konczenie pracy
- cls - Czyszczenie ekranu
+ kill - Konczenie pracy
+ cls  - Czyszczenie ekranu
 
 Metody zarzadzania procesami
- cp - Tworzenie procesu np. CP [nazwa_procesu] [nazwa_pliku.txt]
- lp - Lista PCB wszystkich procesow
- lt - Drzewo procesow
+ cp - Tworzenie procesu np.:
+			CP [nazwa_procesu] [nazwa_pliku.txt]
+			CP [nazwa_procesu] [nazwa_rodzica] [nazwa_pliku.txt]
  dp - Usuwanie procesu np. DP [nazwa_procesu]
 
 Metody dyskowe
- ls - Listowanie katalogu
  cf - Utworzenie pliku np. CF [nazwa_pliku]
  df - Usuniecie pliku np. DF [nazwa_pliku]
- ld - Listowanie zawartosci wskazanego bloku dyskowego
  wf - Zapis do pliku np. WF [nazwa_pliku] [tresc]
+ ap - Dopis do pliku np. AF [nazwa_pliku] [tresc]
  fo - Otwarcie pliku np. FO [nazwa_pliku] [parametr]
-                parametry: -r(do odczytu) -w(do zapisu)
+			parametry: -r(do odczytu) -w(do zapisu)
  fr - Odczyt danych z pliku np. [nazwa_pliku] [ilosc_bajtow_do_odczytu]
  fc - Zamkniecie pliku np. FC [nazwa_pliku]
- finfo - Wyswietla informacje o pliku np. FINFO [nazwa_pliku]
- dinfo - Wyswietla informacje o katalogu
- dskchar - Wyswietla zawartosc dysku jako znaki
- fsysparam - Wyswietla parametry systemu plikow
- bitvector - Wyswietla wektor bitowy
 
-Metody pamieci
- showmem - Wyswietlanie zawartosci pamieci
- showpagefile - Wyswietla plik stronicowania
+Metody pracy krokowej
+ finfo       - Wyswietla informacje o pliku np. FINFO [nazwa_pliku]
+ dinfo       - Wyswietla informacje o katalogu
+ showdisk    - Wyswietla zawartosc dysku jako znaki
+ fsysparam   - Wyswietla parametry systemu plikow
+ bitvector   - Wyswietla wektor bitowy
+ showroot    - Listowanie katalogu
+ showblock   - Listowanie zawartosci wskazanego bloku dyskowego, np. showblock [numer_bloku]
+ showregs    - Wyswietlanie zawartosci rejestrow i licznika rozkazow
+ showpipe    - Wyswietla wszystkie istniejace potoki
+ showpcblist - Lista PCB wszystkich procesow
+ showpcb     - Wyswietla informacje o PCB procesu, np. showpcb [nazwa_procesu]
+ showtree    - Wyswietla drzewo procesow
+ showmem     - Wyswietlanie zawartosci pamieci
+ showpagefile  - Wyswietla plik stronicowania
  showpagetable - Wyswietla tablice wymiany stronic np. [nazwa_procesu]
- showstack - Pokazuje kolejke FIFO wymiany stronic
- showframes - Pokazuje ramki w pamieci RAM wraz ze szczegolami
+ showstack   - Pokazuje kolejke FIFO wymiany stronic
+ showframes  - Pokazuje ramki w pamieci RAM wraz ze szczegolami
 
-Specials
- thanks - check it in the end ;-)
+Metody dodatkowe
+ thanks - ;-)
 
-	)EOF");
+)EOF");
 }
-void Shell::exit() //Kończenie pracy
-{
+
+//Kończenie pracy systemu
+void Shell::exit() {
 	system("cls");
 	ver();
-	PlaySound(TEXT("Exit_Windows.wav"), nullptr, SND_ALIAS);
+	PlaySound(TEXT("Exit_Windows.wav"), nullptr, SND_SYNC);
 	status = false;
 }
-void Shell::cls() {
+
+void Shell::cls() const {
 	if (parsed.size() == 1) {
 		system("cls");
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
-void Shell::dispproc() {
+void Shell::showpcb() {
 	if (parsed.size() == 2) {
-		PCB* tempProc = tree.find_proc(parsed[1]);
-		if(tempProc != nullptr) {
+		shared_ptr<PCB>  tempProc = tree.find(parsed[1]);
+		if (tempProc != nullptr) {
 			tempProc->display();
+			cout << "\n";
 		}
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
 //Metody zarzadzania procesami
-void Shell::cp() //Tworzenie procesu
-{
+
+//Tworzenie procesu
+void Shell::cp() {
 	if (parsed.size() == 3) {
-		if (!std::filesystem::exists(parsed[2])) {
-			std::cout << "Nie znaleziono pliku!\n";
-			return;
+		if (!std::filesystem::exists(parsed[2])) { std::cout << "Nie znaleziono pliku!\n\n"; }
+		else if (parsed[1] == "system_dummy") { cout << "Nie mozna stworzyc procesu o nazwie \"" << parsed[1] << "\"\n\n"; }
+		else if (tree.find(parsed[1]) != nullptr) {
+			cout << "Proces o nazwie \"" << parsed[1] << "\" juz istnieje!\n\n";
 		}
-		else if (parsed[1] == "shell" || parsed[1] == "system_dummy") {
-			cout << "Nie można stworzyć procesu " << parsed[1] << ".\n";
-			return;
+		else {
+			tree.fork(parsed[1], 1, parsed[2]);
+			std::cout << "Stworzono proces \"" << parsed[1] << "\" wedlug programu z pliku \"" << parsed[2] << "\"\n\n";
 		}
-
-		const int sizeOfFile = std::filesystem::file_size(parsed[2]);
-		tree.fork(new PCB(parsed[1], 1), parsed[2], sizeOfFile);
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+	else if (parsed.size() == 4) {
+		if (!std::filesystem::exists(parsed[3])) { std::cout << "Nie znaleziono pliku!\n\n"; }
+		else if (parsed[1] == "system_dummy") { cout << "Nie mozna stworzyc procesu o nazwie \"" << parsed[1] << "\"\n\n"; }
+		else if (tree.find(parsed[1]) != nullptr) {
+			cout << "Proces o nazwie \"" << parsed[1] << "\" juz istnieje!\n\n";
+		}
+		else if (tree.find(parsed[2]) == nullptr) {
+			cout << "Proces o nazwie \"" << parsed[2] << "\" nie istnieje!\n\n";
+		}
+		else {
+			tree.fork(parsed[1], tree.find(parsed[2])->PID, parsed[3]);
+			std::cout << "Stworzono proces \"" << parsed[1] << "\" wedlug programu z pliku \"" << parsed[3] << "\"\n\n";
+		}
 	}
+	else { notRecognized(); }
 }
 
-void Shell::lp() //Lista PCB wszystkich procesów
-{
-	if (parsed.size() == 1)
-	{
-		p.displayPCBLists();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+//Lista PCB wszystkich procesów
+void Shell::showpcblist() const {
+	if (parsed.size() == 1) { planist.display_PCB_lists(); }
+	else { notRecognized(); }
 }
 
-void Shell::lt() {
-	if (parsed.size() == 1) {
-		tree.display_tree();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+void Shell::showtree() const {
+	if (parsed.size() == 1) { tree.display(); }
+	else { notRecognized(); }
 }
 
 void Shell::dp() {
-	if (parsed[1] == "shell" || parsed[1] == "system_dummy") {
-		std::cout << "Odmowa dostepu!" << endl;
-		return;
-	}
+	if (parsed[1] == "system_dummy") { std::cout << "Odmowa dostepu!\n\n"; }
 	else {
-		PCB* tempProc = tree.find_proc(parsed[1]);
+		const shared_ptr<PCB>  tempProc = tree.find(parsed[1]);
 		if (tempProc != nullptr) {
-			tree.exit(tempProc->PID);
+			tree.kill(tempProc->name);
+			std::cout << "Usunieto proces o nazwie \"" << parsed[1] << "\"\n\n";
 		}
 		else {
-			std::cout << "Nie znaleziono procesu!\n";
-			PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+			std::cout << "Nie znaleziono procesu o nazwie \"" << parsed[1] << "\"!\n\n";
+			PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ASYNC);
 		}
 	}
 }
-void Shell::disppip() {
-	pipel.displayPipes();
+
+void Shell::showpipe() {
+	pipeline.display();
+	cout << '\n';
 }
+
 //Metody dyskowe
-void Shell::ls() //Listowanie katalogu
-{
-	if (parsed.size() == 1)
-	{
-		fm.display_root_directory();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+
+//Listowanie katalogu głównego
+void Shell::showroot() const {
+	if (parsed.size() == 1) { fm.display_root_directory(); std::cout << '\n'; }
+	else { notRecognized(); }
 }
 
-void Shell::cf() //Utworzenie pliku
-{
-	if (parsed.size() == 2)
-	{
-		if (fm.file_create(parsed[1], "") != 0) {
-			cout << "Blad operacji!\n";
+void Shell::cf() {
+	if (parsed.size() == 2) {
+		const int result = fm.file_create(parsed[1], "");
+		if (result != 0) { cout << "Blad operacji: " << result << "!\n"; }
+		else { std::cout << "Stworzono plik o nazwie \"" << parsed[1] << "\"\n\n"; }
+	}
+	else { notRecognized(); }
+}
+
+//Usunięcie pliku
+void Shell::df() {
+	if (parsed.size() == 2) {
+		if (!fm.file_exists(parsed[1])) { cout << "Nie znaleziono pliku o nazwie \"" << parsed[1] << "\"!\n\n"; }
+		else if (const int result = fm.file_delete(parsed[1], "") != 0) {
+			cout << "Kod bledu: " << result << "!\n\n";
 		}
+		else { std::cout << "Usunieto plik o nazwie \"" << parsed[1] << "\"\n\n"; }
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
-void Shell::df() //Usunięcie pliku
-{
-	if (parsed.size() == 2)
-	{
-		if (fm.file_delete(parsed[1], "") != 0) {
-			cout << "Blad operacji!\n";
-		}
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
-}
-
-void Shell::ld() //Listowanie zawartości wskazanego bloku dyskowego
-{
-	if (parsed.size() == 2)
-	{
+//Listowanie zawartości wskazanego bloku dyskowego
+void Shell::showblock() {
+	if (parsed.size() == 2) {
 		for (const char& c : parsed[1]) {
 			if (c >= '0' || c <= '9') {}
 			else { std::cout << "Zla liczba!\n"; return; }
 		}
 		fm.display_block_char(std::stoi(parsed[1]));
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
 void Shell::wf() {
-	if (parsed.size() == 2)
-	{
+	if (parsed.size() == 2) {
 		string data;
 		cout << "Dane do wprowadzenia: ";
 		getline(cin, data);
@@ -510,15 +406,11 @@ void Shell::wf() {
 			std::cout << "Operacja niepowiodla sie!\n";
 		}
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
 void Shell::af() {
-	if (parsed.size() == 2)
-	{
+	if (parsed.size() == 2) {
 		string data;
 		cout << "Dane do dopisania: ";
 		getline(cin, data);
@@ -526,180 +418,138 @@ void Shell::af() {
 			std::cout << "Operacja niepowiodla sie!\n";
 		}
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
 void Shell::fo() {
-	if (parsed.size() == 3)
-	{
+	if (parsed.size() == 3) {
 		unsigned int arg;
 		if (parsed[2] == "-r") arg = FILE_OPEN_R_MODE;
 		if (parsed[2] == "-w") arg = FILE_OPEN_W_MODE;
 		fm.file_open(parsed[1], "", arg);
+		cout << "Otwarto plik o nazwie \"" << parsed[1] << "\" w trybie " << (arg == 0 ? "W" : "R") << "\n\n";
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
 void Shell::fr() {
-	if (parsed.size() == 3)
-	{
+	if (parsed.size() == 3) {
 		string data;
 
 		if (fm.file_read(parsed[1], "", stoi(parsed[2]), data) != 0) {
-			std::cout << "Operacja niepowiodla sie!" << endl;
+			std::cout << "Operacja niepowiodla sie!\n\n";
 			return;
 		}
-		cout << data << endl;
+		cout << data << "\n\n";
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
 void Shell::fc() {
-	if (parsed.size() == 2)
-	{
+	if (parsed.size() == 2) {
 		fm.file_close(parsed[1], "");
+		cout << "Zamknieto plik o nazwie \"" << parsed[1] << "\"\n\n";
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
 void Shell::finfo() {
-	if (parsed.size() == 2)
-	{
+	if (parsed.size() == 2) {
 		fm.display_file_info(parsed[1]);
+		std::cout << "\n";
 	}
 	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+		notRecognized();
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ASYNC);
 	}
 }
 
-void Shell::dinfo() {
-	if (parsed.size() == 1)
-	{
+void Shell::dinfo() const {
+	if (parsed.size() == 1) {
 		fm.display_root_directory_info();
+		std::cout << "\n";
 	}
 	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+		notRecognized();
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ASYNC);
 	}
 }
 
-void Shell::dskchar() {
-	if (parsed.size() == 1)
-	{
-		fm.display_disk_content_char();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+void Shell::showdisk() const {
+	if (parsed.size() == 1) { fm.display_disk_content_char(); }
+	else { notRecognized(); }
 }
 
-void Shell::fsysparam() {
-	if (parsed.size() == 1)
-	{
-		fm.display_file_system_params();
+void Shell::fsysparam() const {
+	if (parsed.size() == 1) {
+		FileManager::display_file_system_params();
+		std::cout << "\n";
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
-void Shell::bitvector() {
-	if (parsed.size() == 1)
-	{
-		fm.display_bit_vector();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+void Shell::bitvector() const {
+	if (parsed.size() == 1) { fm.display_bit_vector(); std::cout << "\n"; }
+	else { notRecognized(); }
 }
+
 //Metody pamieci
 void Shell::showmem() {
-	if (parsed.size() == 1)
-	{
-		mm.showMem();
-	}
+	if (parsed.size() == 1) { mm.show_memory(); std::cout << "\n"; }
 	else if (parsed.size() == 3) {
-		int begin = stoi(parsed[1]);
-		int bytes = stoi(parsed[2]);
-		mm.showMem(begin, bytes);
+		const int begin = stoi(parsed[1]);
+		const int bytes = stoi(parsed[2]);
+		mm.show_memory(begin, bytes);
+		std::cout << "\n";
 	}
 	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+		notRecognized();
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ASYNC);
 	}
 }
 
-void Shell::showpagefile() {
-	if (parsed.size() == 1)
-	{
-		mm.showPageFile();
-	}
+void Shell::showpagefile() const {
+	if (parsed.size() == 1) { mm.show_page_file(); std::cout << "\n"; }
 	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
+		notRecognized();
+		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ASYNC);
 	}
 }
 
 void Shell::showpagetable() {
-	if (parsed.size() == 2)
-	{
-		if (parsed[1] == "shell") cout << "Odmowa dostepu!" << endl;
-		else mm.showPageTable(tree.find_proc(parsed[1])->pageList);
+	if (parsed.size() == 2) {
+		if (parsed[1] == "shell") { cout << "Odmowa dostepu!\n"; }
+		else {
+			MemoryManager::show_page_table(tree.find(parsed[1])->pageList);
+			std::cout << "\n";
+		}
 	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+	else { notRecognized(); }
 }
 
-void Shell::showstack() {
-	if (parsed.size() == 1)
-	{
-		mm.showStack();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+void Shell::showstack() const {
+	if (parsed.size() == 1) { mm.show_stack(); std::cout << "\n"; }
+	else { notRecognized(); }
 }
 
-void Shell::showframes() {
-	if (parsed.size() == 1)
-	{
-		mm.showFrames();
-	}
-	else {
-		cout << "Nie rozpoznano polecenia! Wpisz \"help\" by wyswietlic pomoc" << endl;
-		PlaySound(TEXT("Critical_Stop.wav"), nullptr, SND_ALIAS);
-	}
+void Shell::showframes() const {
+	if (parsed.size() == 1) { mm.show_frames(); std::cout << "\n"; }
+	else { notRecognized(); }
 }
 
+
+//Easter egg
 void Shell::thanks() {
 	system("cls");
-	cout << "                                                                              \n"
+	cout << "\n"
+		"                                                                               \n"
 		"   //////// 	 //////  //////      //////   //    //////   ////  ////         \n"
 		" ////        //    /// //    //    //   //  //     //     //    //             \n"
 		"///    //// //    /// //     //   //////   //     /////   ////  ////           \n"
 		"///    /// //    /// //     //   //    // //     //         //    //           \n"
 		"/////////   ///////  ///////     //////   ///// //////  ///// /////            \n"
-		"                                                                               \n";
-	cout << "                       ,,,/////#####(///,/%%%#)                                \n"
+		"                                                                               \n"
+		"                       ,,,/////#####(///,/%%%#)                                \n"
 		"                     /*....                   .#&                              \n"
 		"                  /*,...,....                  ..#&                            \n"
 		"                (*,,,,...                       ..,#%&                         \n"
@@ -749,6 +599,5 @@ void Shell::thanks() {
 		"##%%%#(######(############(((((##%%%%%######################(//////(((((((((###\n"
 		"##%%%##(####(############((((((#%%%%#######################((/////((((((((((##%\n"
 		"##%%%##(((#(#############((((##%%%%#########(############(((///////((((((((####\n"
-		"#%%%%%##((((#############((((##%%%####(####((#######(##(((((///////((((((((###%\n";
-
+		"#%%%%%##((((#############((((##%%%####(####((#######(##(((((///////((((((((###%\n\n"; //Koniec cout
 }

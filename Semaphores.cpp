@@ -1,40 +1,52 @@
+#include "Semaphores.h"
 #include <iostream>
-#include "Procesy.h"
-#include "Semaphores.hpp"
-#include "Planista.h"
 
-Semaphore::Semaphore(Planista* plan) : p(plan) {
-	this->value = 999;
+using namespace std;
+
+Semaphore::Semaphore(){
+	this->value = 99;
 }
 
-Semaphore::Semaphore(Planista* plan, const int& n) : p(plan) {
+Semaphore::Semaphore(const int& n) {
 	this->value = n;
 }
-void Semaphore::Wait(PCB* pcb) {
+
+void Semaphore::wait(const shared_ptr<PCB>& pcb) {
 	this->value--;
-	if (this->value <= 0 && !this->blocked) {
+
+	if (this->value < 0) {
 		this->blocked = true;
 		block(pcb);
 	}
 }
-void Semaphore::Signal(PCB* pcb) {
-	this->value++;
 
-	if (this->value > 0 && this->blocked) {
-		this->blocked = false;
-		wakeup(pcb);
+void Semaphore::signal() {
+	this->value++;
+	if (this->value > 0) { this->blocked = false; }
+	wakeup();
+}
+
+void Semaphore::signal_all() {
+	this->value++;
+	if (this->value > 0) { this->blocked = false; }
+	while (!waitingPCB.empty()) {
+		wakeup();
 	}
 }
-void Semaphore::block(PCB* pcb) const {
-	if (pcb != nullptr) {
-		pcb->change_state(WAITING);
-		p->Check();
-	}
+
+void Semaphore::block(const shared_ptr<PCB>& pcb) {
+	pcb->change_state(WAITING);
+	cout << "Uspiono proces: " << pcb->name << '\n';
+	this->waitingPCB.push(pcb);
 }
-void Semaphore::wakeup(PCB* pcb) const {
-	if (pcb != nullptr) {
-		pcb->change_state(RUNNING);
-		p->Check();
+
+void Semaphore::wakeup() {
+	if (!this->waitingPCB.empty()) {
+		if (this->waitingPCB.front() != nullptr) {
+			cout << "Obudzono proces: " << waitingPCB.front()->name << '\n';
+			this->waitingPCB.front()->change_state(RUNNING);
+			this->waitingPCB.pop();
+		}
 	}
 }
 
@@ -45,6 +57,11 @@ const bool& Semaphore::is_blocked() const {
 const int& Semaphore::get_value() const {
 	return this->value;
 }
-void Semaphore::show_value() const{
-	std::cout<<"Aktualna wartosc zmiennej semaforowej: " << get_value() << std::endl;
+
+void Semaphore::set_value(const int& val) {
+	this->value = val;
+}
+
+void Semaphore::show_value() const {
+	cout << "Aktualna wartosc zmiennej semaforowej: " << get_value() << endl;
 }

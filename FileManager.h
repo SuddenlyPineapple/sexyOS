@@ -1,51 +1,44 @@
+#pragma once
+
 /**
 	SexyOS
 	FileManager.h
 	Przeznaczenie: Zawiera klasê FileManager oraz deklaracje metod i konstruktorów
 
 	@author Tomasz Kiljañczyk
-	@version 04/01/19
 */
 
 /*
  * Aby ³atwiej nawigowaæ po moim kodzie polecam z³o¿yæ wszystko
- * Skrót: CTRL + M + A
+ * Skrót: CTRL + M + L
  */
-
-#ifndef SEXYOS_FILEMANAGER_H
-#define SEXYOS_FILEMANAGER_H
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "Semaphores.hpp"
+#include "Semaphores.h"
 #include <string>
 #include <array>
 #include <bitset>
 #include <vector>
 #include <unordered_map>
 #include <map>
-#include <queue>
 
-class Planista;
-class proc_tree;
-
-//Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
+ //Do u¿ywania przy funkcji open (nazwy mówi¹ same za siebie)
 #define FILE_OPEN_R_MODE  1 //01
 #define FILE_OPEN_W_MODE  2 //10
 
 //Do u¿ycia przy obs³udze b³êdów
 #define FILE_ERROR_NONE				0
 #define FILE_ERROR_EMPTY_NAME		1
-#define FILE_ERROR_NAME_TOO_LONG	2
-#define FILE_ERROR_NAME_USED		3
-#define FILE_ERROR_NO_INODES_LEFT	4
-#define FILE_ERROR_DATA_TOO_BIG		5
-#define FILE_ERROR_NOT_FOUND		6
-#define FILE_ERROR_NOT_OPENED		7
-#define FILE_ERROR_OPENED			8
-#define FILE_ERROR_SYNC				9
-#define FILE_ERROR_NOT_R_MODE		10
-#define FILE_ERROR_NOT_W_MODE		11
+#define FILE_ERROR_NAME_USED		2
+#define FILE_ERROR_NO_INODES_LEFT	3
+#define FILE_ERROR_DATA_TOO_BIG		4
+#define FILE_ERROR_NOT_FOUND		5
+#define FILE_ERROR_NOT_OPENED		6
+#define FILE_ERROR_OPENED			7
+#define FILE_ERROR_SYNC				8
+#define FILE_ERROR_NOT_R_MODE		9
+#define FILE_ERROR_NOT_W_MODE		10
 
 #define FILE_SYNC_WAITING 30
 
@@ -64,7 +57,6 @@ private:
 	static const u_short_int DISK_CAPACITY = 1024;	//Pojemnoœæ dysku (bajty)
 	static const uint8_t BLOCK_INDEX_NUMBER = 3;	//Wartoœæ oznaczaj¹ca d³ugoœæ pola blockDirect
 	static const uint8_t INODE_NUMBER_LIMIT = 32;	//Maksymalna iloœæ elementów w katalogu
-	static const uint8_t MAX_FILENAME_LENGTH = 16;	//Maksymalna d³ugoœæ œcie¿ki
 
 	static const bool BLOCK_FREE = false;           //Wartoœæ oznaczaj¹ca wolny blok
 	static const bool BLOCK_OCCUPIED = !BLOCK_FREE; //Wartoœæ oznaczaj¹ca zajêty blok
@@ -177,12 +169,8 @@ private:
 	//Klucz   - para nazwa pliku, nazwa procesu
 	//Wartoœæ - semafor przypisany danemu procesowi
 	std::map<std::pair<std::string, std::string>, FileIO> accessedFiles;
-	std::map<std::string, std::queue<int>> waitingProcesses;
 
 	//Inne modu³y
-	Planista* p;
-	proc_tree* tree;
-
 
 
 public:
@@ -190,7 +178,7 @@ public:
 	/**
 		Konstruktor domyœlny. Przypisuje do obecnego katalogu katalog g³ówny.
 	*/
-	explicit FileManager(Planista* plan, proc_tree* tree_) : p(plan), tree(tree_) {}
+	explicit FileManager() = default;
 
 
 
@@ -199,63 +187,63 @@ public:
 		Tworzy plik o podanej nazwie w obecnym katalogu.\n
 		Po stworzeniu plik jest otwarty w trybie do zapisu.
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu tworz¹cego.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_create(const std::string& name, const std::string& procName);
+	int file_create(const std::string& fileName, const std::string& procName);
 
 	/**
 		Zapisuje podane dane w danym pliku usuwaj¹c poprzedni¹ zawartoœæ.
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu, który chce zapisaæ do pliku.
 		@param data Dane do zapisu.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_write(const std::string& name, const std::string& procName, const std::string& data);
+	int file_write(const std::string& fileName, const std::string& procName, const std::string& data);
 
 	/**
 		Dopisuje podane dane na koniec pliku.
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu, który chce dopisaæ do pliku.
 		@param data Dane do zapisu.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_append(const std::string& name, const std::string& procName, const std::string& data);
+	int file_append(const std::string& fileName, const std::string& procName, const std::string& data);
 
 	/**
 		Odczytuje podan¹ liczbê bajtów z pliku. Po odczycie przesuwa siê wskaŸnik odczytu.\n
 		Aby zresetowaæ wskaŸnik odczytu nale¿y ponownie otworzyæ plik.
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu, który chce odczytaæ z pliku.
 		@param byteNumber Iloœæ bajtów do odczytu.
 		@param result Miejsce do zapisania odczytanych danych.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_read(const std::string& name, const std::string& procName, const u_short_int& byteNumber, std::string& result);
+	int file_read(const std::string& fileName, const std::string& procName, const u_short_int& byteNumber, std::string& result);
 
 	/**
 		Odczytuje ca³e dane z pliku.
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu, który chce odczytaæ z pliku.
 		@param result Miejsca do zapisania odczytanych danych.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_read_all(const std::string& name, const std::string& procName, std::string& result);
+	int file_read_all(const std::string& fileName, const std::string& procName, std::string& result);
 
 	/**
 		Usuwa plik o podanej nazwie znajduj¹cy siê w obecnym katalogu.\n
 		Plik jest wymazywany z katalogu g³ównego oraz wektora bitowego.
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu, który chce usun¹æ pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_delete(const std::string& name, const std::string& procName);
+	int file_delete(const std::string& fileName, const std::string& procName);
 
 	/**
 		Otwiera plik z podanym trybem dostêpu:
@@ -263,40 +251,38 @@ public:
 		- W (write) - do zapisu
 		- RW (read/write) - do odczytu i zapisu
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu tworz¹cego.
 		@param mode Tryb dostêpu do pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_open(const std::string& name, const std::string& procName, const unsigned int& mode);
+	int file_open(const std::string& fileName, const std::string& procName, const unsigned int& mode);
 
 	/**
 		Zamyka plik o podanej nazwie.
 
-		@param name Nazwa pliku.
+		@param fileName Nazwa pliku.
 		@param procName Nazwa procesu, który zamkn¹æ pliku.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_close(const std::string& name, const std::string& procName);
+	int file_close(const std::string& fileName, const std::string& procName);
 
 
 
 	//--------------------- Dodatkowe metody --------------------
 
 	/**
-		Tworzy plik o podanej nazwie w obecnym katalogu i zapisuje w nim podane dane.
-		Po stworzeniu plik jest otwarty w trybie do zapisu.
+		Sprawdza czy plik istnieje.
 
-		@param name Nazwa pliku.
-		@param procName Nazwa procesu tworz¹cego.
-		@param data Dane typu string.
+		@param fileName Nazwa pliku do znalezienia.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
-	int file_create(const std::string& name, const std::string& procName, const std::string& data);
+	bool file_exists(const std::string& fileName);
 
 	/**
 		Zamyka wszystkie pliki dla danego procesu.
 
+		@param procName Nazwa procesu dla którego maj¹ byæ zamkniête pliki.
 		@return Kod b³êdu. 0 oznacza brak b³êdu.
 	*/
 	int file_close_all(const std::string& procName);
@@ -438,4 +424,4 @@ private:
 	static const std::vector<std::string> fragmentate_data(const std::string& data);
 };
 
-#endif //SEXYOS_FILEMANAGER_H
+extern FileManager fm;

@@ -1,0 +1,13 @@
+MOV A 30
+MOV B 10
+JZ B [69]
+MOV C A
+MOD C B
+MOV A B
+MOV B C
+JMP [18]
+WRITE [120] A
+GET [120] B
+GET [6] D
+HLT
+                                                          

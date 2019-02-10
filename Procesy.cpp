@@ -1,57 +1,46 @@
 #include "Procesy.h"
-#include "Planista.h"
+#include "Planist.h"
 #include "MemoryManager.h"
-#include "pipe.h"
+#include "Pipe.h"
 #include <iostream>
+#include <memory>
 
+using namespace std;
 
-void PCB::change_state(Process_state x)
-{
-	this->state = x;
-}
+ProcTree tree;
 
-void PCB::add_file_to_proc(const std::string& open_file)
-{
-	this->open_files.push_back(open_file);
-}
+//PCB ----------------
+void PCB::change_state(const Process_state& x) { this->state = x; planist.check(); }
 
-void PCB::kill_all_childrens(MemoryManager & mm)
-{
-	for (auto& i : this->child_vector)
-	{
+void PCB::kill_all_childrens() {
+	for (auto& i : this->childVector) {
 		i->change_state(TERMINATED);
 		mm.kill(i->PID);
 	}
-	this->child_vector.clear(); //Tu nast�puje usuni�cie wszystkich dzieci
+	this->childVector.clear(); //Tu nast�puje usuni�cie wszystkich dzieci
 
 }
 
+void PCB::set_PID(const unsigned int& i) { this->PID = i; }
 
-
-void PCB::Set_PID(int i)
+shared_ptr<PCB> PCB::get_kid(const unsigned int& PID)
 {
-	this->PID = i;
-}
-
-PCB* PCB::GET_kid(const unsigned int& PID)
-{
-	for (PCB* kid : this->child_vector) {
+	for (shared_ptr<PCB> kid : this->childVector) {
 		if (kid->PID == PID) { return kid; }
 	}
-	for (PCB* kid : this->child_vector) {
-		PCB* foundKid = kid->GET_kid(PID); //U�y�em rekurencji
+	for (shared_ptr<PCB> kid : this->childVector) {
+		shared_ptr<PCB> foundKid = kid->get_kid(PID); //Użyłem rekurencji
 		if (foundKid != nullptr) { return foundKid; }
 	}
 	return nullptr;
-
 }
-PCB* PCB::GET_kid(const std::string& nazwa)
+shared_ptr<PCB> PCB::get_kid(const string& nazwa)
 {
-	for (PCB* kid : this->child_vector) {
+	for (shared_ptr<PCB> kid : this->childVector) {
 		if (kid->name == nazwa) { return kid; }
 	}
-	for (PCB* kid : this->child_vector) {
-		PCB* foundKid = kid->GET_kid(nazwa); //U�y�em rekurencji
+	for (shared_ptr<PCB> kid : this->childVector) {
+		shared_ptr<PCB> foundKid = kid->get_kid(nazwa); //U�y�em rekurencji
 		if (foundKid != nullptr) { return foundKid; }
 	}
 
@@ -60,269 +49,221 @@ PCB* PCB::GET_kid(const std::string& nazwa)
 
 bool PCB::find_kid(const unsigned int& PID) const
 {
-	for (const PCB* kid : this->child_vector) {
+	for (const shared_ptr<PCB> kid : this->childVector) {
 		if (kid->PID == PID) { return true; }
-		else if (!kid->child_vector.empty()) {
+		else if (!kid->childVector.empty()) {
 			const bool result = kid->find_kid(PID);
 			if (result) { return kid->find_kid(PID); }
 		}
 	}
 	return false;
 }
-void PCB::display_allkids() {
-	for (PCB* kid : this->child_vector) {
-		std::cout << '\t';
-		if (kid->parent_proc->PID == 1) { std::cout << " Nazwa: " << kid->name << ", PID: " << kid->PID << std::endl; }
-		else { std::cout << " Nazwa: " << kid->name << ", PID: " << kid->PID << std::endl; }
 
-		if (!kid->child_vector.empty()) {
-			kid->display_allkids(1);
+void PCB::display_kids() {
+	for (shared_ptr<PCB> kid : this->childVector) {
+		cout << '\t';
+		if (kid->parentProc->PID == 1) { cout << " Nazwa: " << kid->name << ", PID: " << kid->PID << endl; }
+		else { cout << " Nazwa: " << kid->name << ", PID: " << kid->PID << endl; }
+
+		if (!kid->childVector.empty()) {
+			kid->display_kids(1);
 		}
 	}
 }
-void PCB::display_allkids(int a)
+void PCB::display_kids(int a)
 {
 	a++;
 
-	for (PCB* kid : this->child_vector) {
+	for (shared_ptr<PCB> kid : this->childVector) {
 		for (int i = 1; i < a; i++) {
-			std::cout << "\t";
+			cout << "\t";
 		}
-		std::cout << " - Nazwa: " << kid->name << ", PID: " << kid->PID << std::endl;
+		cout << " - Nazwa: " << kid->name << ", PID: " << kid->PID << endl;
 
-		if (!kid->child_vector.empty()) { kid->display_allkids(a); }
+		if (!kid->childVector.empty()) { kid->display_kids(a); }
 	}
 
-	if (a == 2) { std::cout << std::endl; }
+	if (a == 2) { cout << endl; }
 }
 
-void PCB::delete_pipe(Pipeline &pp)
+void PCB::delete_pipe()
 {
-	for (PCB* kid : this->child_vector) {
-		if (pp.existPipe(this->name, kid->name)) {}
-		pp.deletePipe(this->name, kid->name);
-
+	for (shared_ptr<PCB> kid : this->childVector) {
+		if (pipeline.exist_pipe(this->name, kid->name)) {}
+		pipeline.delete_pipe(this->name, kid->name);
 	}
 
 }
 
 void PCB::display() {
-	std::cout << " | PID : " << PID << '\n';
-	std::cout << " | NAZWA : " << name << '\n';
-	if (parent_proc != nullptr) {
-		std::cout << " | RODZIC : " << parent_proc->name << " (PID : " << parent_proc->PID << ")\n";
+	cout << " | PID : " << PID << '\n';
+	cout << " | NAZWA : " << name << '\n';
+	if (parentProc != nullptr) {
+		cout << " | RODZIC : " << parentProc->name << " (PID : " << parentProc->PID << ")\n";
 	}
-	std::cout << " | ROZMIAR : " << proces_size << '\n';
-	std::cout << " | LICZBA DZIECI : " << child_vector.size() << '\n';
-	std::cout << " | STAN : ";
+	cout << " | ROZMIAR : " << procesSize << '\n';
+	cout << " | LICZBA DZIECI : " << childVector.size() << '\n';
+	cout << " | STAN : ";
 	switch (state) {
-	case RUNNING: std::cout << "RUNNING"; break;
-	case NEW: std::cout << "NEW"; break;
-	case WAITING: std::cout << "WAITING"; break;
-	case READY: std::cout << "READY"; break;
-	case TERMINATED: std::cout << "TERMINATED"; break;
+	case RUNNING: cout << "RUNNING"; break;
+	case WAITING: cout << "WAITING"; break;
+	case READY: cout << "READY"; break;
+	case TERMINATED: cout << "TERMINATED"; break;
 	default:;
 	}
-	std::cout << '\n';
-	std::cout << " | A : " << A << '\n';
-	std::cout << " | B : " << B << '\n';
-	std::cout << " | C : " << C << '\n';
-	std::cout << " | D : " << D << '\n';
-}
-
-
-proc_tree::proc_tree(MemoryManager* mm_, Planista* p_, Pipeline* pip_) : mm(mm_), p(p_), pip(pip_) {
-	mm->memoryInit();
-	this->proc = PCB();
-	proc.pageList = mm->createPageList(16, 1);
-	p->AddProces(&proc);
-	proc.change_state(READY);
-	p->Check();
+	cout << '\n';
+	cout << " | A : " << registers[0] << '\n';
+	cout << " | B : " << registers[1] << '\n';
+	cout << " | C : " << registers[2] << '\n';
+	cout << " | D : " << registers[3] << '\n';
 }
 
 
 
-void proc_tree::fork(PCB* proc, int size) {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
+//ProcTree ----------------
+
+void ProcTree::fork(const shared_ptr<PCB>& proc, int size) {
+	if (proc->PID == this->dummyProc->PID) {//sprawdza czy id ojca się zgadza i jeśli tak przypisuje go do niego.
 
 		proc->PID = free_PID;
 		free_PID++;
-		proc->parent_proc = &this->proc;
-		const auto pages = static_cast<unsigned int>(ceil(size / 16.0));
-		proc->proces_size = size;
-		proc->pageList = mm->createPageList(size, proc->PID);
-		proc->change_state(READY);
+		proc->parentProc = this->dummyProc;
+		proc->procesSize = size;
+		proc->pageList = mm.create_page_list(size, proc->PID);
+		planist.add_process(proc);
 
 
-		this->proc.child_vector.push_back(proc);
-		p->AddProces(proc);
+		this->dummyProc->childVector.push_back(proc);
 	}
 	else {
-		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
+		if (this->dummyProc->get_kid(proc->PID)->PID == proc->PID) {
 			const int temp = proc->PID;
 
-			proc->parent_proc = this->proc.GET_kid(temp);
+			proc->parentProc = this->dummyProc->get_kid(temp);
 			proc->PID = free_PID;
-			this->proc.GET_kid(temp)->child_vector.push_back(proc);
-			//std::cout << " znaleziono ojca" << std::endl;
+			this->dummyProc->get_kid(temp)->childVector.push_back(proc);
+			//cout << " znaleziono ojca" << endl;
 			free_PID++;
 			const auto pages = static_cast<unsigned int>(ceil(size / 16.0));
-			proc->pageList = mm->createPageList(size, proc->PID);
-			proc->change_state(READY);
-			proc->proces_size = pages * 16;
-			p->AddProces(proc);
+			proc->pageList = mm.create_page_list(size, proc->PID);
+			planist.add_process(proc);
+			proc->procesSize = pages * 16;
 
 		}
 		else {
-			std::cout << "nie znaleziono ojca" << std::endl;
+			cout << "nie znaleziono ojca" << endl;
 		}
 
 	}
 
 }
-void proc_tree::fork(PCB* proc, const std::string& file_name, int size) {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
+
+void ProcTree::fork(const shared_ptr<PCB>& proc, const string& file_name, const int& size) {
+	if (proc->PID == this->dummyProc->PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
 		proc->PID = free_PID;
 		free_PID++;
-		proc->parent_proc = &this->proc;
+		proc->parentProc = this->dummyProc;
 
 		const auto pages = static_cast<unsigned int>(ceil(size / 16.0));
-		if (mm->loadProgram(file_name, size, proc->PID) == -1) {
+		if (mm.load_program(file_name, size, proc->PID) == -1) {
 			exit(proc->PID);
 			return;
 
 		}
-		proc->pageList = mm->createPageList(size, proc->PID);
-		proc->change_state(READY);
-		proc->proces_size = pages * 16;
-		proc->add_file_to_proc(file_name);
-		this->proc.child_vector.push_back(proc);
-		p->AddProces(proc);
+		proc->pageList = mm.create_page_list(size, proc->PID);
+		planist.add_process(proc);
+		proc->procesSize = pages * 16;
+		this->dummyProc->childVector.push_back(proc);
 	}
 	else {
-		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
+		if (this->dummyProc->get_kid(proc->PID)->PID == proc->PID) {
 			const int temp = proc->PID;
 
-			proc->parent_proc = this->proc.GET_kid(temp);
+			proc->parentProc = this->dummyProc->get_kid(temp);
 			proc->PID = free_PID;
-			this->proc.GET_kid(temp)->child_vector.push_back(proc);
-			//std::cout << " znaleziono ojca" << std::endl;
+			this->dummyProc->get_kid(temp)->childVector.push_back(proc);
+			//cout << " znaleziono ojca" << endl;
 			free_PID++;
 			const auto pages = static_cast<unsigned int>(ceil(size / 16.0));
-			if (mm->loadProgram(file_name, size, proc->PID) != 1) {
+			if (mm.load_program(file_name, size, proc->PID) != 1) {
 				exit(proc->PID);
 				throw 1;// rzucam cos rzeby funckeje przerwac
 
 			}
-			proc->pageList = mm->createPageList(size, proc->PID);
-			proc->change_state(READY);
-			proc->proces_size = pages * 16;
-			proc->add_file_to_proc(file_name);
-			p->AddProces(proc);
+			proc->pageList = mm.create_page_list(size, proc->PID);
+			planist.add_process(proc);
+			proc->procesSize = pages * 16;
 
 		}
 		else {
-			std::cout << "nie znaleziono ojca" << std::endl;
+			cout << "nie znaleziono ojca" << endl;
 		}
 
 	}
 
 }
 
-void proc_tree::fork(PCB* proc)
+void ProcTree::fork(const shared_ptr<PCB>& proc)
 {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
+	if (proc->PID == this->dummyProc->PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
 		proc->PID = free_PID;
 		free_PID++;
-		proc->parent_proc = &this->proc;
-		this->proc.child_vector.push_back(proc);
-		p->AddProces(proc);
+		proc->parentProc = this->dummyProc;
+		this->dummyProc->childVector.push_back(proc);
+		planist.add_process(proc);
 	}
 	else {
 		if (this->find_proc(proc->PID) != nullptr) {
 			auto parent = this->find_proc(proc->PID);
-			proc->parent_proc = parent;
+			proc->parentProc = parent;
 			proc->PID = free_PID;
-			parent->child_vector.push_back(proc);
-			//std::cout << " znaleziono ojca" << std::endl;
+			parent->childVector.push_back(proc);
+			//cout << " znaleziono ojca" << endl;
 			free_PID++;
-			p->AddProces(proc);
+			planist.add_process(proc);
 		}
 		else {
-			std::cout << "nie znaleziono ojca" << std::endl;
+			cout << "nie znaleziono ojca" << endl;
 		}
 	}
 
 }
 
-void proc_tree::fork(PCB* proc, std::vector<std::string> file_names)
+void ProcTree::exit(const unsigned& pid)
 {
-	if (proc->PID == this->proc.PID) {//sprawdza czy id ojca si� zgadza i jestli tak przypisuje go do niego.
-		for (const std::string& file_name : file_names) {
-			proc->open_files.push_back(file_name);
-		}
-		proc->PID = free_PID;
-		free_PID++;
-		proc->parent_proc = &this->proc;
-		this->proc.child_vector.push_back(proc);
+	if (pid == this->dummyProc->PID) { // kiedy damy id=1 
+		cout << "Nie mozna usunac inita/system_dummy" << endl;
 	}
 	else {
-		if (this->proc.GET_kid(proc->PID)->PID == proc->PID) {
-			const int temp = proc->PID;
-			for (const std::string& file_name : file_names) {
-				proc->open_files.push_back(file_name);
-			}
-			proc->parent_proc = this->proc.GET_kid(temp);
-			proc->PID = free_PID;
-			this->proc.GET_kid(temp)->child_vector.push_back(proc);
-			//std::cout << " znaleziono ojca" << std::endl;
-			free_PID++;
-
-
-		}
-		else {
-			std::cout << "nie znaleziono ojca" << std::endl;
-		}
-	}
-}
-
-void proc_tree::exit(const unsigned& pid)
-{
-	if (pid == this->proc.PID) { // kiedy damy id=1 
-		std::cout << "Nie mozna usunac inita/system_dummy" << std::endl;
-	}
-	else {
-		PCB* temp = this->find_proc(pid);
+		shared_ptr<PCB> temp = this->find_proc(pid);
 		if (temp == nullptr) {//jak nie znajdzie dziecka
-			std::cout << "Nie ma takiego procesu!" << std::endl;
+			cout << "Nie ma takiego procesu!" << endl;
 		}
 		else {
-			if (!temp->child_vector.empty()) { //kiedy ma dzieci
+			if (!temp->childVector.empty()) { //kiedy ma dzieci
 				//kiedy dziecko ma dzieci
-				for (auto& i : temp->child_vector) {
-					i->kill_all_childrens(*mm);
-					for (auto& elem : i->FD) {
-
-					}
+				for (auto& i : temp->childVector) {
+					i->kill_all_childrens();
+					//for (auto& elem : i->FD) { //Część dla pipe'ów
+					//
+					//}
 					exit(i->PID);
 				}
 			}
-			PCB* parent = temp->parent_proc;
-			for (size_t i = 0; i < parent->child_vector.size(); i++) {
-				if (parent->child_vector.at(i)->PID == pid) {
+			shared_ptr<PCB> parent = temp->parentProc;
+			for (size_t i = 0; i < parent->childVector.size(); i++) {
+				if (parent->childVector.at(i)->PID == pid) {
 					for (auto& elem : temp->FD) {
 						if (elem.second[0] != -1) {
-							pip->deletePipe(elem.second[0]);
+							pipeline.delete_pipe(elem.second[0]);
 						}
 					}
 					temp->change_state(TERMINATED);
-					p->Check();
-					mm->kill(pid);
+					mm.kill(pid);
 
 					//for()
 
-					parent->child_vector.erase(parent->child_vector.begin() + i);
-					delete temp;
+					parent->childVector.erase(parent->childVector.begin() + i);
 					break;
 				}
 			}
@@ -330,28 +271,33 @@ void proc_tree::exit(const unsigned& pid)
 	}
 }
 
-
-void proc_tree::display_tree()
-{
-	std::cout << " Nazwa: " << proc.name << ", PID: " << proc.PID << std::endl;
-	proc.display_allkids();
+void ProcTree::init() {
+	planist.add_process(dummyProc);
+	mm.memory_init();
+	dummyProc->pageList = mm.create_page_list(16, 1);
 }
 
-PCB *proc_tree::find_proc(const unsigned& PID)
+void ProcTree::display_tree()
 {
-	if (PID == this->proc.PID) {
-		return &this->proc;// do sprawdzenia czy tak zadzia�a (sprawdzone)
+	cout << " Nazwa: " << dummyProc->name << ", PID: " << dummyProc->PID << endl;
+	dummyProc->display_kids();
+}
+
+shared_ptr<PCB> ProcTree::find_proc(const unsigned& PID)
+{
+	if (PID == this->dummyProc->PID) {
+		return this->dummyProc;// do sprawdzenia czy tak zadzia�a (sprawdzone)
 	}
-	else return this->proc.GET_kid(PID);
+	else return this->dummyProc->get_kid(PID);
 
 }
 
-PCB * proc_tree::find_proc(const std::string& nazwa)
+shared_ptr<PCB> ProcTree::find_proc(const string& nazwa)
 {
 	{
-		if (nazwa == this->proc.name) {
-			return &this->proc;// do sprawdzenia czy tak zadzia�a (sprawdzone)
+		if (nazwa == this->dummyProc->name) {
+			return this->dummyProc;// do sprawdzenia czy tak zadzia�a (sprawdzone)
 		}
-		else return this->proc.GET_kid(nazwa);
+		else return this->dummyProc->get_kid(nazwa);
 	}
 }

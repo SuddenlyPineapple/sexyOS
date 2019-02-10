@@ -1,7 +1,9 @@
-MOV A 5
-CP "proc1"
-SP "proc1"
-SM "proc1" "wiadomosc"
-RM "proc1" 6
-DP "proc1"
+SP W
+SP R
+SMK "wiadomosc"
+RMK 3 [120]
+SMK "wiadomosc"
+RMK 3 [123]
+SMK "AA"
+RMK 6 [126]
 HLT

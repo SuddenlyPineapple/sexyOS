@@ -1,45 +1,50 @@
 #pragma once
-#include <vector>
 #include <string>
-
+#include <memory>
 #include <queue>
+#include <map>
+#include "Semaphores.h"
 
 class PCB;
-class proc_tree;
-class Pipe;
 
 class Pipeline {
 private:
-	std::vector<Pipe*> pipes;
+	class Pipe {
+	private:
+		//Z tych semaforów korzystam jak z binarnych
+		Semaphore readSem;
+		Semaphore writeSem;
 
+	public:
+		static const unsigned int capacity = 10;
+		unsigned int spaceLeft = capacity;
 
-public:
-	proc_tree* tree;
+		std::queue<char> buffer;
+		std::shared_ptr<PCB> parent;
 
-	Pipeline(proc_tree* tree_) : tree(tree_){}
+		explicit Pipe(std::shared_ptr<PCB> parent_);
 
-	void createPipe(const std::string& p1, const std::string& p2);
+		std::string read(const std::shared_ptr<PCB>& readProc, const size_t& size);
+		int write(const std::shared_ptr<PCB>& writeProc, const std::string& message);
+	};
 
-	void write(const std::string& p1, const std::string& p2, const std::string& data);
-	std::string read(const std::string& p1, const std::string& p2, const size_t& rozmiar);
-
-	void deletePipe(const std::string& p1, const std::string& p2);
-	void deletePipe(const size_t& pos);
-	bool existPipe(const std::string& p1, const std::string& p2);
-
-	void displayPipes();
-};
-class Pipe {
-private:
-	Pipeline *p;
+	std::map<std::string, std::shared_ptr<Pipe>> pipes;
 
 public:
-	std::queue<char> buffer;
-	PCB* p1;
-	PCB* p2;
+	Pipeline() = default;
 
-	Pipe(PCB* p1, PCB* p2, Pipeline* potok);
-	~Pipe();
-	std::string read(size_t rozmiar);
-	void write(const std::string& wiadomosc);
+	void create(const std::string& parent, const std::string& mode);
+
+	int write(const std::string& p1, const std::string& p2, std::string data);
+	std::string read(const std::string& p1, const std::string& p2, size_t size);
+
+	void remove(const std::string& parent, const std::string& mode);
+	void remove(const std::string& parent);
+	bool exists(const std::string& parent, const std::string& mode) const;
+	bool exists(const std::string& parent) const;
+
+	void display();
 };
+
+
+extern Pipeline pipeline;

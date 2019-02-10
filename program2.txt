@@ -1,8 +1,10 @@
-MOV A 5
+MOV A 105
 MF "plik1"
-WF "plik1" "Tekst_testowy" 
+WF "plik1" "Tekst_testowy"
+AF "plik1" A
 OF "plik1" R
-RF "plik1" 6
-RF "plik1" 7
+RF "plik1" 6 [208]
+RF "plik1" 7 [213]
+RF "plik1" B
 CF "plik1"
 HLT

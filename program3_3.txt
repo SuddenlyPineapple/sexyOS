@@ -1,0 +1,6 @@
+RMP 9 [160]
+SMP "ACK"
+RMP A
+SMP "ACK"
+NOP
+HLT

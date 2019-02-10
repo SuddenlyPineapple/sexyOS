@@ -1,98 +1,73 @@
 ﻿#pragma once
 #include <vector>
 #include <string>
-#include <windows.h>
-#include "FileManager.h"
-#include "Interpreter.h"
-#include "MemoryManager.h"
-#include "Procesy.h"
-#include "Planista.h"
-#include "pipe.h"
 
 #pragma comment(lib, "Winmm.lib")
-
-using namespace std;
 
 class Shell {
 private:
 	bool status;														//Status uzależniający działanie pętli shella
-	string line;														//Dane odczytane z bufora
-	vector<string> parsed;												//Tablica z podzielonym poleceniem
-
-	//Modules
-	MemoryManager mm;
-	Planista p;
-	proc_tree tree;
-	FileManager fm;
-	Pipeline pipel;
-	Interpreter inter;
+	std::string line;													//Dane odczytane z bufora
+	std::vector<std::string> parsed;									//Tablica z podzielonym poleceniem
 
 public:
-	Shell() : mm(), p(), pipel(nullptr), tree(&mm, &p, &pipel), fm(&p, &tree), inter(&fm, &mm, &tree, &pipel) {
-		this->pipel.tree = &tree;
-		this->status = true;
-		this->parsed.resize(0);
-		this->line.clear();
-	}
+	Shell();
+	~Shell() = default;
+
 	//Metody pracy shella
-	void boot();														//Funckja startująca pętlę shella
-	void logo();														//Wyświetlanie loga systemu
-	void loop();														//Pętla shella
-	void read_line();													//Odczyt surowych danych
-	void parse();														//Parsowanie
-	void execute(); 													//Wykonywanie
+	void boot();			//Funckja startująca pętlę shella
+
+private:
+	static void logo();		//Wyświetlanie loga systemu
+	void loop();			//Pętla główna shella
+	void read_line();		//Odczyt surowych danych
+	void parse();			//Parsowanie komendy
+	void execute(); 		//Wykonywanie
+	static void notRecognized();
 	
-	//Commands functions declarations
 	//Metody interpretera
-	void go(); 													        //Nastepny krok pracy krokowej
-	void regs();														//Wyswietla stan rejestrow i licznik rozkazow
+	static void go();		//Następny krok pracy krokowej
+	void showregs() const;		//Wyświetla stan rejestrów i licznik rozkazów
 	
 	//Metody shella
-	void ver();															//Creditsy
-	void help();														//Wyswietalnie listy poleceń
-	void exit();														//Kończenie pracy
-	void cls();															//Czyszczenie ekranu
+	static void ver();		//Creditsy
+	static void help();		//Wyświetlanie listy poleceń
+	void exit();			//Kończenie pracy systemu
+	void cls() const;		//Czyszczenie konsoli
 	
-	//Metody zarzadzania procesami
-	void dispproc();
-	void cp();															//Tworzenie procesu
-	void lp();															//Lista PCB wszystkich procesów
-	void lt();															//Drzewo procesow
-	void dp();															//Usuwanie procesu
+	//Metody zarządzania procesami
+	void showpcb();		//Wyświetla informacje o procesie
+	void cp();				//Tworzenie procesu
+	void showpcblist() const;		//Lista PCB wszystkich procesów
+	void showtree() const;		//Drzewo procesow
+	void dp();				//Usuwanie procesu
 	
-	//Metody potokowe
-	void disppip();
+	//Metody potoki
+	static void showpipe();	//Wyświetla wszystkie istniejące potoki
 
 	//Metody dyskowe
-	void ls();															//Listowanie katalogu
-	void cf();															//Utworzenie pliku
-	void df();															//Usunięcie pliku
-	void ld();															//Listowanie zawartości wskazanego bloku dyskowego
-	void wf();															//Zapis do pliku
-	void af();															//Dopis do pliku
-	void fo();															//Otwarcie pliku
-	void fr();															//Odczyt pliku
-	void fc();															//Zamkniecie pliku
-	void finfo();
-	void dinfo();
-	void dskchar();
-	void fsysparam();
-	void bitvector();
+	void showroot() const;		//Listowanie katalogu
+	void cf();				//Utworzenie pliku
+	void df();				//Usunięcie pliku
+	void showblock();				//Listowanie zawartości wskazanego bloku dyskowego
+	void wf();				//Zapis do pliku
+	void af();				//Dopis do pliku
+	void fo();				//Otwarcie pliku
+	void fr();				//Odczyt pliku
+	void fc();				//Zamkniecie pliku
+	void finfo();			//Wyświetla informacje o pliku
+	void dinfo() const;		//Wyświetla informacje o katalogu głównym
+	void showdisk() const;	//Wyświetla zawartość dysku jako znaki
+	void fsysparam() const;	//Wyświetla parametry systemu plików
+	void bitvector() const;	//Wyświetla wektor bitowy
+	
 	//Metody pamieci
-	void showmem();                                                      //Wyswietlanie zawartosci pamieci
-	void showpagefile();
-	void showpagetable();
-	void showstack();
-	void showframes();
+	void showmem();				//Wyswietlanie zawartości RAM
+	void showpagefile() const;	//Wyświetlanie pliku stronnicowania
+	void showpagetable();		//Wyświetla tablicę wymiany stronnic
+	void showstack() const;		//Pokazuje kolejkę FIFO wymiany stronnic
+	void showframes() const;	//Pokazuje ramki w pamięci RAM wraz ze szczegółami
 
-	//Specials
-	void thanks();
-
-
-
-
-
-	~Shell() {}
+	//Easter Egg
+	static void thanks();
 };
-
-

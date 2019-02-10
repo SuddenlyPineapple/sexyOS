@@ -1,63 +1,52 @@
 #include "Interpreter.h"
 #include "FileManager.h"
 #include "MemoryManager.h"
-#include "Procesy.h"
-#include "pipe.h"
+#include "Processes.h"
+#include "Pipe.h"
 #include <iostream>
 
+using namespace std;
 
-//				Uwagi:
-//pamietaj by usunac kiedys te komentarze.																					-- Marcin
-//RF,MOV-- wpisanie danych pod adres MOVem zrobic?  wybór lokalizacji zapisu, daj nic, albo adres							-- Marcin
-//MF	-- nieskonczona petla																								-- Tomek
-
+Interpreter interpreter;
 
 void display_file_error_text(const int &outcome) { //komunikaty o bledach (w sumie tylko do plikow)
 	if (outcome == FILE_ERROR_NONE) { return; }
-	else if (outcome == FILE_ERROR_EMPTY_NAME) { std::cout << "Pusta nazwa!\n"; }
-	else if (outcome == FILE_ERROR_NAME_TOO_LONG) { std::cout << "Nazwa za dluga!\n"; }
-	else if (outcome == FILE_ERROR_NAME_USED) { std::cout << "Nazwa zajeta!\n"; }
-	else if (outcome == FILE_ERROR_NO_INODES_LEFT) { std::cout << "Osiagnieto limit plikow!\n"; }
-	else if (outcome == FILE_ERROR_DATA_TOO_BIG) { std::cout << "Dane za duze!\n"; }
-	else if (outcome == FILE_ERROR_NOT_FOUND) { std::cout << "Nie znaleziono pliku!\n"; }
-	else if (outcome == FILE_ERROR_NOT_OPENED) { std::cout << "Plik nie jest otwarty!\n"; }
-	else if (outcome == FILE_ERROR_NOT_R_MODE) { std::cout << "Plik nie jest do odczytu!\n"; }
-	else if (outcome == FILE_ERROR_NOT_W_MODE) { std::cout << "Plik nie jest do zapisu!\n"; }
-	else { std::cout << "Nie obsluzony blad: " << outcome << "\n"; }
+	else if (outcome == FILE_ERROR_EMPTY_NAME) { cout << "Pusta nazwa!\n"; }
+	else if (outcome == FILE_ERROR_NAME_USED) { cout << "Nazwa zajeta!\n"; }
+	else if (outcome == FILE_ERROR_NO_INODES_LEFT) { cout << "Osiagnieto limit plikow!\n"; }
+	else if (outcome == FILE_ERROR_DATA_TOO_BIG) { cout << "Dane za duze!\n"; }
+	else if (outcome == FILE_ERROR_NOT_FOUND) { cout << "Nie znaleziono pliku!\n"; }
+	else if (outcome == FILE_ERROR_NOT_OPENED) { cout << "Plik nie jest otwarty!\n"; }
+	else if (outcome == FILE_ERROR_NOT_R_MODE) { cout << "Plik nie jest do odczytu!\n"; }
+	else if (outcome == FILE_ERROR_NOT_W_MODE) { cout << "Plik nie jest do zapisu!\n"; }
+	else { cout << "Nie obsluzony blad: " << outcome << "\n"; }
 }
 
-Interpreter::Interpreter(FileManager* fileManager_, MemoryManager* memoryManager_, proc_tree* tree_, Pipeline* pipeline_) : fileManager(fileManager_),
-memoryManager(memoryManager_), tree(tree_), pipeline(pipeline_), A(0), B(0), C(0), D(0) {}
+Interpreter::Interpreter() = default;
 
-void Interpreter::take_from_proc(const std::string& procName) {
-	PCB* runningProc = tree->find_proc(procName);
+void Interpreter::take_from_proc(const string& procName) {
+	shared_ptr<PCB> runningProc = tree.find(procName);
 
-	instruction_counter = runningProc->instruction_counter;
-	if (instrBeginMap.find(procName) == instrBeginMap.end()) {
-		instrBeginMap[procName][0] = 0; //Pierwszy rozkaz zawsze tak samo
-	}
-	instruction_counter = runningProc->instruction_counter;
-	RAM_pos = instrBeginMap[procName][instruction_counter];
-	A = runningProc->A;
-	B = runningProc->B;
-	C = runningProc->C;
-	D = runningProc->D;
+	instructionCounter = runningProc->instructionCounter;
+	A = runningProc->registers[0];
+	B = runningProc->registers[1];
+	C = runningProc->registers[2];
+	D = runningProc->registers[3];
 }
 
-void Interpreter::update_proc(const std::string& procName) {
-	PCB* runningProc = tree->find_proc(procName);
-	runningProc->A = A;
-	runningProc->B = B;
-	runningProc->C = C;
-	runningProc->D = D;
-	runningProc->instruction_counter = instruction_counter;
+void Interpreter::update_proc(const string& procName) const {
+	shared_ptr<PCB> runningProc = tree.find(procName);
+	runningProc->registers[0] = A;
+	runningProc->registers[1] = B;
+	runningProc->registers[2] = C;
+	runningProc->registers[3] = D;
+	runningProc->instructionCounter = instructionCounter;
 }
 
-std::array<std::string, 3> Interpreter::instruction_separate(const std::string& instructionWhole)
-{
-	std::string temp;
-	std::array<std::string, 3> wynik;// mnemonik, rejestr, rejestr
-	unsigned int pozycjaWyniku = 0;
+array<string, 4> Interpreter::instruction_separate(const string& instructionWhole) {
+	string temp;
+	array<string, 4> wynik;// mnemonik, rejestr, rejestr
+	unsigned int pos = 0;
 
 	for (const char& c : instructionWhole)
 	{
@@ -67,180 +56,99 @@ std::array<std::string, 3> Interpreter::instruction_separate(const std::string& 
 		}
 		else if (!temp.empty())
 		{
-			wynik[pozycjaWyniku] = temp;
+			wynik[pos] = temp;
 			temp.clear();
-			pozycjaWyniku++;
+			pos++;
 		}
 	}
 	return wynik;
 }
 
-void Interpreter::jump_pos_set(const std::string& procName) {
-	if (instrBeginMap[procName].find(address) != instrBeginMap[procName].end()) {
-		instruction_counter = address - 1;
-		RAM_pos = instrBeginMap[procName][address];//skok do adr jesli adr juz zmapowany
-	}
-	else {
-		//Szukanie najdajszej zmapowanej pozycji
-		while (true)
-		{//idzie do nast rozkazu, i jesli go nie zna to mapuje w 2gim while
-			if (instrBeginMap[procName].find(instruction_counter) == instrBeginMap[procName].end()) { break; }
-			//jesli nie znaleziono danego rozkazu w mapie to przerywa i idzie do 2giego while'a by go zmapowac
-			else
-			{//jesli rozkaz zmapowany to idzie do natepnego
-				RAM_pos = instrBeginMap[procName][instruction_counter];
-				// jesli znaleziono adres w mapie to sprawdza kolejna pozycje
-				instruction_counter++;
-			}
-		}
-		while (instruction_counter < address) {//mapowanie nowych rozkazow, bez ich wykonywania az dojdzie do naszego adresu
-			std::string temp = memoryManager->get(tree->find_proc(procName), RAM_pos);
-			temp += ' ';
-			RAM_pos += temp.length();
-			instrBeginMap[procName][instruction_counter] = RAM_pos;
-			instruction_counter++;
-		} // gdy dojdzie to rampos jest na odpowiedniej pozycji i dopiero wtedy bedzie wykonywac rozkaz
-		instruction_counter -= 2; //W wykonaj program siê podnosi
-	}
-}
-
-void Interpreter::registers_state()
-{
-	//std::cout << "Rozkaz: " << instructionWhole;
-	A = tree->proc.A;
-	B = tree->proc.B;
-	C = tree->proc.C;
-	D = tree->proc.D;
-	instruction_counter = tree->proc.instruction_counter;
-}
-
-void Interpreter::stan_rejestrow() const {
-	std::cout << " | Licznik Instrukcji : " << instruction_counter << '\n';
-	std::cout << " | A : " << A << '\n';
-	std::cout << " | B : " << B << '\n';
-	std::cout << " | C : " << C << '\n';
-	std::cout << " | D : " << D << "\n\n";
+void Interpreter::display_registers() const {
+	cout << " | Licznik Instrukcji (po)    : " << instructionCounter << '\n';
+	cout << " | A : " << A << '\n';
+	cout << " | B : " << B << '\n';
+	cout << " | C : " << C << '\n';
+	cout << " | D : " << D << "\n\n";
 }
 
 
 //Wykonywanie
-
-void Interpreter::execute_program(const std::string& procName) {
-	instruction_counter = 0;
-	instrBeginMap.clear();
-	instrBeginMap[procName][0] = 0; //Pierwszy rozkaz zawsze tak samo
-
-	while (true)
-	{
-		std::string instructionWhole;
-
-		//Jeœli jeszcze nie wpisane w mapê
-		if (instrBeginMap[procName].find(instruction_counter + 1) == instrBeginMap[procName].end()) {
-			instructionWhole = memoryManager->get(tree->find_proc(procName), RAM_pos);
-			instructionWhole += ' '; //Spacja na koñcu u³atwia rozdzielanie
-			RAM_pos += instructionWhole.length();
-			instrBeginMap[procName][instruction_counter + 1] = RAM_pos;
-		}
-		else {
-			RAM_pos = instrBeginMap[procName][instruction_counter];
-			instructionWhole = memoryManager->get(tree->find_proc(procName), RAM_pos);//pobieranie linijki kodu
-			instructionWhole += ' '; //Spacja na koñcu u³atwia rozdzielanie
-			RAM_pos += instructionWhole.length();
-		}
-
-		std::cout << "Rozkaz (IC " << instruction_counter << "): " << instructionWhole << '\n';
-
-		if (!execute_instruction(instructionWhole, procName)) { break; }// jesli napotkano na hlt, to konczymy program
-		instruction_counter++;
-	}
-}
-
-bool Interpreter::execute_line(const std::string& procName) {
-	PCB* runningProc = tree->find_proc(procName);
+int Interpreter::execute_line(const string& procName) {
+	const shared_ptr<PCB> runningProc = tree.find(procName);
 
 	take_from_proc(procName); //Œci¹ga rejestry i inne z procesu
 
-	std::string instructionWhole;
+	string instructionWhole;
 
-	//Jeœli jeszcze nie wpisane w mapê
-	if (instrBeginMap[procName].find(instruction_counter + 1) == instrBeginMap[procName].end()) {
-		instructionWhole = memoryManager->get(tree->find_proc(procName), RAM_pos);
-		instructionWhole += ' '; //Spacja na koñcu u³atwia rozdzielanie
-		RAM_pos += instructionWhole.length();
-		instrBeginMap[procName][instruction_counter + 1] = RAM_pos;
-	}
-	else {
-		RAM_pos = instrBeginMap[procName][instruction_counter];
-		instructionWhole = memoryManager->get(tree->find_proc(procName), RAM_pos);//pobieranie linijki kodu
-		instructionWhole += ' '; //Spacja na koñcu u³atwia rozdzielanie
-		RAM_pos += instructionWhole.length();
+	//Odczyt instrukcji
+	while (true) {
+		const char cTemp = mm.get_byte(runningProc, instructionCounter)[0];
+		instructionCounter++;
+		if (cTemp != ';') { instructionWhole += cTemp; }
+		else { instructionWhole += ' '; break; }
 	}
 
-	std::cout << "Rozkaz (IC " << instruction_counter << "): " << instructionWhole << "\n";
 
-	if (!execute_instruction(instructionWhole, procName)) {
-		instrBeginMap.erase(procName);
-		update_proc(procName);
+	//Wykonanie instrukcji (fa³sz oznacza zakoñczenie - HLT)
+	const int result = execute_instruction(instructionWhole, procName);
 
-		std::cout << " | PID Procesu : " << runningProc->PID << '\n';
-		std::cout << " | Licznik Instrukcji : " << instruction_counter << '\n';
-		std::cout << " | A : " << A << '\n';
-		std::cout << " | B : " << B << '\n';
-		std::cout << " | C : " << C << '\n';
-		std::cout << " | D : " << D << "\n\n";
-		instrBeginMap.erase(procName);
-		return false;
-	} // Jesli napotkano na hlt, to konczymy program
+	if (procName != "system_dummy") {
+		if (result != 0) {
+			runningProc->executionTimeLeft--;
+		}
+	}
+	cout << "Rozkaz: " << instructionWhole << "\n";
+	cout << " | PID Procesu : " << runningProc->PID << '\n';
+	cout << " | Pozstalo cykli : " << runningProc->executionTimeLeft << '\n';
+	cout << " | Licznik Instrukcji (przed) : " << runningProc->instructionCounter << '\n';
+	display_registers();
 
-	instruction_counter++;
 	update_proc(procName);
 
-	std::cout << " | PID Procesu : " << runningProc->PID << '\n';
-	std::cout << " | Licznik Instrukcji : " << instruction_counter << '\n';
-	std::cout << " | A : " << A << '\n';
-	std::cout << " | B : " << B << '\n';
-	std::cout << " | C : " << C << '\n';
-	std::cout << " | D : " << D << "\n\n";
-
-	return true;
+	return result;
 }
 
-bool Interpreter::execute_instruction(const std::string& instructionWhole, const std::string& procName)
-{
-	PCB* runningProc = tree->find_proc(procName);
-	std::array<std::string, 3> instructionParts = instruction_separate(instructionWhole);
-	const std::string instruction = instructionParts[0];
+int Interpreter::execute_instruction(const string& instructionWhole, const string& procName) {
+	const shared_ptr<PCB> runningProc = tree.find(procName);
+	array<string, 4> instructionParts = instruction_separate(instructionWhole);
+	const string instruction = instructionParts[0];
 
-	//registers_state();
-	number = -1; address = -1;
-	std::string nazwa1 = ""; //string w ""
-	std::string nazwa2 = ""; //string w ""
+	int number = -1;
+	unsigned int address = -1;
 
-	int *reg1 = &A;
-	int *reg2 = reg1;
+	string strData1;
+	string strData2;
 
-	//Wpisywanie wartoœci do rej1 (pierwszy wyraz rozkazu)
+	int reg1_noPtr = 0;
+	int reg2_noPtr = 0;
+
+	int* reg1 = &reg1_noPtr;
+	int* reg2 = &reg2_noPtr;
+
+	//Wpisywanie wartoœci do reg1 (pierwszy wyraz rozkazu)
 	if (!instructionParts[1].empty()) {
 		if (instructionParts[1] == "A") reg1 = &A;
 		else if (instructionParts[1] == "B") reg1 = &B;
 		else if (instructionParts[1] == "C") reg1 = &C;
 		else if (instructionParts[1] == "D") reg1 = &D;
+		else if (instructionParts[1] == "R") strData1 = "_R";
+		else if (instructionParts[1] == "W") strData1 = "_W";
 		else if (instructionParts[1][0] == '[')
 		{
 			instructionParts[1].erase(instructionParts[1].begin());
 			instructionParts[1].pop_back();
-			address = std::stoi(instructionParts[1]);
+			address = stoi(instructionParts[1]);
 		}
-		else if (instructionParts[1][0] == '"')
-		{
+		else if (instructionParts[1][0] == '"') {
 			instructionParts[1].erase(instructionParts[1].begin());
 			instructionParts[1].pop_back();
-			nazwa1 = instructionParts[1];
+			strData1 = instructionParts[1];
 		}
-		else { number = std::stoi(instructionParts[2]); reg1 = &number; }
+		else { number = stoi(instructionParts[1]); reg1 = &number; }
 	}
 
-	//Wpisywanie wartoœci do rej2 (drugi wyraz rozkazu)
+	//Wpisywanie wartoœci do reg2 (drugi wyraz rozkazu)
 	if (!instructionParts[2].empty()) {
 		if (instructionParts[2] == "A") reg2 = &A;
 		else if (instructionParts[2] == "B") reg2 = &B;
@@ -248,162 +156,512 @@ bool Interpreter::execute_instruction(const std::string& instructionWhole, const
 		else if (instructionParts[2] == "D") reg2 = &D;
 		else if (instructionParts[2] == "R") *reg2 = FILE_OPEN_R_MODE;
 		else if (instructionParts[2] == "W") *reg2 = FILE_OPEN_W_MODE;
-		else if (instructionParts[2][0] == '[')
-		{
+		else if (instructionParts[2][0] == '[') {
 			instructionParts[2].erase(instructionParts[2].begin());
 			instructionParts[2].pop_back();
-			address = std::stoi(instructionParts[2]);
+			address = stoi(instructionParts[2]);
 		}
-		else if (instructionParts[2][0] == '"')
-		{
+		else if (instructionParts[2][0] == '"') {
 			instructionParts[2].erase(instructionParts[2].begin());
 			instructionParts[2].pop_back();
-			nazwa2 = instructionParts[2];
+			strData2 = instructionParts[2];
 		}
-		else { number = std::stoi(instructionParts[2]); reg2 = &number; }
+		else { number = stoi(instructionParts[2]); reg2 = &number; }
+	}
+
+	//Wpisywanie wartoœci do reg2 (trzeci wyraz rozkazu)
+	if (!instructionParts[3].empty()) {
+		if (instructionParts[3][0] == '[') {
+			instructionParts[3].erase(instructionParts[3].begin());
+			instructionParts[3].pop_back();
+			address = stoi(instructionParts[3]);
+		}
 	}
 
 
 	//Rozkazy interpretacja
 	{
-		if (instruction == "ADD")
-		{
-			*reg1 += *reg2;
+		if (instruction == "ADD") { *reg1 += *reg2; }
+		else if (instruction == "SUB") { *reg1 -= *reg2; }
+		else if (instruction == "MUL") { *reg1 *= *reg2; }
+		else if (instruction == "DIV") {
+			if (*reg2 == 0) {
+				cout << "Dzielenie przez 0! Proces " << runningProc->name << " zostaje zabity!\n";
+				return -1;
+			}
+			else { *reg1 /= *reg2; }
 		}
-		else if (instruction == "SUB")
-		{
-			*reg1 -= *reg2;
+		else if (instruction == "MOD") {
+			if (*reg2 == 0) {
+				cout << "Dzielenie przez 0! Proces " << runningProc->name << " zostaje zabity!\n";
+				return -1;
+			}
+			else { *reg1 %= *reg2; }
 		}
-		else if (instruction == "MUL")
-		{
-			*reg1 *= *reg2;
+		else if (instruction == "MOV") { *reg1 = *reg2; }
+		else if (instruction == "INC") { (*reg1)++; }
+		else if (instruction == "DEC") { (*reg1)--; }
+		else if (instruction == "WRITE") {
+			if (address > runningProc->size + strData1.length()) {
+				if (address + strData1.length() > 256) { return -1; }
+				runningProc->resize(address + strData1.length() - 1);
+			}
+
+			if (strData2.empty()) {
+				string temp;
+				temp += static_cast<char>(*reg2);
+				mm.write(runningProc, address, temp);
+			}
+			else {
+				mm.write(runningProc, address, strData2);
+			}
 		}
-		else if (instruction == "DIV")
-		{
-			if (*reg2 == 0)
-				std::cout << "nie wykonano rozkazu, dzielenie przez 0\n";
-			else *reg1 /= *reg2;
-		}
-		else if (instruction == "MOV")
-		{
-			*reg1 = *reg2;
-		}
-		else if (instruction == "INC")
-		{
-			(*reg1)++;
-		}
-		else if (instruction == "DEC")
-		{
-			(*reg1)--;
+		else if (instruction == "GET") {
+			const int tempi = address;
+			*reg2 = mm.get_byte(runningProc, tempi)[0];
 		}
 
 
 		//Rozkazy skoki
-		else if (instruction == "JMP")
-		{
-			jump_pos_set(procName);
+		else if (instruction == "JMP") {
+			instructionCounter = address;
 		}
-		else if (instruction == "JZ") //jump if zero , skok warunkowy
-		{
-			if (*reg1 == 0)
-			{
-				jump_pos_set(procName);
-			}
+		//Jump if zero
+		else if (instruction == "JZ") {
+			if (*reg1 == 0) { instructionCounter = address; }
+		}
+		//Jump if not zero
+		else if (instruction == "JMZ") {
+			if (*reg1 != 0) { instructionCounter = address; }
 		}
 
 
 		//Rozkazy pliki
-		else if (instruction == "MF")// stworzenie pliku
-		{
-			display_file_error_text(fileManager->file_create(nazwa1, runningProc->name));
-		}
-		else if (instruction == "OF") // otwarcie pliku, ma flage ze jest otwarty
-		{
-			if (fileManager->file_open(nazwa1, runningProc->name, *reg2) != FILE_ERROR_NONE) {
-				std::cout << "Blad!\n";
+
+		//Stworzenie pliku
+		else if (instruction == "MF") {
+			if (fm.file_create(strData1, runningProc->name) == FILE_ERROR_SYNC) {
+				instructionCounter -= instructionWhole.length(); //Doliczony œrednik/spacja
+				return 0;
 			}
 		}
-		else if (instruction == "WF")//nadpisz do pliku
-		{
-			if (!nazwa1.empty()) {
-				display_file_error_text(fileManager->file_write(nazwa1, runningProc->name, nazwa2));
+		//Otwarcie pliku, ma flage ze jest otwarty
+		else if (instruction == "OF") {
+			const int result = fm.file_open(strData1, runningProc->name, *reg2);
+			if (result == FILE_ERROR_SYNC) {
+				instructionCounter -= instructionWhole.length(); //Doliczony œrednik/spacja
+				return 0;
 			}
-			else display_file_error_text(fileManager->file_write(nazwa1, runningProc->name, std::to_string(*reg2)));
+			else if (result != FILE_ERROR_NONE) {
+				cout << "Blad!\n";
+			}
 		}
-		else if (instruction == "AF")//dopisz do pliku
-		{
-			if (!nazwa1.empty()) {
-				display_file_error_text(fileManager->file_append(nazwa1, runningProc->name, std::to_string(*reg2)));
+		//Nadpisz do pliku
+		else if (instruction == "WF") {
+			if (!strData2.empty()) {
+				display_file_error_text(fm.file_write(strData1, runningProc->name, strData2));
+			}
+			else {
+				string temp;
+				temp += static_cast<char>(*reg2);
+				display_file_error_text(fm.file_write(strData1, runningProc->name, temp));
+			}
+		}
+		//Dopisz do pliku
+		else if (instruction == "AF") {
+			if (!strData2.empty()) {
+				display_file_error_text(fm.file_append(strData1, runningProc->name, strData2));
+			}
+			else {
+				string temp;
+				temp += static_cast<char>(*reg2);
+				display_file_error_text(fm.file_append(strData1, runningProc->name, temp));
+			}
+		}
+		//Czytanie z pliku (i zapisanie do RAM'u)
+		else if (instruction == "RF") {
+			string temp;
+			if (!instructionParts[3].empty()) {
+				if (address + *reg2 > 256) {
+					const int tooMuch = address + *reg2 - 256;
+					*reg2 -= tooMuch;
+				}
+				if (address + *reg2 > runningProc->size) {
+					runningProc->resize(address + *reg2 - 1);
+				}
+				display_file_error_text(fm.file_read(strData1, runningProc->name, *reg2, temp));
+				mm.write(runningProc, address, temp);
+				cout << "Odczytano z pliku dane \"" << temp << "\" i zapisano pod adresem " << address << "\n";
+			}
+			else {
+				display_file_error_text(fm.file_read(strData1, runningProc->name, 1, temp));
+				if (!temp.empty()) { *reg2 = temp[0]; }
+				else { *reg2 = 0; }
+				cout << "Odczytano z pliku liczbe \"" << static_cast<int>(temp[0]) << "\" i zapisano do rejestru ";
+				if (reg2 == &A) { cout << "A"; }
+				else if (reg2 == &B) { cout << "B"; }
+				else if (reg2 == &C) { cout << "C"; }
+				else if (reg2 == &D) { cout << "D"; }
+				cout << "\n";
 			}
 
-			display_file_error_text(fileManager->file_append(nazwa1, runningProc->name, std::to_string(*reg2)));
 		}
-		else if (instruction == "CF")//ZAMKNIJ plik
-		{
-			display_file_error_text(fileManager->file_close(nazwa1, runningProc->name));
-		}
-		else if (instruction == "RF")//CZYTANIE Z PLIKU
-		{
-			std::string temp;
-			display_file_error_text(fileManager->file_read(nazwa1, runningProc->name, *reg2, temp));
-			std::cout << "Odczytano z pliku dane: " << temp << std::endl;
-
+		//Zamknij plik
+		else if (instruction == "CF") {
+			display_file_error_text(fm.file_close(strData1, runningProc->name));
 		}
 
 
 		//Rozkazy procesy
-		else if (instruction == "CP") //tworzenie procesu
-		{
-			tree->fork(new PCB(nazwa1, runningProc->PID), 16);
-			tree->find_proc(nazwa1)->change_state(WAITING);
-		}
-		else if (instruction == "DP") //zabijanie procesu
-		{
-			tree->exit(tree->find_proc(nazwa1)->PID);
-		}
+
+		//Tworzenie procesu
+		else if (instruction == "CP") { tree.fork(strData1, runningProc->PID, 16); }
+		//Zabijanie procesu
+		else if (instruction == "DP") { tree.kill(strData1); }
 
 
 		//Rozkazy potoki
-		else if (instruction == "SP") //stworz potok
-		{
-			pipeline->createPipe(runningProc->name, nazwa1);//rodzic,dziecko  
-		}
-		else if (instruction == "UP") //usun potok
-		{
-			pipeline->deletePipe(runningProc->name, nazwa1);
-		}
-		else if (instruction == "SM") //send message 
-		{
-			if (!nazwa2.empty()) pipeline->write(runningProc->name, nazwa1, nazwa2);
-			else pipeline->write(runningProc->name, nazwa1, std::to_string(*reg2));
-		}
-		else if (instruction == "RM") //read message 
-		{
-			if (pipeline->existPipe(runningProc->name, nazwa1)) {
-				if (runningProc->FD.find(nazwa1 + "_W") != runningProc->FD.end()) {
-					runningProc->change_state(WAITING);
-					PCB* tempProc = runningProc->GET_kid(nazwa1);
-					tempProc->change_state(READY);
-					std::string tempInstruction = instructionParts[0] + " \"" + runningProc->name + "\" " + instructionParts[2] + ";";
-					memoryManager->write(tempProc, 0, tempInstruction);
+
+		//Stwórz potok
+		else if (instruction == "SP") { pipeline.create(runningProc->name, strData1); }
+		//Usuñ potok
+		else if (instruction == "UP") { pipeline.remove(runningProc->name); }
+
+
+		//Odczytaj wiadomoœæ (od rodzica)
+		else if (instruction == "RMP") {
+			string result;
+			if (address != -1) {
+				result = pipeline.read(runningProc->name, runningProc->parent->name, *reg1);
+			}
+			else {
+				result = pipeline.read(runningProc->name, runningProc->parent->name, 1);
+			}
+
+			if (result == "no_pipe") {
+				cout << "Potok nie istnieje! Proces " << runningProc->name << " zostaje zabity!\n";
+				return -1;
+			}
+			else if (result == "sem_blocked") {
+				//Doliczony œrednik/spacja
+				instructionCounter -= instructionWhole.length();
+				return 0;
+			}
+
+			if (address != -1) {
+				if (address + result.length() > 256) {
+					const int tooMuch = address + result.length() - 256;
+					result.resize(result.length() - tooMuch);
 				}
-				else if (runningProc->FD.find(nazwa1 + "_R") != runningProc->FD.end()) {
-					std::cout << "Odczytana wiadomosc: " << pipeline->read(nazwa1, runningProc->name, *reg2) << '\n';//wysylajacy, odbierajacy, dlugosc plku
-					runningProc->change_state(WAITING);
-					tree->find_proc(nazwa1)->change_state(READY);
+				if (address + result.length() > runningProc->size) {
+					runningProc->resize(address + result.length() - 1);
 				}
+				mm.write(runningProc, address, result);
+			}
+			else {
+				*reg1 = static_cast<char>(result[0]);
+				cout << "Odczytano z potoku liczbe \"" << static_cast<int>(result[0]) << "\" i zapisano do rejestru ";
+				if (reg2 == &A) { cout << "A"; }
+				else if (reg2 == &B) { cout << "B"; }
+				else if (reg2 == &C) { cout << "C"; }
+				else if (reg2 == &D) { cout << "D"; }
+				cout << "\n";
+			}
+		}
+		//Odczytaj wiadomoœæ (od dzieci)
+		else if (instruction == "RMK") {
+			string firstKidName;
+			if (!runningProc->childVector.empty()) { firstKidName = runningProc->childVector[0]->name; }
+
+			string result;
+			if (address != -1) {
+				result = pipeline.read(runningProc->name, firstKidName, *reg1);
+				cout << "Odczytano z potoku liczbe \"" << static_cast<int>(result[0]) << "\" i zapisano do rejestru ";
+				if (reg2 == &A) { cout << "A"; }
+				else if (reg2 == &B) { cout << "B"; }
+				else if (reg2 == &C) { cout << "C"; }
+				else if (reg2 == &D) { cout << "D"; }
+				cout << "\n";
+			}
+			else {
+				result = pipeline.read(runningProc->name, firstKidName, 1);
+			}
+
+			if (result == "no_pipe") {
+				cout << "Potok nie istnieje! Proces " << runningProc->name << " zostaje zabity!\n";
+				return -1;
+			}
+			else if (result == "sem_blocked") {
+				//Doliczony œrednik/spacja
+				instructionCounter -= instructionWhole.length();
+				return 0;
+			}
+
+			if (address != -1) {
+				if (address + result.length() > 256) {
+					const int tooMuch = address + result.length() - 256;
+					result.resize(result.length() - tooMuch);
+				}
+				if (address + result.length() > runningProc->size) {
+					runningProc->resize(address + result.length() - 1);
+				}
+				mm.write(runningProc, address, result);
+			}
+			else {
+				*reg1 = static_cast<char>(result[0]);
 			}
 		}
 
+		//Wyœlij wiadomoœæ (do rodzica)
+		else if (instruction == "SMP") {
+			int result;
+			if (!strData1.empty()) { result = pipeline.write(runningProc->parent->name, runningProc->name, strData1); }
+			else {
+				string temp; temp += static_cast<char>(*reg2);
+				result = pipeline.write(runningProc->parent->name, runningProc->name, temp);
+			}
+
+			if (result == -1) {
+				cout << "Potok nie istnieje! Proces " << runningProc->name << " zostaje zabity!\n";
+				return -1;
+			}
+			else if (result == 0) {
+				//Doliczony œrednik/spacja
+				instructionCounter -= instructionWhole.length();
+				return 0;
+			}
+		}
+		//Wyœlij wiadomoœæ (do dzieci)
+		else if (instruction == "SMK") {
+			int result;
+			if (!strData1.empty()) { result = pipeline.write(runningProc->childVector[0]->name, runningProc->name, strData1); }
+			else {
+				string temp; temp += static_cast<char>(*reg2);
+				result = pipeline.write(runningProc->childVector[0]->name, runningProc->name, temp);
+			}
+
+			if (result == -1) {
+				cout << "Potok nie istnieje! Proces " << runningProc->name << " zostaje zabity!\n";
+				return -1;
+			}
+			else if (result == 0) {
+				//Doliczony œrednik/spacja
+				instructionCounter -= instructionWhole.length();
+				return 0;
+			}
+		}
 
 		//Rozkaz koniec procesu
-		else if (instruction == "HLT") { return false; }
+		else if (instruction == "HLT") { return -1; }
+		//Rozkaz beczynnoœci
+		else if (instruction == "NOP") {}
 
 		//B³¹d
-		else { std::cout << "error\n"; }
+		else { cout << "error\n"; }
+	}
+
+	return 1;
+}
+
+bool Interpreter::simulate_instruction(const string& instructionWhole) {
+	array<string, 4> instructionParts = instruction_separate(instructionWhole);
+	const string instruction = instructionParts[0];
+
+	int number = -1;
+	unsigned int address = -1;
+
+	string strData1;
+
+	int reg1_noPtr = 0;
+	int reg2_noPtr = 0;
+
+	int* reg1 = &reg1_noPtr;
+	int* reg2 = &reg2_noPtr;
+
+	//Wpisywanie wartoœci do reg1 (pierwszy wyraz rozkazu)
+	if (!instructionParts[1].empty()) {
+		if (instructionParts[1] == "A") reg1 = &A;
+		else if (instructionParts[1] == "B") reg1 = &B;
+		else if (instructionParts[1] == "C") reg1 = &C;
+		else if (instructionParts[1] == "D") reg1 = &D;
+		else if (instructionParts[1] == "R") strData1 = "_R";
+		else if (instructionParts[1] == "W") strData1 = "_W";
+		else if (instructionParts[1][0] == '[')
+		{
+			instructionParts[1].erase(instructionParts[1].begin());
+			instructionParts[1].pop_back();
+			address = stoi(instructionParts[1]);
+		}
+		else if (instructionParts[1][0] == '"') {
+			instructionParts[1].erase(instructionParts[1].begin());
+			instructionParts[1].pop_back();
+			strData1 = instructionParts[1];
+		}
+		else { number = stoi(instructionParts[1]); reg1 = &number; }
+	}
+
+	//Wpisywanie wartoœci do reg2 (drugi wyraz rozkazu)
+	if (!instructionParts[2].empty()) {
+		if (instructionParts[2] == "A") reg2 = &A;
+		else if (instructionParts[2] == "B") reg2 = &B;
+		else if (instructionParts[2] == "C") reg2 = &C;
+		else if (instructionParts[2] == "D") reg2 = &D;
+		else if (instructionParts[2] == "R") *reg2 = FILE_OPEN_R_MODE;
+		else if (instructionParts[2] == "W") *reg2 = FILE_OPEN_W_MODE;
+		else if (instructionParts[2][0] == '[') {
+			instructionParts[2].erase(instructionParts[2].begin());
+			instructionParts[2].pop_back();
+			address = stoi(instructionParts[2]);
+		}
+		else if (instructionParts[2][0] == '"') {
+			instructionParts[2].erase(instructionParts[2].begin());
+			instructionParts[2].pop_back();
+			string strData2 = instructionParts[2];
+		}
+		else { number = stoi(instructionParts[2]); reg2 = &number; }
+	}
+
+	//Wpisywanie wartoœci do reg2 (trzeci wyraz rozkazu)
+	if (!instructionParts[3].empty()) {
+		if (instructionParts[3][0] == '[') {
+			instructionParts[3].erase(instructionParts[3].begin());
+			instructionParts[3].pop_back();
+			address = stoi(instructionParts[3]);
+		}
 	}
 
 
+	//Rozkazy interpretacja
+	{
+		if (instruction == "ADD") { *reg1 += *reg2; }
+		else if (instruction == "SUB") { *reg1 -= *reg2; }
+		else if (instruction == "MUL") { *reg1 *= *reg2; }
+		else if (instruction == "DIV") {
+			if (*reg2 == 0) {
+				return false;
+			}
+			else { *reg1 /= *reg2; }
+		}
+		else if (instruction == "MOD") {
+			if (*reg2 == 0) {
+				return false;
+			}
+			else { *reg1 %= *reg2; }
+		}
+		else if (instruction == "MOV") { *reg1 = *reg2; }
+		else if (instruction == "INC") { (*reg1)++; }
+		else if (instruction == "DEC") { (*reg1)--; }
+		else if (instruction == "WRITE") {}
+
+
+		//Rozkazy skoki
+		else if (instruction == "JMP") {
+			instructionCounter = address;
+		}
+		//Jump if zero
+		else if (instruction == "JZ") {
+			if (*reg1 == 0) { instructionCounter = address; }
+		}
+		//Jump if not zero
+		else if (instruction == "JMZ") {
+			if (*reg1 != 0) { instructionCounter = address; }
+		}
+
+
+		//Rozkazy pliki
+
+		//Stworzenie pliku
+		else if (instruction == "MF") {}
+
+		//Otwarcie pliku, ma flage ze jest otwarty
+		else if (instruction == "OF") {}
+
+		//Nadpisz do pliku
+		else if (instruction == "WF") {}
+
+		//Dopisz do pliku
+		else if (instruction == "AF") {}
+
+		//Zamknij plik
+		else if (instruction == "CF") {}
+
+		//Czytanie z pliku (i zapisanie do RAM'u)
+		else if (instruction == "RF") {}
+
+
+		//Rozkazy procesy
+
+		//Tworzenie procesu
+		else if (instruction == "CP") {}
+		//Zabijanie procesu
+		else if (instruction == "DP") {}
+
+
+		//Rozkazy potoki
+
+		//Stwórz potok
+		else if (instruction == "SP") {}
+		//Usuñ potok
+		else if (instruction == "UP") {}
+
+
+		//Odczytaj wiadomoœæ (od rodzica)
+		else if (instruction == "RMP") {}
+
+		//Odczytaj wiadomoœæ (od dzieci)
+		else if (instruction == "RMK") {}
+
+		//Wyœlij wiadomoœæ (do rodzica)
+		else if (instruction == "SMP") {}
+
+		//Wyœlij wiadomoœæ (do dzieci)
+		else if (instruction == "SMK") {}
+
+		//Rozkaz koniec procesu
+		else if (instruction == "HLT") { return false; }
+		//Rozkaz beczynnoœci
+		else if (instruction == "NOP") {}
+
+		//B³¹d
+		else { return false; }
+	}
 
 	return true;
+}
+
+unsigned int Interpreter::simulate_program(const string& programWhole) {
+	//Zapisanie rejestrów
+	const int Aprev = A, Bprev = B, Cprev = C, Dprev = D;
+	const int instructionCounterPrev = instructionCounter;
+
+	//Zerowanie rejestrów
+	A = 0; B = 0; C = 0; D = 0;
+	instructionCounter = 0;
+
+	unsigned int executionTime = 0;
+
+	while (true) {
+		string instructionWhole;
+		while (true) {
+			if (instructionCounter >= programWhole.length()) { break; }
+			if (programWhole[instructionCounter] == ';') {
+				instructionWhole += ' ';
+				instructionCounter++;
+				break;
+			}
+			else {
+				instructionWhole += programWhole[instructionCounter];
+			}
+
+			instructionCounter++;
+		}
+		executionTime++;
+		if (!simulate_instruction(instructionWhole)) { break; }
+	}
+
+	//Przywrócenie stanów rejestrów
+	A = Aprev; B = Bprev; C = Cprev; D = Dprev;
+	instructionCounter = instructionCounterPrev;
+
+	return executionTime;
 }

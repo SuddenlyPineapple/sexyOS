@@ -1,0 +1,7 @@
+MOV A 100
+OF "plik1" W
+WF "plik1" A
+OF "plik1" R
+RF "plik1" B
+CF "plik1"
+HLT

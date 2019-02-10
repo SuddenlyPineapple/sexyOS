@@ -1,185 +1,153 @@
-#include "pipe.h"
-#include "Procesy.h"
+#include "Pipe.h"
+#include "Processes.h"
 #include <iostream>
+#include <utility>
 
 //znaczenie fd(deksryptor)
 //0-koniec do czytania
 //1-koniec do zapisu
 //-1-oznaczenie ze potok nie jest już potrzebny
 
-#define READ_END	0
-#define WRITE_END	1
-#define UNUSED		-1
+using namespace std;
 
-void Pipeline::createPipe(const std::string& p1, const std::string& p2) {//tworzenie
-	PCB* proc1 = tree->find_proc(p1);
-	PCB* proc2 = tree->find_proc(p2);
+Pipeline pipeline;
 
-	for (size_t i = 0; i < pipes.size(); i++) {//zapisywanie do wektora pipów
-		if (pipes[i] == nullptr) {
-			Pipe* v = new Pipe(proc1, proc2, this);//na wolnym miejscu
-			pipes[i] = v;
-			proc1->FD[p2 + "_W"][0] = i;
-			proc1->FD[p2 + "_W"][1] = WRITE_END;
-			proc2->FD[p1 + "_R"][0] = i;
-			proc2->FD[p1 + "_R"][1] = READ_END;
-			return;
+#define PIPE_READ_END  0
+#define PIPE_WRITE_END 1
+#define UNUSED	  0
+#define USED      1
+#define PIPE_MODE_READ string("_R")
+#define PIPE_MODE_WRITE string("_W")
+
+// Pipeline ----------------
+
+//Tworzenie potoku (dla procesu parent)
+void Pipeline::create(const string& parent, const string& mode) {
+	if (pipes.find(parent + mode) == pipes.end()) {
+		const auto parentProc = tree.find(parent);
+		pipes[parent + mode] = make_shared<Pipe>(parentProc);
+		if (mode == "_W") { parentProc->FD[PIPE_WRITE_END] = USED; }
+		else if (mode == "_R") { parentProc->FD[PIPE_READ_END] = USED; }
+	}
+}
+
+//Zapisywanie do potoku w kierunku z p2 do p1 (potok musi istnieć)
+int Pipeline::write(const string& p1, const string&p2, string data) {
+	if (!p2.empty()) {
+		shared_ptr<PCB> parentProc;
+		if (tree.find(p1)->parent->name == p2) { parentProc = tree.find(p2); }
+		else if (tree.find(p2)->parent->name == p1) { parentProc = tree.find(p1); }
+		//Potok nie istnieje
+		else { return -1; }
+
+		if (data.length() > Pipe::capacity) { data.resize(Pipe::capacity); }
+
+		//Potok nie istnieje
+		if (parentProc->name == p1 && parentProc->FD[PIPE_READ_END] != USED ||
+			parentProc->name == p2 && parentProc->FD[PIPE_WRITE_END] != USED) {
+			return -1;
 		}
-	}
-
-	//Jesli nie bylo wolnych
-	pipes.push_back(new Pipe(proc1, proc2, this));
-	proc1->FD[p2 + "_W"][0] = pipes.size() - 1;
-	proc1->FD[p2 + "_W"][1] = WRITE_END;
-	proc2->FD[p1 + "_R"][0] = pipes.size() - 1;
-	proc2->FD[p1 + "_R"][1] = READ_END;
-}
-
-void Pipeline::write(const std::string& p1, const std::string& p2, const std::string& data) {
-	PCB* proc1 = tree->find_proc(p1);
-	PCB* proc2 = tree->find_proc(p2);
-
-	if (proc1->FD[p2 + "_W"][0] != UNUSED && proc1->FD[p2 + "_W"][1] == WRITE_END &&
-		proc2->FD[p1 + "_R"][0] != UNUSED && proc2->FD[p1 + "_R"][1] == READ_END) {
-		pipes[proc1->FD[p2 + "_W"][0]]->write(data);
-	}
-	else {
-		std::cout << "Nie istnieje taki potok" << std::endl;
-	}
-}
-
-std::string Pipeline::read(const std::string& p1, const std::string& p2, const size_t& rozmiar) {
-	PCB* proc1 = tree->find_proc(p1);
-	PCB* proc2 = tree->find_proc(p2);
-	std::string t;
-
-	if (proc1->FD[p2 + "_W"][0] != UNUSED && proc1->FD[p2 + "_W"][1] == WRITE_END &&
-		proc2->FD[p1 + "_R"][0] != UNUSED && proc2->FD[p1 + "_R"][1] == READ_END) {
-		t = pipes[proc1->FD[proc2->name + "_R"][0]]->read(rozmiar);
-	}
-	else {
-		std::cout << "Nie istnieje taki potok" << std::endl;
-	}
-	return t;
-}
-
-void Pipeline::deletePipe(const std::string& p1, const std::string& p2) {//usuwanie pipa
-	PCB* proc1 = tree->find_proc(p1);
-	PCB* proc2 = tree->find_proc(p2);
-
-	if (proc1->FD[p2 + "_W"][0] != UNUSED) {
-		const int v = proc1->FD[p2 + "_W"][0];
-		delete pipes[v];
-		pipes[v] = nullptr;
-		proc1->FD[p2 + "_W"][0] = UNUSED;
-		proc1->FD[p2 + "_W"][1] = UNUSED;
-		proc2->FD[p1 + "_R"][0] = UNUSED;
-		proc2->FD[p1 + "_R"][1] = UNUSED;
-	}
-	else {
-		std::cout << "Nie istnieje taki potok" << std::endl;
-	}
-}
-
-void Pipeline::deletePipe(const size_t& pos) {
-	if (pos < pipes.size()) {
-		if (pipes[pos] != nullptr) {
-			Pipe pipeTemp = *pipes[pos];
-			PCB* p1 = pipeTemp.p1;
-			PCB* p2 = pipeTemp.p2;
-
-			std::array<int, 2>* p1FD = nullptr;
-			if (p1->FD.find(p2->name + "_W") != p1->FD.end()) { p1FD = &p1->FD[p2->name + "_W"]; }
-			else if (p1->FD.find(p2->name + "_R") != p1->FD.end()) { p1FD = &p1->FD[p2->name + "_R"]; }
-
-			std::array<int, 2>* p2FD = nullptr;
-			if (p2->FD.find(p1->name + "_W") != p2->FD.end()) { p2FD = &p2->FD[p1->name + "_W"]; }
-			else if (p2->FD.find(p1->name + "_R") != p2->FD.end()) { p2FD = &p2->FD[p1->name + "_R"]; }
-
-
-			if ((*p1FD)[0] != UNUSED) {
-				const int v = (*p1FD)[0];
-				delete pipes[v];
-				pipes[v] = nullptr;
-				(*p1FD)[0] = UNUSED;
-				(*p1FD)[1] = UNUSED;
-				(*p2FD)[0] = UNUSED;
-				(*p2FD)[1] = UNUSED;
-			}
-			else {
-				std::cout << "Nie istnieje taki potok" << std::endl;
-			}
-		}
-	}
-}
-
-bool Pipeline::existPipe(const std::string& p1, const std::string& p2) { //sprawdzanie czy istnieje
-	PCB* proc1 = tree->find_proc(p1);
-	PCB* proc2 = tree->find_proc(p2);
-
-	std::array<int, 2> proc1FD;
-	if (proc1->FD.find(p2 + "_W") != proc1->FD.end()) { proc1FD = proc1->FD[p2 + "_W"]; }
-	else if (proc1->FD.find(p2 + "_R") != proc1->FD.end()) { proc1FD = proc1->FD[p2 + "_R"]; }
-
-	std::array<int, 2> proc2FD;
-	if (proc2->FD.find(p1 + "_W") != proc2->FD.end()) { proc2FD = proc2->FD[p1 + "_W"]; }
-	else if (proc2->FD.find(p1 + "_R") != proc2->FD.end()) { proc2FD = proc2->FD[p1 + "_R"]; }
-
-	if (proc1FD[0] == proc2FD[0]) {
-		return true;//istnieje to zwraca true
-	}
-	else {
-		return false;
-	}
-}
-
-void Pipeline::displayPipes() {
-	for (Pipe* elem : this->pipes) {
-		if (elem != nullptr) {
-			std::cout << elem->p1->name << " (PID: " << elem->p1->PID << ") ";
-			std::cout << ">>>>>> ";
-			std::cout << elem->p2->name << " (PID: " << elem->p2->PID << ")" << std::endl;
-			auto temp = elem->buffer;
-
-			std::cout << "Zawartosc bufora: ";
-			while (!temp.empty()) { std::cout << temp.front(); temp.pop(); }
-			std::cout << std::endl;
-		}
-	}
-}
-
-Pipe::Pipe(PCB* p1, PCB* p2, Pipeline* p) {//konstruktor pipe
-	this->p1 = p1;
-	this->p2 = p2;
-	this->p = p;
-}
-
-Pipe::~Pipe() { }
-
-std::string Pipe::read(size_t rozmiar) {
-	std::string t; //string z wiadomoscia
-	if (buffer.empty()) {//sprawdzanie czy jest cos w kolejce
-		p2->change_state(WAITING);//zmiana na weiting jeśli pusta kolejka
-	}
-	else {
-		if (rozmiar > buffer.size()) { //wiadomosc dłuższa niż romiar buffera
-			while (!buffer.empty()) {
-				t.push_back(buffer.front());
-				buffer.pop();
-			}
+		if (parentProc->name == p1) {
+			return pipes[p1 + "_R"]->write(tree.find(p1), data);
 		}
 		else {
-			for (size_t i = 0; i < rozmiar; i++) {
-				t.push_back(buffer.front());
-				buffer.pop();
-			}
+			return pipes[p2 + "_W"]->write(tree.find(p1), data);
 		}
 	}
-	return t;
+	else { return pipes[p1 + "_W"]->write(tree.find(p1), data); }
 }
 
-void Pipe::write(const std::string &wiadomosc) {
-	for (auto x : wiadomosc) {
-		buffer.push(x);
+//Odczytywanie z potoku w kierunku z p2 do p1 (potok musi istnieć)
+string Pipeline::read(const string& p1, const string& p2, size_t size) {
+	if (size > Pipe::capacity) { size = Pipe::capacity; }
+	else if (size <= 0) { return ""; }
+
+	if (!p2.empty()) {
+		shared_ptr<PCB> parentProc;
+		if (tree.find(p1)->parent->name == p2) { parentProc = tree.find(p2); }
+		else if (tree.find(p2)->parent->name == p1) { parentProc = tree.find(p1); }
+		else { return "no_pipe"; }
+
+		if (parentProc->name == p1 && parentProc->FD[PIPE_WRITE_END] != USED ||
+			parentProc->name == p2 && parentProc->FD[PIPE_READ_END] != USED) {
+			return "no_pipe";
+		}
+
+		if (parentProc->name == p1) {
+			return pipes[p1 + "_R"]->read(tree.find(p1), size);
+		}
+		else {
+			return pipes[p2 + "_W"]->read(tree.find(p1), size);
+		}
 	}
+	else { return pipes[p1 + "_R"]->read(tree.find(p1), size); }
+}
+
+void Pipeline::remove(const string& parent, const string& mode) {
+	if (exists(parent, mode)) { pipes.erase(parent + mode); }
+}
+
+void Pipeline::remove(const string& parent) {
+	remove(parent, PIPE_MODE_READ);
+	remove(parent, PIPE_MODE_WRITE);
+}
+
+bool Pipeline::exists(const string& parent, const std::string& mode) const {
+	if (pipes.find(parent + mode) != pipes.end()) { return true; }
+	else { return false; }
+}
+bool Pipeline::exists(const string& parent) const {
+	if (exists(parent, PIPE_MODE_READ) || exists(parent, PIPE_MODE_WRITE)) { return true; }
+	else { return false; }
+}
+
+void Pipeline::display() {
+	for (const auto& elem : this->pipes) {
+		if (elem.second != nullptr) {
+			cout << "| " << elem.first << ": ";
+			auto temp = elem.second->buffer;
+			while (!temp.empty()) { cout << temp.front(); temp.pop(); }
+			cout << '\n';
+		}
+	}
+}
+
+
+// Pipe ----------------
+
+Pipeline::Pipe::Pipe(shared_ptr<PCB> parent_) : readSem(0), writeSem(1), parent(move(parent_)) {}
+
+string Pipeline::Pipe::read(const shared_ptr<PCB>& readProc, const size_t& size) {
+	//sprawdzanie, czy jest coś w kolejce
+	if (buffer.empty() || size > buffer.size()) {
+		readSem.wait(readProc);
+		return "sem_blocked";
+	}
+	else {
+		string result;
+		for (unsigned int i = 0; i < size && !buffer.empty(); i++) {
+			result.push_back(buffer.front());
+			spaceLeft++;
+			buffer.pop();
+		}
+		if (spaceLeft > 0) {
+			writeSem.set_value(0);
+			writeSem.signal_all();
+		}
+		return result;
+	}
+}
+
+int Pipeline::Pipe::write(const shared_ptr<PCB>& writeProc, const string &message) {
+	if (message.length() > spaceLeft) {
+		writeSem.wait(writeProc);
+		return 0;
+	}
+
+	for (auto x : message) { spaceLeft--; buffer.push(x); }
+	if (spaceLeft < capacity) {
+		readSem.set_value(-1);
+		readSem.signal_all();
+	}
+	return 1;
 }
