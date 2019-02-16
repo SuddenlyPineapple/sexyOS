@@ -100,7 +100,9 @@ int Interpreter::execute_line(const string& procName) {
 	}
 	cout << "Rozkaz: " << instructionWhole << "\n";
 	cout << " | PID Procesu : " << runningProc->PID << '\n';
-	cout << " | Pozstalo cykli : " << runningProc->executionTimeLeft << '\n';
+	cout << " | Pozostalo cykli : "; 
+	if (runningProc->executionTimeLeft != 9999) { cout << runningProc->executionTimeLeft << '\n'; }
+	else { cout << "dummy\n"; }
 	cout << " | Licznik Instrukcji (przed) : " << runningProc->instructionCounter << '\n';
 	display_registers();
 
@@ -333,6 +335,7 @@ int Interpreter::execute_instruction(const string& instructionWhole, const strin
 			string result;
 			if (address != -1) {
 				result = pipeline.read(runningProc->name, runningProc->parent->name, *reg1);
+
 			}
 			else {
 				result = pipeline.read(runningProc->name, runningProc->parent->name, 1);
@@ -359,12 +362,12 @@ int Interpreter::execute_instruction(const string& instructionWhole, const strin
 				mm.write(runningProc, address, result);
 			}
 			else {
-				*reg1 = static_cast<char>(result[0]);
+				*reg1 = result[0];
 				cout << "Odczytano z potoku liczbe \"" << static_cast<int>(result[0]) << "\" i zapisano do rejestru ";
-				if (reg2 == &A) { cout << "A"; }
-				else if (reg2 == &B) { cout << "B"; }
-				else if (reg2 == &C) { cout << "C"; }
-				else if (reg2 == &D) { cout << "D"; }
+				if (reg1 == &A) { cout << "A"; }
+				else if (reg1 == &B) { cout << "B"; }
+				else if (reg1 == &C) { cout << "C"; }
+				else if (reg1 == &D) { cout << "D"; }
 				cout << "\n";
 			}
 		}
@@ -376,12 +379,6 @@ int Interpreter::execute_instruction(const string& instructionWhole, const strin
 			string result;
 			if (address != -1) {
 				result = pipeline.read(runningProc->name, firstKidName, *reg1);
-				cout << "Odczytano z potoku liczbe \"" << static_cast<int>(result[0]) << "\" i zapisano do rejestru ";
-				if (reg2 == &A) { cout << "A"; }
-				else if (reg2 == &B) { cout << "B"; }
-				else if (reg2 == &C) { cout << "C"; }
-				else if (reg2 == &D) { cout << "D"; }
-				cout << "\n";
 			}
 			else {
 				result = pipeline.read(runningProc->name, firstKidName, 1);
@@ -408,7 +405,13 @@ int Interpreter::execute_instruction(const string& instructionWhole, const strin
 				mm.write(runningProc, address, result);
 			}
 			else {
-				*reg1 = static_cast<char>(result[0]);
+				*reg1 = result[0];
+				cout << "Odczytano z potoku liczbe \"" << static_cast<int>(result[0]) << "\" i zapisano do rejestru ";
+				if (reg1 == &A) { cout << "A"; }
+				else if (reg1 == &B) { cout << "B"; }
+				else if (reg1 == &C) { cout << "C"; }
+				else if (reg1 == &D) { cout << "D"; }
+				cout << "\n";
 			}
 		}
 
@@ -470,8 +473,6 @@ bool Interpreter::simulate_instruction(const string& instructionWhole) {
 	int number = -1;
 	unsigned int address = -1;
 
-	string strData1;
-
 	int reg1_noPtr = 0;
 	int reg2_noPtr = 0;
 
@@ -484,19 +485,15 @@ bool Interpreter::simulate_instruction(const string& instructionWhole) {
 		else if (instructionParts[1] == "B") reg1 = &B;
 		else if (instructionParts[1] == "C") reg1 = &C;
 		else if (instructionParts[1] == "D") reg1 = &D;
-		else if (instructionParts[1] == "R") strData1 = "_R";
-		else if (instructionParts[1] == "W") strData1 = "_W";
+		else if (instructionParts[1] == "R") {}
+		else if (instructionParts[1] == "W") {}
 		else if (instructionParts[1][0] == '[')
 		{
 			instructionParts[1].erase(instructionParts[1].begin());
 			instructionParts[1].pop_back();
 			address = stoi(instructionParts[1]);
 		}
-		else if (instructionParts[1][0] == '"') {
-			instructionParts[1].erase(instructionParts[1].begin());
-			instructionParts[1].pop_back();
-			strData1 = instructionParts[1];
-		}
+		else if (instructionParts[1][0] == '"') {}
 		else { number = stoi(instructionParts[1]); reg1 = &number; }
 	}
 
